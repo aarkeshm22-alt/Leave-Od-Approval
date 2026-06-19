@@ -52,7 +52,7 @@ const Register = () => {
     confirmPassword: ''
   });
 
-  const BACKEND_URL = 'http://localhost:5000';
+  const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
   // Fetch available HODs and Mentors with safer decoupled handling
   useEffect(() => {

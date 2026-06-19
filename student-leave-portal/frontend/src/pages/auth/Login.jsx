@@ -14,7 +14,7 @@ const Login = () => {
   const [verificationStep, setVerificationStep] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const BACKEND_URL = 'http://localhost:5000';
+  const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
   const handleRoleSelection = (targetRole) => {
     setErrorMsg('');

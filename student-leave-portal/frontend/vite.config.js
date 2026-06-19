@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // Change to your exact Node backend port
+        target: 'https://leave-od-approval.onrender.com', // Change to your exact Node backend port
         changeOrigin: true,
         secure: false,
       }
