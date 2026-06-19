@@ -23,7 +23,7 @@ const StudentList = () => {
 
       try {
         // Query the mentor endpoint loop targeting mapped student entries
-        const response = await fetch('/api/mentor/my-students', {
+        const response = await fetch('https://leave-od-approval.onrender.com/api/mentor/my-students', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`

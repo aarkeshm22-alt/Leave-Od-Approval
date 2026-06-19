@@ -39,7 +39,7 @@ const ApplyOD = () => {
       }
 
       try {
-        const response = await fetch('/api/users/profile', {
+        const response = await fetch('https://leave-od-approval.onrender.com/api/users/profile', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -106,7 +106,7 @@ const ApplyOD = () => {
       payload.append('collegeLocation', formData.collegeLocation);
       payload.append('reason', formData.reason);
 
-      const response = await fetch('/api/od/apply-od', { // 💡 Verified active endpoint path
+      const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', { // 💡 Verified active endpoint path
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -36,7 +36,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
       }
 
       try {
-        const response = await fetch('/api/users/profile', {
+        const response = await fetch('https://leave-od-approval.onrender.com/api/users/profile', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -69,7 +69,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
     setMessage({ type: '', text: '' });
 
     try {
-      const response = await fetch('/api/leaves/apply', {
+      const response = await fetch('https://leave-od-approval.onrender.com/api/leaves/apply', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

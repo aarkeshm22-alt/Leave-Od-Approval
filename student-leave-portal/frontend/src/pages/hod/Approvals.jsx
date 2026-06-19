@@ -26,8 +26,8 @@ const Approvals = () => {
 
       // Extract both endpoints in parallel streams
       const [leavesResponse, odResponse] = await Promise.all([
-        axios.get(`/api/leaves/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } })),
-        axios.get(`/api/od/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } }))
+        axios.get(`https://leave-od-approval.onrender.com/api/leaves/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } })),
+        axios.get(`https://leave-od-approval.onrender.com/api/od/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } }))
       ]);
 
       const rawLeaves = leavesResponse.data?.data || leavesResponse.data || [];
@@ -112,13 +112,13 @@ const Approvals = () => {
 
       if (docCategory === 'On-Duty') {
         // Unified status matrix endpoint matching your updateODStatusMatrix router patch rule
-        await axios.patch(`/api/od/${targetId}/action`, {
+        await axios.patch(`https://leave-od-approval.onrender.com/api/od/${targetId}/action`, {
           action: actionType === 'approve' ? 'APPROVE' : 'REJECT',
           remarks: actionType === 'approve' ? 'Final Institutional Clearance Verified' : 'Rejected by HOD'
         }, configHeaders);
       } else {
         // Standard split leaves endpoint rule matching your legacy server setup
-        await axios.patch(`/api/leaves/${targetId}/hod-approve`, { action: actionType }, configHeaders);
+        await axios.patch(`https://leave-od-approval.onrender.com/api/leaves/${targetId}/hod-approve`, { action: actionType }, configHeaders);
       }
 
       const finalDbStatus = actionType === 'approve' ? 'Approved' : 'Rejected';

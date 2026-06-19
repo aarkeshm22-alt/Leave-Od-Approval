@@ -27,7 +27,7 @@ const MentorDashboard = () => {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         
         // Target your backend route handling mentor profiles
-        const { data } = await axios.get('/api/users/profile', config);
+        const { data } = await axios.get('https://leave-od-approval.onrender.com/api/users/profile', config);
 
         if (data) {
           // Fallback matching logic checks all standard keys your controller sends downstream

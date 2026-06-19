@@ -23,7 +23,7 @@ const StudentList = () => {
         const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
         const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
-        const response = await axios.get('/api/users/students', {
+        const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students', {
           headers: {
             'Authorization': `Bearer ${cleanToken}`,
             'Content-Type': 'application/json'
@@ -92,7 +92,7 @@ const StudentList = () => {
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
       const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
-      const response = await axios.get('/api/users/students-by-mentor', {
+      const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
         params: { mentorName: student.mentorName },
         headers: { 'Authorization': `Bearer ${cleanToken}` }
       });

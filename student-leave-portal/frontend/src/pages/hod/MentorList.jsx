@@ -27,7 +27,7 @@ const MentorList = () => {
 
         // 🚀 CRITICAL ROUTE CHECK: Make sure this URL matches the route assigned to getMentorsByHod in your routes file!
         // If your backend router couples getMentorsByHod to '/api/users/mentors', keep it. If it uses a distinct route, update it here.
-        const response = await axios.get('/api/users/mentors', {
+        const response = await axios.get('https://leave-od-approval.onrender.com/api/users/mentors', {
           headers: {
             'Authorization': `Bearer ${cleanToken}`,
             'Content-Type': 'application/json'
@@ -46,7 +46,7 @@ const MentorList = () => {
           mentorData.forEach(async (mentor) => {
             const mentorNameString = mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
             try {
-              const studentRes = await axios.get('/api/users/students-by-mentor', {
+              const studentRes = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
                 params: { mentorName: mentorNameString },
                 headers: { 'Authorization': `Bearer ${cleanToken}` }
               });
@@ -91,7 +91,7 @@ const MentorList = () => {
       const cleanToken = token ? token.replace(/"/g, '').trim() : '';
       const mentorNameString = mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
 
-      const response = await axios.get('/api/users/students-by-mentor', {
+      const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
         params: { mentorName: mentorNameString },
         headers: { 'Authorization': `Bearer ${cleanToken}` }
       });

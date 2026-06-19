@@ -28,7 +28,7 @@ const StudentDashboard = () => {
         if (!token) return;
 
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const { data } = await axios.get('/api/users/profile', config);
+        const { data } = await axios.get('https://leave-od-approval.onrender.com/api/users/profile', config);
 
         if (data) {
           setMetrics({

@@ -25,11 +25,11 @@ const MyRequests = () => {
 
       // Parallel async processing for optimal engine throughput
       const [leavesResponse, odResponse] = await Promise.all([
-        fetch('/api/leaves/my-leaves', {
+        fetch('https://leave-od-approval.onrender.com/api/leaves/my-leaves', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('/api/od/student-history', {
+        fetch('https://leave-od-approval.onrender.com/api/od/student-history', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         })
