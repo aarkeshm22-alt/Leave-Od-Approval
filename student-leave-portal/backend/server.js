@@ -4,11 +4,11 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
-import leaveRoutes from './routes/leaveRoutes.js'; // 1. Import your newly created leave routes
-import { protect } from './middleware/authMiddleware.js'; // 2. Import your auth middleware
-import User from './models/User.js'; // 3. Import User model to fetch profile data
-import mentorRoutes from './routes/mentorRoutes.js'; // Import mentor routes
-import odRoutes from './routes/odRoutes.js'; // Import OD routes
+import leaveRoutes from './routes/leaveRoutes.js'; 
+import { protect } from './middleware/authMiddleware.js'; 
+import User from './models/User.js'; 
+import mentorRoutes from './routes/mentorRoutes.js'; 
+import odRoutes from './routes/odRoutes.js'; 
 
 dotenv.config(); 
 
@@ -25,12 +25,25 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✓ Successfully locked into MongoDB Instance Database.'))
   .catch((err) => console.error('✗ Core Database synchronization failure:', err));
 
-// Route Mount Setup
+/**
+ * Route Mount Setup
+ */
+
+// 1. Root Route (Fixes the "Cannot GET /" error)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'active',
+    message: '🚀 Gateway Server is running smoothly and ready to accept requests.'
+  });
+});
+
+// 2. API Routes
 app.use('/api', authRoutes);
-app.use('/api/leaves', leaveRoutes); // 4. Mount your leave requests under /api/leaves
-app.use('/api/od', odRoutes); // Mount OD routes under /api/od
-app.use('/api/mentor', mentorRoutes); // 6. Mount mentor routes under /api/mentors
-// 5. Explicitly mount the user profile route that your frontend form is calling
+app.use('/api/leaves', leaveRoutes); 
+app.use('/api/od', odRoutes); 
+app.use('/api/mentor', mentorRoutes); 
+
+// 3. User Profile Protected Route
 app.get('/api/users/profile', protect, async (req, res) => {
   try {
     // Look up the logged-in user using the ID stored in the JWT token
