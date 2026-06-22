@@ -14,7 +14,17 @@ export const getHods = async (req, res) => {
   }
 };
 
-// Sample controller to match the route above
+// 2. Fetch Mentors for selection dropdown - UPGRADED TO INCLUDE CONTACT INFRASTRUCTURE & CATEGORY
+export const getAllMentors = async (req, res) => {
+  try {
+    const mentors = await User.find({ role: 'Mentor' }).select('_id firstName lastName department email mobileNo role category');
+    return res.status(200).json(mentors);
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error pulling Mentor database records.' });
+  }
+};
+
+// 3. Sample controller to pull complete student profiles
 export const getAllStudents = async (req, res) => {
   try {
     const allStudents = await User.find({ role: 'Student' }).select('-password');
@@ -24,23 +34,23 @@ export const getAllStudents = async (req, res) => {
   }
 };
 
-// 3. Process Account Registration Pipeline
+// 4. Process Account Registration Pipeline
 export const registerUser = async (req, res) => {
   try {
     const { 
       role, firstName, lastName, gender, department, 
       email, mobileNo, password, year, section, studentType, 
-      mentorName, hodName,
-      registerNo // <-- 1. CAPTURE REGISTRATION NUMBER FROM FRONTEND
+      firstmentorName, secondmentorName, hodName, category,
+      registerNo // CAPTURE REGISTRATION NUMBER FROM FRONTEND
     } = req.body;
 
     // Check email duplication
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: email.toLowerCase().trim() });
     if (userExists) {
       return res.status(400).json({ message: 'This email address is already registered.' });
     }
 
-    // <-- 2. EXCLUSIVE STUDENT REGISTER NUMBER DUPLICATION CHECK
+    // EXCLUSIVE STUDENT REGISTER NUMBER DUPLICATION CHECK
     if (role === 'Student' && registerNo) {
       const regNoExists = await User.findOne({ registerNo: registerNo.trim() });
       if (regNoExists) {
@@ -54,11 +64,13 @@ export const registerUser = async (req, res) => {
 
     // Dynamic payload building mapping string targets
     const newUserPayload = {
-      role, firstName, lastName, gender, department, email, mobileNo,
+      role, firstName, lastName, gender, department, 
+      email: email.toLowerCase().trim(), 
+      mobileNo,
       password: hashedPassword,
-      // <-- 3. MAP FIELD IN EXCLUSIVE STUDENT STRUCTURAL SPREAD
-      ...(role === 'Student' && { registerNo: registerNo?.trim(), year, section, studentType, mentorName }),
-      ...(role === 'Mentor' && { hodName })
+      // MAP FIELD IN EXCLUSIVE STUDENT STRUCTURAL SPREAD
+      ...(role === 'Student' && { registerNo: registerNo?.trim(), year, section, studentType, firstmentorName, secondmentorName }),
+      ...(role === 'Mentor' && { hodName, category }) // Persists CA1 / CA2 categorization fields natively
     };
 
     const newUser = new User(newUserPayload);
@@ -83,54 +95,55 @@ export const registerUser = async (req, res) => {
   }
 };
 
+// 5. Secure Session Generation Pipeline
 export const loginUser = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // 1. Validate explicit input presence
+    // Validate explicit input presence
     if (!email || !password || !role) {
       return res.status(400).json({ message: 'Please provide email, password, and role.' });
     }
 
-    // 2. Locate the user by institutional email address
+    // Locate the user by institutional email address
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({ message: 'Invalid institutional credentials.' });
     }
 
-    // 3. Prevent cross-role spoofing
-    if (user.role !== role) {
+    // Prevent cross-role spoofing
+    if (user.role.toLowerCase() !== role.toLowerCase()) {
       return res.status(403).json({ 
         message: `Access denied. Your profile is registered as a ${user.role}, not an ${role}.` 
       });
     }
 
-    // 4. Verify password encryption integrity
+    // Verify password encryption integrity
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid institutional credentials.' });
     }
 
-    // 5. Generate a secure signing token (JWT) using 'id' to match protect middleware
+    // Generate a secure signing token (JWT)
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback_super_secret_key_change_this',
       { expiresIn: '1d' }
     );
 
-    // 6. Strip the encrypted password hash from the return payload
+    // Strip the encrypted password hash from the return payload
     const userResponse = {
       _id: user._id,
-      name: user.name, // Ensure this maps to user profile fields
+      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(), 
       email: user.email,
       role: user.role,
       department: user.department,
       studentType: user.studentType || 'Regular Track',
-      mobile: user.mobile || 'Not Provided',
+      mobile: user.mobileNo || 'Not Provided',
+      ...(user.role === 'Mentor' && { category: user.category }),
       ...(user.role === 'Student' && { registerNo: user.registerNo, year: user.year, section: user.section })
     };
 
-    // 7. Dispatch payload back to frontend
     return res.status(200).json({
       message: 'Session authenticated successfully.',
       token,
@@ -142,11 +155,8 @@ export const loginUser = async (req, res) => {
     return res.status(500).json({ message: 'Internal server authorization loop failure.' });
   }
 };
-// @desc    Get all registered mentors assigned to the logged-in HOD
-// @route   GET /api/users/mentors
-// @desc    Get all registered mentors assigned to the logged-in HOD with live allocation counts
-// @route   GET /api/users/mentors
-// @desc    Get all registered mentors assigned to the logged-in HOD with live allocation counts
+
+// 6. Get all registered mentors assigned to the logged-in HOD with accurate dynamic allocation routing
 export const getMentorsByHod = async (req, res) => {
   try {
     const currentHodName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name;
@@ -158,20 +168,32 @@ export const getMentorsByHod = async (req, res) => {
       });
     }
 
-    // Force inclusion of critical fields just in case they are marked select: false on your main User Schema
+    // Force inclusion of critical fields just in case they are marked select: false on User Schema
     const mentors = await User.find({
       role: 'Mentor',
       hodName: { $regex: currentHodName, $options: 'i' }
-    }).select('+email +mobileNo +role +hodName -password').lean(); // Explicitly forcing +email +mobileNo inclusion here!
+    }).select('+email +mobileNo +role +hodName -password +category').lean(); 
 
     const synchronizedMentors = await Promise.all(
       mentors.map(async (mentor) => {
         const mentorFullName = mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
+        const mentorCategory = mentor.category; // Labeled as 'CA1' or 'CA2' natively
 
-        const realStudentCount = await User.countDocuments({
-          role: 'Student',
-          mentorName: mentorFullName
-        });
+        // Precise assignment query routing based on mentor category attribute mapping
+        let studentCountQuery = { role: 'Student' };
+        if (mentorCategory === 'CA1') {
+          studentCountQuery.firstmentorName = mentorFullName;
+        } else if (mentorCategory === 'CA2') {
+          studentCountQuery.secondmentorName = mentorFullName;
+        } else {
+          // Robust system fallback parameters if categories aren't configured yet
+          studentCountQuery.$or = [
+            { firstmentorName: mentorFullName },
+            { secondmentorName: mentorFullName }
+          ];
+        }
+
+        const realStudentCount = await User.countDocuments(studentCountQuery);
 
         return {
           ...mentor,
@@ -194,13 +216,12 @@ export const getMentorsByHod = async (req, res) => {
     });
   }
 };
-// @desc    Get all active registered students allocated under a specific mentor name string signature
-// @route   GET /api/users/students-by-mentor
-// @desc    Get all students assigned to a mentor with aggregated live Leave and OD counts
-// @route   GET /api/users/students-by-mentor
+
+// 7. Get students assigned to a specific mentor with split assignment structures (CA1 / CA2) and live application tallies
 export const getStudentsByMentor = async (req, res) => {
   try {
-    const { mentorName } = req.query;
+    // Front-end queries can pass both mentorName and their categorical scope if filtering unique tracks
+    const { mentorName, category } = req.query;
 
     if (!mentorName) {
       return res.status(400).json({ 
@@ -209,28 +230,45 @@ export const getStudentsByMentor = async (req, res) => {
       });
     }
 
-    // 1. Fetch all regular students matched to this mentor
-    const students = await User.find({
-      role: 'Student',
-      mentorName: mentorName
-    }).select('firstName lastName name registerNo studentType email mobileNo').lean();
+    const cleanMentorName = mentorName.trim();
+    let studentFindQuery = { role: 'Student' };
 
-    // 2. Map through students and aggregate their true live records from your Leave collection
+    // Dynamic routing condition checks matching your split system criteria
+    if (category === 'CA1') {
+      studentFindQuery.firstmentorName = cleanMentorName;
+    } else if (category === 'CA2') {
+      studentFindQuery.secondmentorName = cleanMentorName;
+    } else {
+      // General broad fallback checking for any active allocations across both properties
+      studentFindQuery.$or = [
+        { firstmentorName: cleanMentorName },
+        { secondmentorName: cleanMentorName }
+      ];
+    }
+
+    // Fetch allocated student accounts
+    const students = await User.find(studentFindQuery)
+      .select('firstName lastName name registerNo studentType email mobileNo firstmentorName secondmentorName')
+      .lean();
+
+    // Map through records and aggregate true live counts out of Leave database reference trees
     const structuredStudentsPayload = await Promise.all(
       students.map(async (student) => {
         
-        // 🚀 THE FIX: Query using the 'student' field with the student's database _id
+        // Match the specific tracking context context dynamically for output UI visibility flags
+        let assignedRoleContext = category || (student.firstmentorName?.toLowerCase() === cleanMentorName.toLowerCase() ? "CA1" : "CA2");
+
         const leaveRecords = await Leave.find({
           student: student._id
         });
 
-        // Loop and count entries dynamically based on the application 'type' property
-        // (Handles case-insensitive matches perfectly for "Leave" and "OD")
+        // Compute isolated lengths dynamically based on document case configuration tags
         const liveLeaveCount = leaveRecords.filter(item => item.type?.toLowerCase() === 'leave').length;
         const liveOdCount = leaveRecords.filter(item => item.type?.toLowerCase() === 'od').length;
 
         return {
           ...student,
+          mentorType: assignedRoleContext, // Returns 'CA1' or 'CA2' cleanly
           leaveCount: liveLeaveCount,
           odCount: liveOdCount
         };
@@ -249,16 +287,5 @@ export const getStudentsByMentor = async (req, res) => {
       message: 'Server failed compiling context matrix counters.', 
       error: error.message 
     });
-  }
-};
-
-// 2. Fetch Mentors for selection dropdown - UPGRADED TO INCLUDE CONTACT INFRASTRUCTURE
-export const getAllMentors = async (req, res) => {
-  try {
-    // ADDED: email and mobileNo explicitly to the selection string
-    const mentors = await User.find({ role: 'Mentor' }).select('_id firstName lastName department email mobileNo role');
-    return res.status(200).json(mentors);
-  } catch (error) {
-    return res.status(500).json({ message: 'Server error pulling Mentor database records.' });
   }
 };

@@ -17,10 +17,59 @@ import {
   Users,
   Fingerprint,
   Cloud,
+  ShieldCheck,
 } from 'lucide-react';
 import InputField from '../../components/common/InputField';
 
-// ─── Sky Background Component (identical to Login) ──────────────────────
+// ─── Flying Bird Component ──────────────────────────────────────────────────
+const FlyingBird = ({ startX, startY, duration, delay, size = 20, flapSpeed = 0.6 }) => {
+  return (
+    <motion.div
+      className="absolute text-slate-700/60 dark:text-white/40 pointer-events-none z-0"
+      style={{ left: startX, top: startY }}
+      animate={{
+        x: ['-10%', '110%'],
+        y: [0, -15, 10, -20, 5, 0],
+      }}
+      transition={{
+        x: { repeat: Infinity, duration, delay, ease: 'linear' },
+        y: { repeat: Infinity, duration: duration * 0.5, delay, ease: 'easeInOut' },
+      }}
+    >
+      <motion.svg
+        width={size}
+        height={size * 0.6}
+        viewBox="0 0 24 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        animate={{ scaleY: [1, 0.5, 1] }}
+        transition={{
+          repeat: Infinity,
+          duration: flapSpeed,
+          delay,
+          ease: 'easeInOut',
+        }}
+      >
+        <path
+          d="M0 8 C6 2 10 0 12 8 C14 0 18 2 24 8"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <path
+          d="M0 8 C6 14 10 16 12 8 C14 16 18 14 24 8"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+        />
+      </motion.svg>
+    </motion.div>
+  );
+};
+
+// ─── Sky Background Component ──────────────────────────────────────────────
 const SkyBackground = () => {
   const [time, setTime] = useState(new Date());
   const containerRef = useRef(null);
@@ -49,6 +98,7 @@ const SkyBackground = () => {
   const showSun = hour >= 6 && hour < 18;
   const showMoon = !showSun;
 
+  // ── Clouds ──
   const clouds = useMemo(
     () => [
       { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.7 },
@@ -60,6 +110,19 @@ const SkyBackground = () => {
     []
   );
 
+  // ── Birds ──
+  const birds = useMemo(
+    () => [
+      { id: 1, startX: '5%', startY: '15%', duration: 18, delay: 0, size: 18, flapSpeed: 0.5 },
+      { id: 2, startX: '20%', startY: '22%', duration: 22, delay: 4, size: 22, flapSpeed: 0.7 },
+      { id: 3, startX: '40%', startY: '10%', duration: 16, delay: 8, size: 16, flapSpeed: 0.4 },
+      { id: 4, startX: '60%', startY: '18%', duration: 25, delay: 2, size: 20, flapSpeed: 0.6 },
+      { id: 5, startX: '80%', startY: '30%', duration: 20, delay: 6, size: 24, flapSpeed: 0.8 },
+    ],
+    []
+  );
+
+  // ── Stars ──
   const stars = useMemo(
     () =>
       Array.from({ length: 100 }, (_, i) => ({
@@ -74,6 +137,7 @@ const SkyBackground = () => {
     []
   );
 
+  // ── Shooting stars ──
   const [shootingStars, setShootingStars] = useState([]);
   useEffect(() => {
     if (skyState !== 'night') return;
@@ -97,32 +161,32 @@ const SkyBackground = () => {
       ref={containerRef}
       className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
     >
-      {/* Fixed Sun / Moon */}
-      <div className="absolute top-8 right-8 z-10 pointer-events-none">
+      {/* ── Fixed Sun / Moon (responsive: left on mobile, right on desktop) ── */}
+      <div className="absolute top-4 left-4 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
         {showSun && (
           <motion.div
-            className="w-28 h-28 rounded-full bg-yellow-300 shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
+            className="w-16 h-16 md:w-28 md:h-28 rounded-full bg-yellow-300 shadow-[0_0_40px_20px_rgba(255,200,50,0.4)] md:shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
           />
         )}
         {showMoon && (
           <motion.div
-            className="w-24 h-24 rounded-full bg-slate-100 shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
+            className="w-14 h-14 md:w-24 md:h-24 rounded-full bg-slate-100 shadow-[0_0_30px_15px_rgba(200,220,255,0.25)] md:shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
             animate={{ scale: [1, 1.03, 1] }}
             transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
           >
-            <div className="absolute top-3 left-5 w-7 h-7 rounded-full bg-slate-300 opacity-60" />
-            <div className="absolute bottom-5 right-4 w-5 h-5 rounded-full bg-slate-300 opacity-50" />
+            <div className="absolute top-2 left-3 w-4 h-4 md:top-3 md:left-5 md:w-7 md:h-7 rounded-full bg-slate-300 opacity-60" />
+            <div className="absolute bottom-3 right-2 w-3 h-3 md:bottom-5 md:right-4 md:w-5 md:h-5 rounded-full bg-slate-300 opacity-50" />
           </motion.div>
         )}
       </div>
 
-      {/* Animated Clouds */}
+      {/* ── Animated Clouds ── */}
       {clouds.map((cloud) => (
         <motion.div
           key={cloud.id}
-          className="absolute text-white/30 pointer-events-none"
+          className="absolute text-white/30 pointer-events-none z-0"
           style={{
             top: `${cloud.top}%`,
             left: '-10%',
@@ -140,7 +204,21 @@ const SkyBackground = () => {
         </motion.div>
       ))}
 
-      {/* Stars */}
+      {/* ── Flying Birds (visible during day/sunrise/sunset) ── */}
+      {skyState !== 'night' &&
+        birds.map((bird) => (
+          <FlyingBird
+            key={bird.id}
+            startX={bird.startX}
+            startY={bird.startY}
+            duration={bird.duration}
+            delay={bird.delay}
+            size={bird.size}
+            flapSpeed={bird.flapSpeed}
+          />
+        ))}
+
+      {/* ── Stars (night only) ── */}
       {skyState === 'night' &&
         stars.map((star) => (
           <motion.div
@@ -163,7 +241,7 @@ const SkyBackground = () => {
           />
         ))}
 
-      {/* Shooting stars */}
+      {/* ── Shooting stars ── */}
       {shootingStars.map((star) => (
         <motion.div
           key={star.id}
@@ -184,8 +262,8 @@ const SkyBackground = () => {
         />
       ))}
 
-      {/* Floating particles */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* ── Floating particles ── */}
+      <div className="absolute inset-0 pointer-events-none z-0">
         {Array.from({ length: 15 }).map((_, i) => (
           <motion.div
             key={i}
@@ -209,8 +287,8 @@ const SkyBackground = () => {
         ))}
       </div>
 
-      {/* Grass layer */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none overflow-hidden">
+      {/* ── Grass layer ── */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 md:h-20 pointer-events-none overflow-hidden z-0">
         <div
           className="w-full h-full"
           style={{
@@ -250,6 +328,7 @@ const Register = () => {
   const [hodsList, setHodsList] = useState([]);
   const [mentorsList, setMentorsList] = useState([]);
 
+  // Integrated state parameters matching dual-mentor fields and mentor category
   const [formData, setFormData] = useState({
     registerNo: '',
     firstName: '',
@@ -261,14 +340,17 @@ const Register = () => {
     year: '',
     section: '',
     studentType: '',
-    selectedHodId: '',
-    selectedMentorId: '',
+    selectedHodId: '', // Populates 'hodName' for Mentors
+    firstmentorName: '', // Populates Class Advisor 1 (CA1) for Students
+    secondmentorName: '', // Populates Class Advisor 2 (CA2) for Students
+    category: '', // Populates Mentor Category ('CA1' or 'CA2') for Mentors
     password: '',
     confirmPassword: '',
   });
 
   const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
+  // Fetch directory values cleanly
   useEffect(() => {
     const fetchReferences = async () => {
       try {
@@ -282,6 +364,7 @@ const Register = () => {
       }
 
       try {
+        // Fetches all active mentors with their embedded category context
         const mentorsRes = await fetch(`${BACKEND_URL}/api/users/mentors`);
         if (mentorsRes.ok) {
           const mentorsData = await mentorsRes.json();
@@ -303,10 +386,9 @@ const Register = () => {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
 
+    // 🛡️ Pre-flight validation blocks
     if (!formData.email.toLowerCase().endsWith('@ksrce.ac.in')) {
-      setErrorMsg(
-        'Error: Unauthorized domain. Institutional email address must end with @ksrce.ac.in'
-      );
+      setErrorMsg('Error: Unauthorized domain. Institutional email address must end with @ksrce.ac.in');
       return;
     }
 
@@ -317,9 +399,7 @@ const Register = () => {
     }
 
     if (formData.password.length !== 8) {
-      setErrorMsg(
-        'Error: Password constraint violation. Length must be exactly 8 characters.'
-      );
+      setErrorMsg('Error: Password constraint violation. Length must be exactly 8 characters.');
       return;
     }
 
@@ -332,9 +412,7 @@ const Register = () => {
       !numberRegex.test(formData.password) ||
       !specialCharRegex.test(formData.password)
     ) {
-      setErrorMsg(
-        'Error: Password requires at least 1 uppercase, 1 number, and 1 special character.'
-      );
+      setErrorMsg('Error: Password requires at least 1 uppercase, 1 number, and 1 special character.');
       return;
     }
 
@@ -343,9 +421,16 @@ const Register = () => {
       return;
     }
 
+    // Dynamic role validation rules
+    if (selectedRole === 'Mentor' && !formData.category) {
+      setErrorMsg('Error: Mentor Category (CA1 or CA2) selection is mandatory.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg('');
 
+    // 📦 Perfectly structured data payload to dispatch to backend pipeline
     const payload = {
       role: selectedRole,
       firstName: formData.firstName,
@@ -360,14 +445,17 @@ const Register = () => {
         year: formData.year,
         section: formData.section,
         studentType: formData.studentType,
-        mentorName: formData.selectedMentorId,
+        firstmentorName: formData.firstmentorName,   // Class Advisor 1
+        secondmentorName: formData.secondmentorName, // Class Advisor 2
       }),
       ...(selectedRole === 'Mentor' && {
         hodName: formData.selectedHodId,
+        category: String(formData.category).trim(), // Guarantees clean state string parsing
       }),
     };
 
     try {
+      // ⚠️ Note: Swapped to /api/users/register based on your working router base configuration path
       const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -377,14 +465,12 @@ const Register = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed.');
+        throw new Error(data.message || 'Registration failure. Validate data limits.');
       }
 
-      alert(`Registration successful for: ${selectedRole}!`);
       navigate('/login');
     } catch (err) {
-      setErrorMsg(err.message || 'Network connectivity error.');
-    } finally {
+      setErrorMsg(err.message || 'Network connection lost connecting to validation layer.');
       setIsLoading(false);
     }
   };
@@ -405,7 +491,7 @@ const Register = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="w-full max-w-xl backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative my-6"
+        className="w-full max-w-xl backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative mt-12 md:mt-0"
         style={{
           boxShadow: '0 20px 60px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)',
         }}
@@ -446,11 +532,13 @@ const Register = () => {
                     password: '',
                     confirmPassword: '',
                     selectedHodId: '',
-                    selectedMentorId: '',
+                    firstmentorName: '',
+                    secondmentorName: '',
                     year: '',
                     section: '',
                     studentType: '',
                     department: '',
+                    category: '',
                   }));
                 }}
                 className="flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all relative z-10 text-slate-600 dark:text-slate-300"
@@ -690,40 +778,79 @@ const Register = () => {
                     </select>
                   </div>
 
-                  {/* Assigned Mentor */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                      <Users size={11} className="text-slate-500" />
-                      <span>Select Assigned Mentor</span>
+                  {/* 👔 CLASS ADVISOR 1 (CA1) DROPDOWN */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+                      <Users size={11} className="text-slate-600" />
+                      <span>Class Advisor 1 (CA1)</span>
                     </label>
                     <select
-                      value={formData.selectedMentorId}
-                      onChange={(e) => handleInputChange('selectedMentorId', e.target.value)}
+                      value={formData.firstmentorName || ""}
+                      onChange={(e) => handleInputChange('firstmentorName', e.target.value)}
                       required={selectedRole === 'Student'}
                       disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
+                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
                       <option value="" disabled hidden>
-                        Choose Your Mentor
+                        Choose Your CA1 Advisor
                       </option>
-                      {mentorsList.length > 0 ? (
-                        mentorsList.map((mentor) => {
-                          const mentorFullName = `${mentor.firstName || ''} ${
-                            mentor.lastName || ''
-                          }`.trim();
-                          return (
-                            <option
-                              key={mentor._id || mentor.id}
-                              value={mentorFullName}
-                              className="bg-white text-slate-800"
-                            >
-                              {mentorFullName}
-                            </option>
-                          );
-                        })
+                      {mentorsList.filter(m => m.category === 'CA1').length > 0 ? (
+                        mentorsList
+                          .filter(mentor => mentor.category === 'CA1')
+                          .map((mentor) => {
+                            const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
+                            return (
+                              <option
+                                key={mentor._id || mentor.id}
+                                value={mentorFullName}
+                                className="bg-white text-slate-900"
+                              >
+                                {mentorFullName}
+                              </option>
+                            );
+                          })
                       ) : (
                         <option value="" disabled className="bg-white text-slate-400">
-                          No registered mentors available
+                          No registered CA1 mentors available
+                        </option>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* 👔 CLASS ADVISOR 2 (CA2) DROPDOWN */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+                      <Users size={11} className="text-slate-600" />
+                      <span>Class Advisor 2 (CA2)</span>
+                    </label>
+                    <select
+                      value={formData.secondmentorName || ""}
+                      onChange={(e) => handleInputChange('secondmentorName', e.target.value)}
+                      required={selectedRole === 'Student'}
+                      disabled={isLoading}
+                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
+                    >
+                      <option value="" disabled hidden>
+                        Choose Your CA2 Advisor
+                      </option>
+                      {mentorsList.filter(m => m.category === 'CA2').length > 0 ? (
+                        mentorsList
+                          .filter(mentor => mentor.category === 'CA2')
+                          .map((mentor) => {
+                            const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
+                            return (
+                              <option
+                                key={mentor._id || mentor.id}
+                                value={mentorFullName}
+                                className="bg-white text-slate-900"
+                              >
+                                {mentorFullName}
+                              </option>
+                            );
+                          })
+                      ) : (
+                        <option value="" disabled className="bg-white text-slate-400">
+                          No registered CA2 mentors available
                         </option>
                       )}
                     </select>
@@ -733,10 +860,11 @@ const Register = () => {
 
               {/* MENTOR EXTRA FIELDS */}
               {selectedRole === 'Mentor' && (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                      <Users size={11} className="text-slate-500" />
+                <div className="space-y-4">
+                  {/* Select Department HOD */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+                      <Users size={11} className="text-slate-600" />
                       <span>Select Department HOD</span>
                     </label>
                     <select
@@ -744,20 +872,18 @@ const Register = () => {
                       onChange={(e) => handleInputChange('selectedHodId', e.target.value)}
                       required={selectedRole === 'Mentor'}
                       disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
+                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
                       <option value="" disabled hidden>
                         Choose Your Head of Department
                       </option>
                       {hodsList.map((hod) => {
-                        const hodFullName = `Dr. ${hod.firstName || ''} ${
-                          hod.lastName || ''
-                        }`.trim();
+                        const hodFullName = `Dr. ${hod.firstName || ''} ${hod.lastName || ''}`.trim();
                         return (
                           <option
                             key={hod._id || hod.id}
                             value={hodFullName}
-                            className="bg-white text-slate-800"
+                            className="bg-white text-slate-900"
                           >
                             {hodFullName}
                           </option>
@@ -765,12 +891,33 @@ const Register = () => {
                       })}
                     </select>
                   </div>
+
+                  {/* Mentor Category Selection (CA1 or CA2) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+                      <ShieldCheck size={11} className="text-slate-600" />
+                      <span>Mentor Category</span>
+                    </label>
+                    <select
+                      value={formData.category || ""}
+                      onChange={(e) => handleInputChange('category', e.target.value)}
+                      required={selectedRole === 'Mentor'}
+                      disabled={isLoading}
+                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
+                    >
+                      <option value="" disabled hidden>
+                        Select Category
+                      </option>
+                      <option value="CA1" className="bg-white text-slate-900">CA1</option>
+                      <option value="CA2" className="bg-white text-slate-900">CA2</option>
+                    </select>
+                  </div>
                 </div>
               )}
 
               {/* HOD EXTRA FIELDS */}
               {selectedRole === 'HOD' && (
-                <div className="p-3 bg-indigo-50/80 backdrop-blur-sm border border-indigo-200/60 rounded-lg text-[11px] font-medium text-indigo-700 leading-relaxed">
+                <div className="p-3 bg-white/30 backdrop-blur-md border border-white/40 rounded-xl text-[11px] font-medium text-slate-900 leading-relaxed shadow-sm">
                   ✨ No additional authorization trees are required for department heads.
                 </div>
               )}

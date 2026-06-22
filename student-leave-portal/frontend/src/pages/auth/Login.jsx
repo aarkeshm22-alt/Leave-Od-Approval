@@ -6,6 +6,54 @@ import { useAuth } from '../../hooks/useAuth';
 import InputField from '../../components/common/InputField';
 import Loader from '../../components/common/Loader';
 
+// ─── Flying Bird Component ──────────────────────────────────────────────────
+const FlyingBird = ({ startX, startY, duration, delay, size = 20, flapSpeed = 0.6 }) => {
+  return (
+    <motion.div
+      className="absolute text-slate-700/60 dark:text-white/40 pointer-events-none z-0"
+      style={{ left: startX, top: startY }}
+      animate={{
+        x: ['-10%', '110%'],
+        y: [0, -15, 10, -20, 5, 0],
+      }}
+      transition={{
+        x: { repeat: Infinity, duration, delay, ease: 'linear' },
+        y: { repeat: Infinity, duration: duration * 0.5, delay, ease: 'easeInOut' },
+      }}
+    >
+      <motion.svg
+        width={size}
+        height={size * 0.6}
+        viewBox="0 0 24 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        animate={{ scaleY: [1, 0.5, 1] }}
+        transition={{
+          repeat: Infinity,
+          duration: flapSpeed,
+          delay,
+          ease: 'easeInOut',
+        }}
+      >
+        <path
+          d="M0 8 C6 2 10 0 12 8 C14 0 18 2 24 8"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+        />
+        <path
+          d="M0 8 C6 14 10 16 12 8 C14 16 18 14 24 8"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          fill="none"
+          strokeLinecap="round"
+        />
+      </motion.svg>
+    </motion.div>
+  );
+};
+
 // ─── Sky Background Component ──────────────────────────────────────────────
 const SkyBackground = () => {
   const [time, setTime] = useState(new Date());
@@ -35,6 +83,7 @@ const SkyBackground = () => {
   const showSun = hour >= 6 && hour < 18;
   const showMoon = !showSun;
 
+  // ── Clouds ──
   const clouds = useMemo(
     () => [
       { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.7 },
@@ -46,6 +95,19 @@ const SkyBackground = () => {
     []
   );
 
+  // ── Birds ──
+  const birds = useMemo(
+    () => [
+      { id: 1, startX: '5%', startY: '15%', duration: 18, delay: 0, size: 18, flapSpeed: 0.5 },
+      { id: 2, startX: '20%', startY: '22%', duration: 22, delay: 4, size: 22, flapSpeed: 0.7 },
+      { id: 3, startX: '40%', startY: '10%', duration: 16, delay: 8, size: 16, flapSpeed: 0.4 },
+      { id: 4, startX: '60%', startY: '18%', duration: 25, delay: 2, size: 20, flapSpeed: 0.6 },
+      { id: 5, startX: '80%', startY: '30%', duration: 20, delay: 6, size: 24, flapSpeed: 0.8 },
+    ],
+    []
+  );
+
+  // ── Stars ──
   const stars = useMemo(
     () =>
       Array.from({ length: 100 }, (_, i) => ({
@@ -60,6 +122,7 @@ const SkyBackground = () => {
     []
   );
 
+  // ── Shooting stars ──
   const [shootingStars, setShootingStars] = useState([]);
   useEffect(() => {
     if (skyState !== 'night') return;
@@ -83,32 +146,32 @@ const SkyBackground = () => {
       ref={containerRef}
       className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
     >
-      {/* Fixed Sun / Moon */}
-      <div className="absolute top-8 right-8 z-10 pointer-events-none">
+      {/* ── Fixed Sun / Moon (responsive: left on mobile, right on desktop) ── */}
+      <div className="absolute top-4 left-4 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
         {showSun && (
           <motion.div
-            className="w-28 h-28 rounded-full bg-yellow-300 shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
+            className="w-16 h-16 md:w-28 md:h-28 rounded-full bg-yellow-300 shadow-[0_0_40px_20px_rgba(255,200,50,0.4)] md:shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
           />
         )}
         {showMoon && (
           <motion.div
-            className="w-24 h-24 rounded-full bg-slate-100 shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
+            className="w-14 h-14 md:w-24 md:h-24 rounded-full bg-slate-100 shadow-[0_0_30px_15px_rgba(200,220,255,0.25)] md:shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
             animate={{ scale: [1, 1.03, 1] }}
             transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
           >
-            <div className="absolute top-3 left-5 w-7 h-7 rounded-full bg-slate-300 opacity-60" />
-            <div className="absolute bottom-5 right-4 w-5 h-5 rounded-full bg-slate-300 opacity-50" />
+            <div className="absolute top-2 left-3 w-4 h-4 md:top-3 md:left-5 md:w-7 md:h-7 rounded-full bg-slate-300 opacity-60" />
+            <div className="absolute bottom-3 right-2 w-3 h-3 md:bottom-5 md:right-4 md:w-5 md:h-5 rounded-full bg-slate-300 opacity-50" />
           </motion.div>
         )}
       </div>
 
-      {/* Animated Clouds */}
+      {/* ── Animated Clouds ── */}
       {clouds.map((cloud) => (
         <motion.div
           key={cloud.id}
-          className="absolute text-white/30 pointer-events-none"
+          className="absolute text-white/30 pointer-events-none z-0"
           style={{
             top: `${cloud.top}%`,
             left: '-10%',
@@ -126,7 +189,21 @@ const SkyBackground = () => {
         </motion.div>
       ))}
 
-      {/* Stars */}
+      {/* ── Flying Birds (visible during day/sunrise/sunset) ── */}
+      {skyState !== 'night' &&
+        birds.map((bird) => (
+          <FlyingBird
+            key={bird.id}
+            startX={bird.startX}
+            startY={bird.startY}
+            duration={bird.duration}
+            delay={bird.delay}
+            size={bird.size}
+            flapSpeed={bird.flapSpeed}
+          />
+        ))}
+
+      {/* ── Stars (night only) ── */}
       {skyState === 'night' &&
         stars.map((star) => (
           <motion.div
@@ -149,7 +226,7 @@ const SkyBackground = () => {
           />
         ))}
 
-      {/* Shooting stars */}
+      {/* ── Shooting stars ── */}
       {shootingStars.map((star) => (
         <motion.div
           key={star.id}
@@ -170,8 +247,8 @@ const SkyBackground = () => {
         />
       ))}
 
-      {/* Floating particles */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* ── Floating particles ── */}
+      <div className="absolute inset-0 pointer-events-none z-0">
         {Array.from({ length: 15 }).map((_, i) => (
           <motion.div
             key={i}
@@ -195,12 +272,13 @@ const SkyBackground = () => {
         ))}
       </div>
 
-      {/* Grass layer */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none overflow-hidden">
+      {/* ── Grass layer ── */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 md:h-20 pointer-events-none overflow-hidden z-0">
         <div
           className="w-full h-full"
           style={{
-            background: 'linear-gradient(0deg, rgba(34,139,34,0.6) 0%, rgba(34,139,34,0.2) 60%, transparent 100%)',
+            background:
+              'linear-gradient(0deg, rgba(34,139,34,0.6) 0%, rgba(34,139,34,0.2) 60%, transparent 100%)',
           }}
         />
         <svg
@@ -296,8 +374,10 @@ const Login = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* ── Living Sky Background ── */}
       <SkyBackground />
 
+      {/* ── Loader Overlay ── */}
       <AnimatePresence>
         {isVerifying && (
           <div className="fixed inset-0 z-50">
@@ -306,11 +386,12 @@ const Login = () => {
         )}
       </AnimatePresence>
 
+      {/* ── Glassmorphism Login Card ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="w-full max-w-md backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative"
+        className="w-full max-w-md backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative mt-12 md:mt-0"
         style={{
           boxShadow: '0 20px 60px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)',
         }}

@@ -1,4 +1,4 @@
-// models/User.js
+// backend/models/User.js
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
@@ -15,11 +15,8 @@ const UserSchema = new mongoose.Schema({
     mobileNo: { type: String, required: true },
     password: { type: String, required: true },
 
-    // backend/models/User.js
-
     registerNo: {
         type: String,
-        // CRUCIAL: It must be a function returning a boolean, NOT true
         required: function () { return this.role === 'Student'; },
         sparse: true,
         unique: true,
@@ -30,16 +27,19 @@ const UserSchema = new mongoose.Schema({
     year: { type: String, required: function () { return this.role === 'Student'; } },
     section: { type: String, required: function () { return this.role === 'Student'; } },
     studentType: { type: String, required: function () { return this.role === 'Student'; } },
-    mentorName: {
-        type: String, // Changed from ObjectId to String format
-        required: function () { return this.role === 'Student'; }
-    },
-
+    firstmentorName: { type: String, required: function () { return this.role === 'Student'; } },
+    secondmentorName: { type: String, required: function () { return this.role === 'Student'; } },
+    
     // Mentor Specific Fields
-    hodName: {
-        type: String, // Changed from ObjectId to String format
+    hodName: { type: String, required: function () { return this.role === 'Mentor'; } },
+    
+    /* 🚀 CRUCIAL BACKEND FIX: Ensure this exact structural block is inside your UserSchema */
+    category: {
+        type: String,
+        enum: ['CA1', 'CA2'],
         required: function () { return this.role === 'Mentor'; }
     }
 }, { timestamps: true });
 
-export default mongoose.model('User', UserSchema);
+// Avoid model recompilation errors during hot reloads
+export default mongoose.models.User || mongoose.model('User', UserSchema);
