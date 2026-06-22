@@ -1,16 +1,234 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, Building2, User, UserCheck, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Building2, User, UserCheck, ArrowRight, ShieldCheck, Cloud } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import InputField from '../../components/common/InputField';
 import Loader from '../../components/common/Loader';
 
+// ─── Sky Background Component ──────────────────────────────────────────────
+const SkyBackground = () => {
+  const [time, setTime] = useState(new Date());
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hour = time.getHours();
+
+  const skyState = useMemo(() => {
+    if (hour >= 5 && hour < 8) return 'sunrise';
+    if (hour >= 8 && hour < 16) return 'day';
+    if (hour >= 16 && hour < 19) return 'sunset';
+    return 'night';
+  }, [hour]);
+
+  const gradients = {
+    sunrise: 'from-orange-200 via-pink-200 to-yellow-100',
+    day: 'from-sky-400 via-blue-400 to-indigo-300',
+    sunset: 'from-orange-500 via-pink-500 to-purple-400',
+    night: 'from-slate-900 via-blue-950 to-indigo-950',
+  };
+
+  const showSun = hour >= 6 && hour < 18;
+  const showMoon = !showSun;
+
+  const clouds = useMemo(
+    () => [
+      { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.7 },
+      { id: 2, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.6 },
+      { id: 3, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.5 },
+      { id: 4, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.5 },
+      { id: 5, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
+    ],
+    []
+  );
+
+  const stars = useMemo(
+    () =>
+      Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        size: Math.random() * 3 + 1,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        duration: Math.random() * 3 + 2,
+        delay: Math.random() * 5,
+        opacity: Math.random() * 0.7 + 0.3,
+      })),
+    []
+  );
+
+  const [shootingStars, setShootingStars] = useState([]);
+  useEffect(() => {
+    if (skyState !== 'night') return;
+    const interval = setInterval(() => {
+      const newStar = {
+        id: Date.now(),
+        x: Math.random() * 80 + 10,
+        y: Math.random() * 40 + 5,
+        duration: 2 + Math.random() * 3,
+      };
+      setShootingStars((prev) => [...prev, newStar]);
+      setTimeout(() => {
+        setShootingStars((prev) => prev.filter((s) => s.id !== newStar.id));
+      }, newStar.duration * 1000 + 1000);
+    }, 8000 + Math.random() * 12000);
+    return () => clearInterval(interval);
+  }, [skyState]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
+    >
+      {/* Fixed Sun / Moon */}
+      <div className="absolute top-8 right-8 z-10 pointer-events-none">
+        {showSun && (
+          <motion.div
+            className="w-28 h-28 rounded-full bg-yellow-300 shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+          />
+        )}
+        {showMoon && (
+          <motion.div
+            className="w-24 h-24 rounded-full bg-slate-100 shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
+            animate={{ scale: [1, 1.03, 1] }}
+            transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
+          >
+            <div className="absolute top-3 left-5 w-7 h-7 rounded-full bg-slate-300 opacity-60" />
+            <div className="absolute bottom-5 right-4 w-5 h-5 rounded-full bg-slate-300 opacity-50" />
+          </motion.div>
+        )}
+      </div>
+
+      {/* Animated Clouds */}
+      {clouds.map((cloud) => (
+        <motion.div
+          key={cloud.id}
+          className="absolute text-white/30 pointer-events-none"
+          style={{
+            top: `${cloud.top}%`,
+            left: '-10%',
+            opacity: cloud.opacity,
+          }}
+          animate={{ x: '120vw' }}
+          transition={{
+            repeat: Infinity,
+            duration: cloud.duration,
+            delay: cloud.delay,
+            ease: 'linear',
+          }}
+        >
+          <Cloud size={cloud.size} strokeWidth={1.5} />
+        </motion.div>
+      ))}
+
+      {/* Stars */}
+      {skyState === 'night' &&
+        stars.map((star) => (
+          <motion.div
+            key={star.id}
+            className="absolute rounded-full bg-white"
+            style={{
+              width: star.size,
+              height: star.size,
+              left: `${star.x}%`,
+              top: `${star.y}%`,
+              opacity: 0,
+            }}
+            animate={{ opacity: [0, star.opacity, 0] }}
+            transition={{
+              repeat: Infinity,
+              duration: star.duration,
+              delay: star.delay,
+              ease: 'easeInOut',
+            }}
+          />
+        ))}
+
+      {/* Shooting stars */}
+      {shootingStars.map((star) => (
+        <motion.div
+          key={star.id}
+          className="absolute w-1 h-1 bg-white rounded-full shadow-[0_0_6px_2px_rgba(255,255,255,0.8)]"
+          style={{
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+          }}
+          animate={{
+            x: ['0%', '30vw'],
+            y: ['0%', '20vh'],
+            opacity: [0, 1, 1, 0],
+          }}
+          transition={{
+            duration: star.duration,
+            ease: 'easeOut',
+          }}
+        />
+      ))}
+
+      {/* Floating particles */}
+      <div className="absolute inset-0 pointer-events-none">
+        {Array.from({ length: 15 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-white/10"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [0, -20, 0],
+              x: [0, 10, 0],
+              opacity: [0, 0.5, 0],
+            }}
+            transition={{
+              repeat: Infinity,
+              duration: 8 + Math.random() * 12,
+              delay: Math.random() * 10,
+              ease: 'easeInOut',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Grass layer */}
+      <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none overflow-hidden">
+        <div
+          className="w-full h-full"
+          style={{
+            background: 'linear-gradient(0deg, rgba(34,139,34,0.6) 0%, rgba(34,139,34,0.2) 60%, transparent 100%)',
+          }}
+        />
+        <svg
+          className="absolute bottom-0 left-0 w-full h-full"
+          viewBox="0 0 100 20"
+          preserveAspectRatio="none"
+          style={{ opacity: 0.5 }}
+        >
+          {Array.from({ length: 30 }).map((_, i) => (
+            <path
+              key={i}
+              d={`M${i * 3.4} 20 Q${i * 3.4 + 1} 10 ${i * 3.4 + 2} 5 Q${i * 3.4 + 3} 10 ${i * 3.4 + 4} 20`}
+              fill="none"
+              stroke="#2d6a2d"
+              strokeWidth="0.8"
+            />
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Login Component ────────────────────────────────────────────────────
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  
-  // Internal tracking state uses lowercase to satisfy your AppRoutes RoleGuard requirements
+
   const [formData, setFormData] = useState({ email: '', password: '', role: 'student' });
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -18,13 +236,14 @@ const Login = () => {
   const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/auth/login`, { method: 'OPTIONS' })
-      .catch(() => console.log("Pre-warm system wake up initialized."));
+    fetch(`${BACKEND_URL}/api/auth/login`, { method: 'OPTIONS' }).catch(() =>
+      console.log('Pre-warm system wake up initialized.')
+    );
   }, []);
 
   const handleRoleSelection = (targetRole) => {
     setErrorMsg('');
-    setFormData(prev => ({ ...prev, role: targetRole.toLowerCase() }));
+    setFormData((prev) => ({ ...prev, role: targetRole.toLowerCase() }));
   };
 
   const handleSubmit = async (e) => {
@@ -32,11 +251,11 @@ const Login = () => {
     setIsVerifying(true);
     setErrorMsg('');
 
-    // ⚡ FIX: Convert the internal lowercase string to Capitalized format just for the backend request payload
-    const backendCapitalizedRole = formData.role === 'hod' 
-      ? 'HOD' 
-      : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
-    
+    const backendCapitalizedRole =
+      formData.role === 'hod'
+        ? 'HOD'
+        : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
@@ -44,7 +263,7 @@ const Login = () => {
         body: JSON.stringify({
           email: formData.email.trim(),
           password: formData.password,
-          role: backendCapitalizedRole // 🏛️ Sends "Student", "Mentor", or "HOD" exactly as expected by your DB
+          role: backendCapitalizedRole,
         }),
       });
 
@@ -53,96 +272,32 @@ const Login = () => {
       if (!response.ok) {
         throw new Error(data.message || 'Invalid institutional credentials.');
       }
-      
+
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
 
-      // Convert backend profile fields to lowercase so AppRoutes can validate them smoothly
       const normalizedUser = {
         ...(data.user || data),
-        role: (data.user?.role || data.role || formData.role).toLowerCase()
+        role: (data.user?.role || data.role || formData.role).toLowerCase(),
       };
 
-      login(normalizedUser); 
+      login(normalizedUser);
       navigate(`/${normalizedUser.role}/dashboard`);
-
     } catch (err) {
-      console.error("Authentication Loop Exception:", err);
+      console.error('Authentication Loop Exception:', err);
       setErrorMsg(err.message || 'Network failure connecting to authorization servers.');
       setIsVerifying(false);
     }
   };
 
-  const displayRoleMap = { 'student': 'Student', 'mentor': 'Mentor', 'hod': 'HOD' };
-  const roleIcons = { 'hod': Building2, 'mentor': UserCheck, 'student': User };
+  const displayRoleMap = { student: 'Student', mentor: 'Mentor', hod: 'HOD' };
+  const roleIcons = { hod: Building2, mentor: UserCheck, student: User };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-neutral-950 flex items-center justify-center p-4 relative overflow-hidden">
-      
-      {/* 🌟 Floating White Stars Background Array */}
-      <div className="absolute inset-x-0 top-0 h-[40vh] pointer-events-none overflow-hidden z-0 opacity-80">
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute bg-white rounded-full"
-            style={{
-              width: i % 3 === 0 ? '3px' : '2px',
-              height: i % 3 === 0 ? '3px' : '2px',
-              top: `${Math.random() * 85}%`,
-              left: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              opacity: [0.3, 1, 0.3],
-              scale: [0.8, 1.2, 0.8]
-            }}
-            transition={{
-              duration: 3 + (i % 4),
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.2
-            }}
-          />
-        ))}
-      </div>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      <SkyBackground />
 
-      {/* 🌊 2 Custom Responsive Bottom Waves */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden z-0">
-        <svg 
-          className="absolute w-full bottom-0 left-0 h-[28vh] sm:h-[35vh] md:h-[45vh] min-w-[1000px] md:min-w-[1440px]" 
-          viewBox="0 0 1440 500" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg" 
-          preserveAspectRatio="none"
-        >
-          <motion.path 
-            d="M0,250 C360,320 720,150 1080,280 C1260,330 1350,260 1440,220 L1440,500 L0,500 Z"
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            fill="url(#ksr-gold-wave)" 
-            opacity="0.4"
-          />
-          <motion.path 
-            d="M0,320 C300,380 600,260 900,340 C1140,400 1320,310 1440,350 L1440,500 L0,500 Z"
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-            fill="url(#ksr-gold-wave)" 
-            opacity="0.7"
-          />
-          <defs>
-            <linearGradient id="ksr-navy-wave" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1e293b" />
-              <stop offset="100%" stopColor="#0f172a" />
-            </linearGradient>
-            <linearGradient id="ksr-gold-wave" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#c5a059" />
-              <stop offset="100%" stopColor="#090d16" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
-
-      {/* 🔒 Intercepting Blockout Wrapper for Custom Loader Integration */}
       <AnimatePresence>
         {isVerifying && (
           <div className="fixed inset-0 z-50">
@@ -151,96 +306,106 @@ const Login = () => {
         )}
       </AnimatePresence>
 
-      {/* 📦 Matte Premium Institutional Form Card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className="w-full max-w-[92%] sm:max-w-md bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 sm:p-10 shadow-2xl shadow-black/80 z-10 relative"
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="w-full max-w-md backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative"
+        style={{
+          boxShadow: '0 20px 60px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)',
+        }}
       >
-        <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-slate-900 via-amber-500 to-slate-900" />
+        <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-white/60 to-transparent rounded-t-3xl" />
 
-        <div className="flex flex-col items-center text-center mb-7">
-          <div className="h-12 w-12 bg-slate-950 rounded-xl flex items-center justify-center mb-4 border border-slate-800 shadow-inner">
-            <ShieldCheck className="text-amber-500" size={24} />
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="h-14 w-14 bg-white/30 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4 border border-white/30 shadow-inner">
+            <ShieldCheck className="text-indigo-600 dark:text-indigo-300" size={26} />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">Portal Sign In</h2>
-          <p className="text-xs text-slate-400 mt-1 font-medium tracking-wide">Leave & OD Approval Gateway</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+            Leave & OD Approval Portal
+          </h2>
+          <p className="text-xs text-indigo-700 dark:text-indigo-200 font-medium mt-1">
+            Manage Leave Requests and On-Duty Approvals Efficiently
+          </p>
         </div>
 
         {errorMsg && (
-          <div className="mb-5 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold rounded-xl text-center">
+          <div className="mb-5 p-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 text-red-600 text-xs font-medium rounded-xl text-center">
             {errorMsg}
           </div>
         )}
 
-        {/* 🎛️ Segmented Core Roles Select Array */}
-        <div className="grid grid-cols-3 gap-1 bg-slate-955/80 p-1.5 rounded-xl border border-slate-800 mb-6 relative">
+        {/* Role Switcher */}
+        <div className="grid grid-cols-3 gap-1 bg-white/30 backdrop-blur-sm p-1.5 rounded-xl border border-white/30 mb-6 relative">
           {['hod', 'mentor', 'student'].map((r) => {
             const Icon = roleIcons[r];
             const isActive = formData.role === r;
             return (
-              <button 
-                key={r} 
-                type="button" 
-                onClick={() => handleRoleSelection(r)} 
-                className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-colors relative duration-150 z-10 text-slate-400"
+              <button
+                key={r}
+                type="button"
+                onClick={() => handleRoleSelection(r)}
+                className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-lg transition-all relative z-10 text-slate-600 dark:text-slate-300"
               >
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="activeRoleIndicator"
-                    className="absolute inset-0 bg-slate-900 border border-slate-700/50 shadow-md z-[-1] rounded-lg"
-                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                    className="absolute inset-0 bg-white/60 backdrop-blur-sm shadow-sm border border-white/40 z-[-1] rounded-lg"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <Icon size={13} className={isActive ? 'text-amber-500' : 'text-slate-500'} />
-                <span className={isActive ? 'text-white font-extrabold' : ''}>{displayRoleMap[r]}</span>
+                <Icon size={14} className={isActive ? 'text-indigo-600' : 'text-slate-500'} />
+                <span className={isActive ? 'text-slate-800 font-extrabold' : ''}>
+                  {displayRoleMap[r]}
+                </span>
               </button>
             );
           })}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <InputField 
-            label="Institutional Email Address" 
-            type="email" 
-            placeholder="username@institution.edu" 
-            icon={Mail} 
-            value={formData.email} 
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-            required 
-            className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus-within:border-amber-500/40 focus-within:bg-slate-950/80 transition-all"
+          <InputField
+            label="Institutional Email Address"
+            type="email"
+            placeholder="username@ksrce.ac.in"
+            icon={Mail}
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            required
+            className="bg-white/40 backdrop-blur-sm border-white/30 text-slate-800 placeholder:text-slate-500 focus-within:border-indigo-400/70 transition-all rounded-xl px-4 py-3"
           />
-          <InputField 
-            label="Password" 
-            type="password" 
-            placeholder="••••••••" 
-            icon={Lock} 
-            value={formData.password} 
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-            required 
-            className="bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus-within:border-amber-500/40 focus-within:bg-slate-950/80 transition-all"
+          <InputField
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            icon={Lock}
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            required
+            className="bg-white/40 backdrop-blur-sm border-white/30 text-slate-800 placeholder:text-slate-500 focus-within:border-indigo-400/70 transition-all rounded-xl px-4 py-3"
           />
 
-          <motion.button 
-            whileTap={{ scale: 0.99 }}
-            type="submit" 
-            className="w-full mt-6 py-3 px-4 text-xs font-black rounded-xl flex items-center justify-center gap-2 bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-750 hover:to-slate-850 border border-slate-700/60 text-white shadow-lg shadow-black/40 transition-all uppercase tracking-wider"
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            className="w-full mt-6 py-3 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-wider"
           >
             <span>Authenticate Secure Session</span>
-            <ArrowRight size={13} className="text-amber-500" />
+            <ArrowRight size={14} />
           </motion.button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-slate-800/60 flex justify-end">
-          <p className="text-xs text-slate-500 font-medium">
+        <div className="mt-6 pt-4 border-t border-white/20 flex justify-end">
+          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
             New here?{' '}
-            <Link to="/register" className="text-white hover:text-amber-500 font-bold transition-colors underline underline-offset-4">
+            <Link
+              to="/register"
+              className="text-slate-800 dark:text-white font-bold hover:underline"
+            >
               Create an account
             </Link>
           </p>
         </div>
-
       </motion.div>
     </div>
   );
