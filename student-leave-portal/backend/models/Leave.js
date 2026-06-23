@@ -8,9 +8,19 @@ const leaveSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['Leave', 'On-Duty', 'OD'], // Enforces valid database writes
     default: 'Leave',
     required: true
+  },
+  duration: {
+    type: String,
+    enum: ['Full Day', 'Half Day'],
+    default: 'Full Day',
+    required: true
+  },
+  halfDaySession: {
+    type: String,
+    enum: ['Morning Session', 'Afternoon Session', ''], // Empty string allows it to be blank for Full Day leaves
+    default: ''
   },
   fromDate: {
     type: Date,
@@ -31,6 +41,18 @@ const leaveSchema = new mongoose.Schema({
     default: 'Pending'
   }
 }, { timestamps: true });
+
+// Pre-save hook to ensure data consistency before writing to MongoDB
+leaveSchema.pre('save', function (next) {
+  if (this.duration === 'Half Day') {
+    // Force end date to match start date for half-day requests
+    this.toDate = this.fromDate; 
+  } else {
+    // Clear out session strings if it's a full-day leave
+    this.halfDaySession = ''; 
+  }
+  next();
+});
 
 const Leave = mongoose.model('Leave', leaveSchema);
 export default Leave;

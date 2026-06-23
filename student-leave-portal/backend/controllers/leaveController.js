@@ -5,29 +5,46 @@ import User from '../models/User.js';
 // @route   POST /api/leaves/apply
 export const applyLeave = async (req, res) => {
   try {
-    // 🚨 UPDATE: destructure 'type' along with fromDate, toDate, and reason
-    const { type, fromDate, toDate, reason } = req.body;
+    // 🚨 UPDATED: Destructure 'duration' and 'halfDaySession' alongside existing properties
+    const { type, duration, halfDaySession, fromDate, toDate, reason } = req.body;
 
-    // Validate manual student entry items (ensuring type is present)
-    if (!type || !fromDate || !toDate || !reason) {
+    // Validate incoming baseline structures
+    if (!type || !duration || !fromDate || !reason) {
       return res.status(400).json({ 
-        message: 'Application type, starting date, ending date, and reason are mandatory fields.' 
+        message: 'Application type, duration style, starting date, and reason are mandatory fields.' 
+      });
+    }
+
+    // Secondary layer validation if structural context is "Half Day"
+    if (duration === 'Half Day' && !halfDaySession) {
+      return res.status(400).json({ 
+        message: 'A clear shift partition (Morning/Afternoon) must be defined for Half Day requests.' 
+      });
+    }
+
+    // Full day applications must submit a valid ending boundary
+    if (duration === 'Full Day' && !toDate) {
+      return res.status(400).json({
+        message: 'Full day applications require an end date window selection.'
       });
     }
 
     // Process instantiation using the authenticated student session passport id
     const newLeave = await Leave.create({
       student: req.user.id,
-      type, // 🚨 SAVES: 'Leave' or 'On-Duty' automatically based on frontend page state
+      type, 
+      duration,
+      halfDaySession: duration === 'Half Day' ? halfDaySession : '', // Enforce clean empty state if full day
       fromDate,
-      toDate,
+      // Fallback to fromDate if structural state selection is "Half Day"
+      toDate: duration === 'Half Day' ? fromDate : toDate, 
       reason,
       status: 'Pending'
     });
 
     res.status(201).json({
       success: true,
-      message: `${type} application registered successfully.`,
+      message: `${type} (${duration}) application registered successfully.`,
       data: newLeave
     });
   } catch (error) {
@@ -90,18 +107,16 @@ export const hodApprove = async (req, res) => {
 };
 
 // @desc    Fetch Leave Requests with complete auto-populated relational details
-// @route   GET /api/leaves/my-leaves (or /track - just keep it consistent with the router!)
+// @route   GET /api/leaves/my-leaves (or /track)
 export const getLeaveHistory = async (req, res) => {
   try {
-    // Finds matching items, maps your specific fields, and cascades relational object tree lookups instantly
     const history = await Leave.find({ student: req.user.id })
       .populate({
         path: 'student',
-        select: 'firstName lastName registerNo studentType mobileNo mentorName', // 🚨 ADDED registerNo here to serve MyRequests.jsx!
+        select: 'firstName lastName registerNo studentType mobileNo mentorName', 
       })
       .sort({ createdAt: -1 });
 
-    // Send wrapped array to remain perfectly matched with the updated front-end processor logic
     res.status(200).json({ success: true, data: history }); 
   } catch (error) {
     console.error('Leave Tracking Pipeline Failure:', error);
@@ -116,7 +131,6 @@ export const getLeaveHistory = async (req, res) => {
 // @route   GET /api/leaves/mentor/pending
 export const getMentorPendingLeaves = async (req, res) => {
   try {
-    // 1. Find the logged-in mentor's profile to extract their name string signature
     const mentorProfile = await User.findById(req.user.id);
     if (!mentorProfile) {
       return res.status(404).json({ message: 'Mentor profile registry not found.' });
@@ -124,16 +138,13 @@ export const getMentorPendingLeaves = async (req, res) => {
 
     const structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim() || mentorProfile.name;
 
-    // 2. Query for applications where the student's mentor matches this string AND status is 'Pending'
-    // We use .populate() to join the student's name and registration number from the User collection
     const pendingApplications = await Leave.find({ status: 'Pending' })
       .populate({
         path: 'student',
         select: 'firstName lastName name registerNo studentType',
-        match: { mentorName: structuredMentorName } // Only pulls students assigned to this mentor
+        match: { mentorName: structuredMentorName } 
       });
 
-    // Filter out records where the student doesn't match the mentor's name query condition
     const filteredResults = pendingApplications.filter(item => item.student !== null);
 
     return res.status(200).json({ success: true, data: filteredResults });
@@ -143,20 +154,21 @@ export const getMentorPendingLeaves = async (req, res) => {
   }
 };
 
+// @desc    Get all applications awaiting HOD review or historical records
+// @route   GET /api/leaves/hod/pending
 export const getHodPendingLeaves = async (req, res) => {
   try {
-    const { tab } = req.query; // 🎯 Listen for the active tab from frontend
+    const { tab } = req.query; 
     
     let statusQuery = { status: 'Partially Approved' };
     
-    // If frontend explicitly asks for history, grab both Approved and Rejected items
     if (tab === 'ACTIONED') {
       statusQuery = { status: { $in: ['Approved', 'Rejected'] } };
     }
 
     const leaves = await Leave.find(statusQuery)
       .populate('student', 'firstName lastName name email registerNo') 
-      .sort({ updatedAt: -1 }); // Show recently changed items first in history
+      .sort({ updatedAt: -1 }); 
 
     res.status(200).json({
       success: true,

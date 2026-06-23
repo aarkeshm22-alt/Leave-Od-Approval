@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, Phone, UserCheck, Loader2, Hash } from 'lucide-react';
+import { Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, Phone, UserCheck, Loader2, Hash, Clock } from 'lucide-react';
 import InputField from '../../components/common/InputField';
 import Button from '../../components/common/Button';
 
@@ -10,6 +10,8 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
   
   const [formData, setFormData] = useState({ 
     type: forcedType, 
+    duration: 'Full Day', // 'Full Day' or 'Half Day'
+    halfDaySession: '',   // 'Morning Session' or 'Afternoon Session' (only when duration is Half Day)
     fromDate: '', 
     toDate: '', 
     reason: '' 
@@ -21,7 +23,14 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
 
   // 🚨 LIFECYCLE PATCH: Dynamically syncs form type when switching between Leave and OD tabs
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, type: forcedType }));
+    setFormData((prev) => ({ 
+      ...prev, 
+      type: forcedType,
+      duration: 'Full Day',
+      halfDaySession: '',
+      fromDate: '',
+      toDate: ''
+    }));
     setMessage({ type: '', text: '' }); // Clear any stale submission messages
   }, [forcedType]);
 
@@ -46,7 +55,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
             name: data.name,
             registerNo: data.registerNo || 'Not Provided',
             studentType: data.studentType || 'Regular Track',
-            mentor: data.mentorName || 'Not Assigned', 
+            mentor: data.firstmentorName || 'Not Assigned', 
             mobile: data.mobile || 'Not Provided'
           });
         } else {
@@ -62,11 +71,39 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
     fetchUserProfile();
   }, []);
 
+  // Sync End Date automatically if Half Day is selected (as it can only be for a single day)
+  const handleDateChange = (field, value) => {
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (prev.duration === 'Half Day' && field === 'fromDate') {
+        updated.toDate = value; // Force toDate to match fromDate for Half Day requests
+      }
+      return updated;
+    });
+  };
+
+  const handleDurationChange = (durationValue) => {
+    setFormData((prev) => ({
+      ...prev,
+      duration: durationValue,
+      halfDaySession: durationValue === 'Half Day' ? 'Morning Session' : '',
+      // If switching to Half Day, make sure end date equals start date
+      toDate: durationValue === 'Half Day' ? prev.fromDate : prev.toDate 
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     setSubmitting(true);
     setMessage({ type: '', text: '' });
+
+    // Payload optimization based on Full/Half day parameters
+    const payload = {
+      ...formData,
+      // Ensure payload matches backend tracking requirements
+      toDate: formData.duration === 'Half Day' ? formData.fromDate : formData.toDate
+    };
 
     try {
       const response = await fetch('https://leave-od-approval.onrender.com/api/leaves/apply', {
@@ -75,7 +112,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData) // Sends unified fields along with the auto-selected type property
+        body: JSON.stringify(payload)
       });
 
       const resData = await response.json();
@@ -83,10 +120,10 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
       if (response.ok) {
         setMessage({ 
           type: 'success', 
-          text: `${formData.type} request logged successfully! Routing status initialized to Pending.` 
+          text: `${formData.type} (${formData.duration}) request logged successfully! Routing status initialized to Pending.` 
         });
         // Reset interactive inputs while keeping the current page context type intact
-        setFormData({ type: forcedType, fromDate: '', toDate: '', reason: '' });
+        setFormData({ type: forcedType, duration: 'Full Day', halfDaySession: '', fromDate: '', toDate: '', reason: '' });
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission failed.' });
       }
@@ -125,6 +162,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Verified Student Details Section */}
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Verified Student Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -153,22 +191,59 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
 
           <hr className="border-slate-100" />
 
+          {/* New Section: Leave Configuration (Duration Selection) */}
           <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Application Window Timeline</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Leave Configuration</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField label="Start Date *" type="date" icon={Calendar} value={formData.fromDate} onChange={(e) => setFormData({...formData, fromDate: e.target.value})} required />
-              <InputField label="End Date *" type="date" icon={Calendar} value={formData.toDate} onChange={(e) => setFormData({...formData, toDate: e.target.value})} required />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Duration Type *</label>
+                <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                  <button type="button" onClick={() => handleDurationChange('Full Day')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${formData.duration === 'Full Day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Full Day
+                  </button>
+                  <button type="button" onClick={() => handleDurationChange('Half Day')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${formData.duration === 'Half Day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Half Day
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional rendering for Session Selection if Half Day is chosen */}
+              {formData.duration === 'Half Day' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Select Session *</label>
+                  <div className="relative">
+                    <Clock className="absolute left-4 top-3.5 text-slate-400" size={16} />
+                    <select required value={formData.halfDaySession} onChange={(e) => setFormData({...formData, halfDaySession: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all appearance-none font-medium">
+                      <option value="Morning Session">Morning Session (FN)</option>
+                      <option value="Afternoon Session">Afternoon Session (AN)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Application Window Timeline */}
+          <div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Application Window Timeline</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField label={formData.duration === 'Half Day' ? "Leave Date *" : "Start Date *"} type="date" icon={Calendar} value={formData.fromDate} onChange={(e) => handleDateChange('fromDate', e.target.value)} required />
+              {formData.duration === 'Full Day' && (
+                <InputField label="End Date *" type="date" icon={Calendar} value={formData.toDate} onChange={(e) => handleDateChange('toDate', e.target.value)} required />
+              )}
+            </div>
+          </div>
+
+          {/* Reason Field */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Reason for Absence *</label>
             <div className="relative">
               <FileText className="absolute left-4 top-3.5 text-slate-400" size={16} />
-              <textarea required rows={4} value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} placeholder={`Please declare a clear justification supporting your ${formData.type} request...`} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
+              <textarea required rows={4} value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} placeholder={`Please declare a clear justification supporting your ${formData.duration.toLowerCase()} ${formData.type.toLowerCase()} request...`} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all" />
             </div>
           </div>
 
+          {/* Workflow Alert Status */}
           <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-xl flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
             <div className="text-xs text-amber-800 space-y-1">
@@ -177,9 +252,10 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
             </div>
           </div>
 
+          {/* Submit Button */}
           <Button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2" disabled={submitting}>
             {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={14} />}
-            <span>{submitting ? "Processing Registry Write..." : `Submit ${formData.type} Application`}</span>
+            <span>{submitting ? "Processing Registry Write..." : `Submit ${formData.duration} ${formData.type}`}</span>
           </Button>
         </form>
       </div>

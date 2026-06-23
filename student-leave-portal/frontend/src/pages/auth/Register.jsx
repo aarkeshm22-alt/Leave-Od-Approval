@@ -25,7 +25,7 @@ import InputField from '../../components/common/InputField';
 const FlyingBird = ({ startX, startY, duration, delay, size = 20, flapSpeed = 0.6 }) => {
   return (
     <motion.div
-      className="absolute text-slate-700/60 dark:text-white/40 pointer-events-none z-0"
+      className="absolute text-black/40 dark:text-black/30 pointer-events-none z-0"
       style={{ left: startX, top: startY }}
       animate={{
         x: ['-10%', '110%'],
@@ -88,11 +88,12 @@ const SkyBackground = () => {
     return 'night';
   }, [hour]);
 
+  // ── Enhanced, premium colour palettes ──
   const gradients = {
-    sunrise: 'from-orange-200 via-pink-200 to-yellow-100',
-    day: 'from-sky-400 via-blue-400 to-indigo-300',
-    sunset: 'from-orange-500 via-pink-500 to-purple-400',
-    night: 'from-slate-900 via-blue-950 to-indigo-950',
+    sunrise: "from-[#FFB347] via-[#FFCC80] to-[#FFE0B2]",
+    day: "from-[#38BDF8] via-[#60A5FA] to-[#BFDBFE]",
+    sunset: "from-[#F97316] via-[#EC4899] to-[#7C3AED]",
+    night: "from-[#020617] via-[#0F172A] to-[#1E1B4B]",
   };
 
   const showSun = hour >= 6 && hour < 18;
@@ -100,15 +101,20 @@ const SkyBackground = () => {
 
   // ── Clouds ──
   const clouds = useMemo(
-    () => [
-      { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.7 },
-      { id: 2, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.6 },
-      { id: 3, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.5 },
-      { id: 4, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.5 },
-      { id: 5, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
-    ],
-    []
-  );
+      () => [
+        { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
+        { id: 2, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
+        { id: 3, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
+        { id: 4, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
+        { id: 5, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
+        { id: 6, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
+        { id: 7, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
+        { id: 8, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
+        { id: 9, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
+        { id: 10, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
+      ],
+      []
+    );
 
   // ── Birds ──
   const birds = useMemo(
@@ -162,22 +168,22 @@ const SkyBackground = () => {
       className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
     >
       {/* ── Fixed Sun / Moon (responsive: left on mobile, right on desktop) ── */}
-      <div className="absolute top-4 left-4 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
+      <div className="absolute top-2 left-2 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
         {showSun && (
           <motion.div
-            className="w-16 h-16 md:w-28 md:h-28 rounded-full bg-yellow-300 shadow-[0_0_40px_20px_rgba(255,200,50,0.4)] md:shadow-[0_0_90px_50px_rgba(255,200,50,0.5)]"
+            className="w-12 h-12 md:w-28 md:h-28 rounded-full bg-yellow-300 shadow-[0_0_30px_15px_rgba(255,200,50,0.2)] md:shadow-[0_0_90px_50px_rgba(255,200,50,0.3)]"
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
           />
         )}
         {showMoon && (
           <motion.div
-            className="w-14 h-14 md:w-24 md:h-24 rounded-full bg-slate-100 shadow-[0_0_30px_15px_rgba(200,220,255,0.25)] md:shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
+            className="w-10 h-10 md:w-24 md:h-24 rounded-full bg-slate-100 shadow-[0_0_20px_10px_rgba(200,220,255,0.2)] md:shadow-[0_0_60px_30px_rgba(200,220,255,0.3)] relative"
             animate={{ scale: [1, 1.03, 1] }}
             transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
           >
-            <div className="absolute top-2 left-3 w-4 h-4 md:top-3 md:left-5 md:w-7 md:h-7 rounded-full bg-slate-300 opacity-60" />
-            <div className="absolute bottom-3 right-2 w-3 h-3 md:bottom-5 md:right-4 md:w-5 md:h-5 rounded-full bg-slate-300 opacity-50" />
+            <div className="absolute top-1 left-2 w-3 h-3 md:top-3 md:left-5 md:w-7 md:h-7 rounded-full bg-slate-300 opacity-60" />
+            <div className="absolute bottom-2 right-1 w-2 h-2 md:bottom-5 md:right-4 md:w-5 md:h-5 rounded-full bg-slate-300 opacity-50" />
           </motion.div>
         )}
       </div>
@@ -491,7 +497,7 @@ const Register = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="w-full max-w-xl backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative mt-12 md:mt-0"
+        className="w-full max-w-xl backdrop-blur-xl bg-white/30 dark:bg-white/10 border border-white/30 rounded-3xl shadow-2xl p-6 sm:p-10 z-10 relative mt-16 md:mt-0"
         style={{
           boxShadow: '0 20px 60px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)',
         }}
@@ -500,10 +506,10 @@ const Register = () => {
 
         <div className="flex flex-col items-center text-center mb-6 pb-4 border-b border-white/20">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-            Campus Pass
+            Registration For
           </h2>
           <p className="text-xs text-indigo-700 dark:text-indigo-200 font-semibold mt-1">
-            Leave & OD Gateway
+            Leave & OD Approval Portal
           </p>
         </div>
 
@@ -669,7 +675,7 @@ const Register = () => {
               className="space-y-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-4"
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Account Segment:{' '}
+                Account Type:{' '}
                 <span className="text-indigo-600 dark:text-indigo-300 font-extrabold">
                   {tierMeta[selectedRole].text}
                 </span>
@@ -738,16 +744,16 @@ const Register = () => {
                           Choose Section
                         </option>
                         <option value="Section A" className="bg-white text-slate-800">
-                          Section A
+                          A
                         </option>
                         <option value="Section B" className="bg-white text-slate-800">
-                          Section B
+                          B
                         </option>
                         <option value="Section C" className="bg-white text-slate-800">
-                          Section C
+                          C
                         </option>
                         <option value="Section D" className="bg-white text-slate-800">
-                          Section D
+                          D
                         </option>
                       </select>
                     </div>
