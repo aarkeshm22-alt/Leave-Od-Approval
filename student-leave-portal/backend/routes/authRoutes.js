@@ -149,7 +149,7 @@ router.route('/users/profile')
         registerNo: user.registerNo || 'Not Provided',
         studentType: user.studentType || 'Regular Track',
         mobile: user.mobileNo || 'Not Provided', 
-        mentorName: user.mentorName || 'Not Assigned',
+        mentorName: user.firstmentorName || 'Not Assigned',
         
         // Dynamically parsed properties delivered back to components
         assignedStudentsCount, 
