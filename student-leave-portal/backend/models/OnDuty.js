@@ -10,6 +10,17 @@ const OnDutySchema = new mongoose.Schema({
     type: String,
     default: 'On-Duty'
   },
+  duration: {
+    type: String,
+    enum: ['Full Day', 'Half Day'],
+    default: 'Full Day',
+    required: true
+  },
+  halfDaySession: {
+    type: String,
+    enum: ['Morning Session', 'Afternoon Session', ''], // Empty string allows it to remain blank for Full Day ODs
+    default: ''
+  },
   fromDate: {
     type: Date,
     required: true
@@ -30,7 +41,7 @@ const OnDutySchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  // Document proof remains null initially until form status sets to 'Approved'
+  // Document proof remains null initially until form registration unlocks it
   document: {
     type: String, 
     default: null
@@ -41,5 +52,16 @@ const OnDutySchema = new mongoose.Schema({
     default: 'Pending'
   }
 }, { timestamps: true });
+
+// Pre-save schema middleware validation layer
+OnDutySchema.pre('save', function () {
+  if (this.duration === 'Half Day') {
+    // Force ending boundary parameters to match starting values for single-shift OD tracking
+    this.toDate = this.fromDate;
+  } else {
+    // Sanitize session tracking if duration represents a full daytime window
+    this.halfDaySession = '';
+  }
+});
 
 export default mongoose.model('OnDuty', OnDutySchema);

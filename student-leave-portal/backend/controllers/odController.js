@@ -2,6 +2,7 @@ import OnDuty from '../models/OnDuty.js';
 import mongoose from 'mongoose';
 import multer from 'multer';
 import { protect } from '../middleware/authMiddleware.js';
+
 // =========================================================================
 // PHASE 1: Create Initial OD Request Details (Student Actions)
 // =========================================================================
@@ -13,18 +14,31 @@ export const applyOnDuty = async (req, res) => {
       return res.status(401).json({ success: false, message: 'User unauthorized. Token authentication failed.' });
     }
 
-    const { fromDate, toDate, collegeName, collegeLocation, reason } = req.body;
+    // 🚨 UPDATED: Destructure duration and halfDaySession from req.body
+    const { duration, halfDaySession, fromDate, toDate, collegeName, collegeLocation, reason } = req.body;
 
-    console.log("Incoming parsed Form Payload Data:", { userId, fromDate, toDate, collegeName, collegeLocation, reason });
+    console.log("Incoming parsed Form Payload Data:", { userId, duration, halfDaySession, fromDate, toDate, collegeName, collegeLocation, reason });
 
-    if (!fromDate || !toDate || !collegeName || !collegeLocation || !reason) {
-      return res.status(400).json({ success: false, message: 'All text parameters are mandatory.' });
+    // Enforce dynamic verification constraints depending on duration type
+    if (!duration || !fromDate || !collegeName || !collegeLocation || !reason) {
+      return res.status(400).json({ success: false, message: 'All baseline text parameters are mandatory.' });
+    }
+
+    if (duration === 'Half Day' && !halfDaySession) {
+      return res.status(400).json({ success: false, message: 'A shift session must be declared for Half Day OD choices.' });
+    }
+
+    if (duration === 'Full Day' && !toDate) {
+      return res.status(400).json({ success: false, message: 'An end boundary date window selection is required for Full Day logs.' });
     }
 
     const newOD = new OnDuty({
       student: userId,
+      duration,
+      halfDaySession: duration === 'Half Day' ? halfDaySession : '', // Ensure cleanup if Full Day
       fromDate: new Date(fromDate), 
-      toDate: new Date(toDate),
+      // Force end date to mirror fromDate dynamically if it's a Half Day allocation
+      toDate: duration === 'Half Day' ? new Date(fromDate) : new Date(toDate),
       collegeName,
       collegeLocation,
       reason,
@@ -35,7 +49,7 @@ export const applyOnDuty = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'On-Duty data registry initialized successfully.',
+      message: `On-Duty (${duration}) data registry initialized successfully.`,
       data: newOD
     });
   } catch (error) {
@@ -91,29 +105,31 @@ export const getMentorPendingODs = async (req, res) => {
         }
       },
       { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: false } },
+      // 🚨 UPDATED: If your User model uses a field named 'mentor', matches the structural check.
+      // If your matching user record maps mentor strings using firstmentorname, adjust this field criteria path.
       { $match: { 'studentDetails.mentor': targetMentorId } },
       {
         $project: {
-          _id: 1, type: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
+          _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
           student: {
             _id: '$studentDetails._id',
             registerNo: '$studentDetails.registerNo',
             firstName: '$studentDetails.firstName',
             lastName: '$studentDetails.lastName',
-            // 🧠 Dynamically construct standard fallback string mapping for user names
             name: { 
               $ifNull: [
                 '$studentDetails.name', 
                 { $concat: [{ $ifNull: ['$studentDetails.firstName', ''] }, ' ', { $ifNull: ['$studentDetails.lastName', ''] }] }
               ] 
             },
-            mentor: '$studentDetails.mentor'
+            // 🚨 UPDATED: Swapped key identifier reference pointer to read 'firstmentorname'
+            firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
           }
         }
       }
     ]);
 
-    // 2. 🛡️ FAIL-SAFE FALLBACK: If strict matching returns 0 records, fetch ALL pending requests
+    // 2. 🛡️ FAIL-SAFE FALLBACK: If strict matching returns 0 records, fetch ALL pending requests globally
     if (filteredODs.length === 0) {
       console.log(`\n[DIAGNOSTIC] Strict mentor matching returned 0 rows for Mentor ID: ${rawMentorId}. Running global fallback...`);
       
@@ -131,7 +147,7 @@ export const getMentorPendingODs = async (req, res) => {
         { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: true } }, 
         {
           $project: {
-            _id: 1, type: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
+            _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
             student: {
               _id: { $ifNull: ['$studentDetails._id', '$student'] },
               registerNo: { $ifNull: ['$studentDetails.registerNo', 'N/A'] },
@@ -143,7 +159,8 @@ export const getMentorPendingODs = async (req, res) => {
                   { $concat: [{ $ifNull: ['$studentDetails.firstName', 'Testing'], }, ' ', { $ifNull: ['$studentDetails.lastName', 'Student'] }] }
                 ] 
               },
-              mentor: { $ifNull: ['$studentDetails.mentor', null] }
+              // 🚨 UPDATED: Swapped key identifier reference pointer to read 'firstmentorname'
+              firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
             }
           }
         }
@@ -170,7 +187,6 @@ export const getHodPendingODs = async (req, res) => {
     const hodDepartment = req.user?.department || '';
     const activeTab = req.query.tab || 'PENDING';
 
-    // 🧠 Dynamically build the status filter block based on the active tab
     let statusMatchCriteria = { $match: { status: 'Partially Approved' } };
     
     if (activeTab === 'ACTIONED') {
@@ -181,15 +197,9 @@ export const getHodPendingODs = async (req, res) => {
       };
     }
 
-    // ⚡ Execute Aggregation Pipeline
     let filteredHodODs = await OnDuty.aggregate([
-      // Stage A: Dynamic Status Evaluation
       statusMatchCriteria,
-
-      // Stage B: Cast the student string pointer into a true database ObjectId
       { $addFields: { studentObjectId: { $toObjectId: '$student' } } },
-
-      // Stage C: Join lookup against user documents table
       {
         $lookup: {
           from: 'users',
@@ -198,21 +208,15 @@ export const getHodPendingODs = async (req, res) => {
           as: 'studentDetails'
         }
       },
-
-      // Stage D: Flatten the looked up student array
       { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: false } },
-
-      // Stage E: Case-insensitive department check
       {
         $match: {
           'studentDetails.department': { $regex: new RegExp(`^${hodDepartment.trim()}$`, 'i') }
         }
       },
-
-      // Stage F: Structure payload to perfectly match your React format expectations
       {
         $project: {
-          _id: 1, type: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1, updatedAt: 1,
+          _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1, updatedAt: 1,
           student: {
             _id: '$studentDetails._id',
             registerNo: '$studentDetails.registerNo',
@@ -224,14 +228,15 @@ export const getHodPendingODs = async (req, res) => {
                 { $concat: [{ $ifNull: ['$studentDetails.firstName', ''] }, ' ', { $ifNull: ['$studentDetails.lastName', ''] }] }
               ] 
             },
-            department: '$studentDetails.department'
+            department: '$studentDetails.department',
+            // 🚨 UPDATED: Swapped reference parameter here as well to maintain perfect baseline consistency
+            firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
           }
         }
       },
       { $sort: { updatedAt: -1, createdAt: -1 } }
     ]);
 
-    // 🛡️ DEV FAIL-SAFE FALLBACK: If strict department sorting yields 0 records, fetch globally
     if (filteredHodODs.length === 0) {
       filteredHodODs = await OnDuty.aggregate([
         statusMatchCriteria,
@@ -247,13 +252,14 @@ export const getHodPendingODs = async (req, res) => {
         { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: true } },
         {
           $project: {
-            _id: 1, type: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
+            _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
             student: {
               _id: { $ifNull: ['$studentDetails._id', '$student'] },
               registerNo: { $ifNull: ['$studentDetails.registerNo', 'N/A'] },
               firstName: { $ifNull: ['$studentDetails.firstName', ''] },
               lastName: { $ifNull: ['$studentDetails.lastName', ''] },
-              department: { $ifNull: ['$studentDetails.department', 'N/A'] }
+              department: { $ifNull: ['$studentDetails.department', 'N/A'] },
+              firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
             }
           }
         }
@@ -280,7 +286,6 @@ export const updateODStatusMatrix = async (req, res) => {
     const { odId } = req.params;
     const { action, remarks } = req.body; 
 
-    // 🚨 FIX 1: Safely read role and normalize to lowercase to prevent string mismatch loops
     const rawRole = req.user?.role || '';
     const userRole = rawRole.toLowerCase().trim(); 
 
@@ -291,7 +296,6 @@ export const updateODStatusMatrix = async (req, res) => {
       return res.status(404).json({ success: false, message: 'OD index tracking reference missing.' });
     }
 
-    // Handle rejection universally across layers
     if (action === 'REJECT') {
       odRecord.status = 'Rejected';
       if (userRole === 'mentor' || userRole === 'faculty') odRecord.mentorRemarks = remarks || 'Rejected by Mentor';
@@ -301,19 +305,16 @@ export const updateODStatusMatrix = async (req, res) => {
       return res.status(200).json({ success: true, message: 'Application rejected across pipelines.', data: odRecord });
     }
 
-    // Workflow Gate Verification Matrix
-    // 💡 FIX 2: Added common alternative role terms ('faculty' maps to mentor requirements)
     if (userRole === 'mentor' || userRole === 'faculty') {
       if (odRecord.status !== 'Pending') {
         return res.status(400).json({ success: false, message: 'Mentor cannot review an application that is not currently Pending.' });
       }
       
-      odRecord.status = 'Partially Approved'; // Intermediate state indicating Mentor clearance but pending HOD final approval
+      odRecord.status = 'Partially Approved'; 
       odRecord.mentorRemarks = remarks || 'Passed Level-1 Mentor Verification';
       odRecord.mentorApprovedAt = new Date();
 
     } else if (userRole === 'hod') {
-      // Prevents HOD from bypassing the Mentor validation step
       if (odRecord.status !== 'Partially Approved') {
         return res.status(400).json({
           success: false,
@@ -321,12 +322,11 @@ export const updateODStatusMatrix = async (req, res) => {
         });
       }
       
-      odRecord.status = 'Approved'; // Setting to 'Approved' unlocks the frontend Proof Upload option!
+      odRecord.status = 'Approved'; 
       odRecord.hodRemarks = remarks || 'Final Institutional Clearance Verified';
       odRecord.hodApprovedAt = new Date();
 
     } else {
-      // 🚨 Diagnostic response output: Tells you exactly what string value broke the pipeline execution path
       return res.status(401).json({ 
         success: false, 
         message: `Unauthorized execution role classification. Received string value: "${rawRole}"`,
@@ -362,7 +362,6 @@ export const uploadODProofImage = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Target OD request trace not found.' });
     }
 
-    // 🔒 STRICT SECURITY GATE: Deny any edits unless HOD has approved it
     if (odRecord.status !== 'Approved') {
       return res.status(403).json({
         success: false,
@@ -374,7 +373,6 @@ export const uploadODProofImage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please attach a valid certificate image file payload.' });
     }
 
-    // Convert memory buffer array securely to a clean Base64 data string
     const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
     odRecord.document = base64Image;

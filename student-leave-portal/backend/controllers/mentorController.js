@@ -24,7 +24,7 @@ export const getMyStudents = async (req, res) => {
     const students = await User.find({ 
       role: 'Student', 
       mentorName: structuredMentorName // Matches the text field directly in your User schema!
-    }).select('firstName lastName name registerNo studentType mobileNo email mentorName');
+    }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
 
     // 3. Loop through matched students to compute their active Leave and OD duration metrics
     const updatedStudentArray = await Promise.all(students.map(async (student) => {

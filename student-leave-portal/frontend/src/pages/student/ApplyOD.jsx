@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, UserCheck, Loader2, Hash, MapPin, School, Upload, ImageIcon, FileX, Lock, Unlock } from 'lucide-react';
+import { Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, UserCheck, Loader2, Hash, MapPin, School, Upload, ImageIcon, FileX, Lock, Unlock, Clock } from 'lucide-react';
 import InputField from '../../components/common/InputField';
 import Button from '../../components/common/Button';
 
@@ -12,6 +12,8 @@ const ApplyOD = () => {
   // Interactive inputs context state
   const [formData, setFormData] = useState({
     type: 'On-Duty',
+    duration: 'Full Day',    // 'Full Day' or 'Half Day'
+    halfDaySession: '',      // 'Morning Session' or 'Afternoon Session'
     fromDate: '',
     toDate: '',
     collegeName: '',
@@ -26,6 +28,9 @@ const ApplyOD = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [fileError, setFileError] = useState('');
   const [isApplicationApproved, setIsApplicationApproved] = useState(false);
+  
+  // Backwards compatibility fallbacks for existing code pointers
+  const [currentOdId, setCurrentOdId] = useState(null);
 
   // Load user profile details on mounting life cycle hook
   useEffect(() => {
@@ -65,6 +70,26 @@ const ApplyOD = () => {
     fetchUserProfile();
   }, []);
 
+  // Sync End Date automatically if Half Day is selected
+  const handleDateChange = (field, value) => {
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (prev.duration === 'Half Day' && field === 'fromDate') {
+        updated.toDate = value; // Force toDate to match fromDate for Half Day entries
+      }
+      return updated;
+    });
+  };
+
+  const handleDurationChange = (durationValue) => {
+    setFormData((prev) => ({
+      ...prev,
+      duration: durationValue,
+      halfDaySession: durationValue === 'Half Day' ? 'Morning Session' : '',
+      toDate: durationValue === 'Half Day' ? prev.fromDate : prev.toDate 
+    }));
+  };
+
   // Strict constraint asset size image validator
   const validateAndSetImage = (file) => {
     setFileError('');
@@ -91,7 +116,6 @@ const ApplyOD = () => {
     validateAndSetImage(file);
   };
 
-  // Change your primary submission handler to this:
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -100,13 +124,20 @@ const ApplyOD = () => {
 
     try {
       const payload = new FormData();
+      payload.append('type', formData.type);
+      payload.append('duration', formData.duration);
+      payload.append('halfDaySession', formData.halfDaySession);
       payload.append('fromDate', formData.fromDate);
-      payload.append('toDate', formData.toDate);
+      payload.append('toDate', formData.duration === 'Half Day' ? formData.fromDate : formData.toDate);
       payload.append('collegeName', formData.collegeName);
       payload.append('collegeLocation', formData.collegeLocation);
       payload.append('reason', formData.reason);
+      
+      if (formData.document) {
+        payload.append('document', formData.document);
+      }
 
-      const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', { // 💡 Verified active endpoint path
+      const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', { 
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -117,26 +148,23 @@ const ApplyOD = () => {
       const resData = await response.json();
 
       if (response.ok) {
-        // 1. Set the success message banner clean and early
         setMessage({
           type: 'success',
-          text: 'On-Duty data registry initialized successfully! Awaiting multi-tier approval loop actions.'
+          text: `On-Duty (${formData.duration}) data registry initialized successfully! Awaiting multi-tier approval loop actions.`
         });
 
-        // 2. Extract IDs safely using optional chaining (?.) to prevent try/catch crashes
         const backendId = resData?.data?._id || resData?.data?.id;
         if (backendId) {
           setCurrentOdId(backendId);
         }
 
-        setApplicationStatus('Partially Approved');
+        setIsApplicationApproved(true);
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission initialization failed.' });
       }
     } catch (err) {
-      // 💡 Diagnostic log to see exactly what JavaScript is complaining about in your browser console
       console.error("Frontend UI execution breakdown tracer:", err);
-      
+      setMessage({ type: 'error', text: 'Could not establish connection to clearance endpoint node.' });
     } finally {
       setSubmitting(false);
     }
@@ -177,7 +205,7 @@ const ApplyOD = () => {
       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xs space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* PROFILE ARCHITECTURE: Fully Responsive Layout Grid */}
+          {/* PROFILE ARCHITECTURE */}
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Verified Student Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -202,12 +230,45 @@ const ApplyOD = () => {
 
           <hr className="border-slate-100" />
 
-          {/* EVENTS MANAGEMENT SCHEDULE: Tablet/Desktop Grid Breakpoints */}
+          {/* DURATION CONFIGURATION SECTION */}
+          <div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">OD Configuration</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Duration Type *</label>
+                <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                  <button type="button" disabled={isApplicationApproved} onClick={() => handleDurationChange('Full Day')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${formData.duration === 'Full Day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'} disabled:opacity-50`}>
+                    Full Day
+                  </button>
+                  <button type="button" disabled={isApplicationApproved} onClick={() => handleDurationChange('Half Day')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${formData.duration === 'Half Day' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'} disabled:opacity-50`}>
+                    Half Day
+                  </button>
+                </div>
+              </div>
+
+              {formData.duration === 'Half Day' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Select Session *</label>
+                  <div className="relative">
+                    <Clock className="absolute left-4 top-3.5 text-slate-400" size={16} />
+                    <select required disabled={isApplicationApproved} value={formData.halfDaySession} onChange={(e) => setFormData({...formData, halfDaySession: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all appearance-none font-medium disabled:bg-slate-50 disabled:text-slate-400">
+                      <option value="Morning Session">Morning Session (FN)</option>
+                      <option value="Afternoon Session">Afternoon Session (AN)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* EVENTS MANAGEMENT SCHEDULE */}
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Event Scheduling & Location Bounds</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField label="OD Starting Date *" type="date" icon={Calendar} value={formData.fromDate} onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })} required disabled={isApplicationApproved} />
-              <InputField label="OD Ending Date *" type="date" icon={Calendar} value={formData.toDate} onChange={(e) => setFormData({ ...formData, toDate: e.target.value })} required disabled={isApplicationApproved} />
+              <InputField label={formData.duration === 'Half Day' ? "OD Date *" : "OD Starting Date *"} type="date" icon={Calendar} value={formData.fromDate} onChange={(e) => handleDateChange('fromDate', e.target.value)} required disabled={isApplicationApproved} />
+              {formData.duration === 'Full Day' && (
+                <InputField label="OD Ending Date *" type="date" icon={Calendar} value={formData.toDate} onChange={(e) => handleDateChange('toDate', e.target.value)} required disabled={isApplicationApproved} />
+              )}
             </div>
           </div>
 
@@ -233,7 +294,6 @@ const ApplyOD = () => {
                 Supporting OD Attestation Certificate Proof File (IMAGE ONLY - MAX 300KB)
               </label>
 
-              {/* STATUS INDICATOR BADGE COMPONENT WITH ICONS */}
               <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full self-start sm:self-auto border transition-all ${isApplicationApproved
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-3xs'
                   : 'bg-slate-100 text-slate-400 border-slate-200'
@@ -252,7 +312,6 @@ const ApplyOD = () => {
               </div>
             </div>
 
-            {/* DUST IMAGE DRAG SURFACE CONTAINER */}
             <div
               onDragOver={(e) => { if (isApplicationApproved) { e.preventDefault(); setDragActive(true); } }}
               onDragLeave={() => setDragActive(false)}
@@ -284,7 +343,6 @@ const ApplyOD = () => {
               <p className="text-[10px] text-slate-400 mt-1 px-2">Acceptable formats: JPEG, PNG, or WebP up to 300 KB maximum file load size</p>
             </div>
 
-            {/* FILE SUB-ERROR PORTAL MESSAGING MATRIX */}
             <AnimatePresence mode="wait">
               {fileError && (
                 <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex items-center gap-2 p-3 text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-800 rounded-xl">
@@ -295,22 +353,22 @@ const ApplyOD = () => {
             </AnimatePresence>
           </div>
 
-          {/* INSTRUCTIONAL FOOTER WARNING CONTEXT BOARD */}
+          {/* INSTRUCTIONAL FOOTER WARNING */}
           <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-xl flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
             <div className="text-xs text-amber-800 space-y-1">
               <p className="font-bold uppercase tracking-wide">Dynamic Submission Routing Protocol:</p>
               <p className="leading-relaxed font-medium">
-                Fill out the text and location specifics above and click submit. Once processed successfully, form inputs will freeze, and the attestation image slot directly unlocks for asset attachment.
+                Fill out the text, duration, and location specifics above and click submit. Once processed successfully, form inputs will freeze, and the attestation image slot directly unlocks for asset attachment.
               </p>
             </div>
           </div>
 
-          {/* ACTION SUBMIT SUBMISSION CONTROLLER TRIGGERS */}
+          {/* ACTION BUTTONS */}
           {!isApplicationApproved ? (
             <Button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors" disabled={submitting}>
               {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={14} />}
-              <span>{submitting ? "Processing Registry Write..." : `Submit ${formData.type} Details`}</span>
+              <span>{submitting ? "Processing Registry Write..." : `Submit ${formData.duration} ${formData.type} Details`}</span>
             </Button>
           ) : (
             <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-center text-xs font-bold tracking-tight flex items-center justify-center gap-2 shadow-2xs">
