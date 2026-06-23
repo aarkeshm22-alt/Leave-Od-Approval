@@ -55,7 +55,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
             name: data.name,
             registerNo: data.registerNo || 'Not Provided',
             studentType: data.studentType || 'Regular Track',
-            mentor: data.firstmentorName || 'Not Assigned', 
+            mentor: data.firstmentorName || 'N/A', 
             mobile: data.mobile || 'Not Provided'
           });
         } else {
