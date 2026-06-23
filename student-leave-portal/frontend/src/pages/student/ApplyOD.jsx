@@ -29,8 +29,9 @@ const ApplyOD = () => {
   const [fileError, setFileError] = useState('');
   const [isApplicationApproved, setIsApplicationApproved] = useState(false);
   
-  // Backwards compatibility fallbacks for existing code pointers
+  // State variables synchronized to receive database tracker responses
   const [currentOdId, setCurrentOdId] = useState(null);
+  const [applicationStatus, setApplicationStatus] = useState('Pending');
 
   // Load user profile details on mounting life cycle hook
   useEffect(() => {
@@ -132,10 +133,6 @@ const ApplyOD = () => {
       payload.append('collegeName', formData.collegeName);
       payload.append('collegeLocation', formData.collegeLocation);
       payload.append('reason', formData.reason);
-      
-      if (formData.document) {
-        payload.append('document', formData.document);
-      }
 
       const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', { 
         method: 'POST',
@@ -158,7 +155,8 @@ const ApplyOD = () => {
           setCurrentOdId(backendId);
         }
 
-        setIsApplicationApproved(true);
+        setApplicationStatus('Partially Approved');
+        setIsApplicationApproved(true); // Locks inputs and safely unfolds upload canvas frame
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission initialization failed.' });
       }
@@ -205,7 +203,7 @@ const ApplyOD = () => {
       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xs space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* PROFILE ARCHITECTURE */}
+          {/* PROFILE ARCHITECTURE: Fully Responsive Layout Grid */}
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Verified Student Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -261,7 +259,7 @@ const ApplyOD = () => {
             </div>
           </div>
 
-          {/* EVENTS MANAGEMENT SCHEDULE */}
+          {/* EVENTS MANAGEMENT SCHEDULE: Tablet/Desktop Grid Breakpoints */}
           <div>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Event Scheduling & Location Bounds</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -294,6 +292,7 @@ const ApplyOD = () => {
                 Supporting OD Attestation Certificate Proof File (IMAGE ONLY - MAX 300KB)
               </label>
 
+              {/* STATUS INDICATOR BADGE COMPONENT WITH ICONS */}
               <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full self-start sm:self-auto border transition-all ${isApplicationApproved
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-3xs'
                   : 'bg-slate-100 text-slate-400 border-slate-200'
@@ -312,6 +311,7 @@ const ApplyOD = () => {
               </div>
             </div>
 
+            {/* DUST IMAGE DRAG SURFACE CONTAINER */}
             <div
               onDragOver={(e) => { if (isApplicationApproved) { e.preventDefault(); setDragActive(true); } }}
               onDragLeave={() => setDragActive(false)}
@@ -343,6 +343,7 @@ const ApplyOD = () => {
               <p className="text-[10px] text-slate-400 mt-1 px-2">Acceptable formats: JPEG, PNG, or WebP up to 300 KB maximum file load size</p>
             </div>
 
+            {/* FILE SUB-ERROR PORTAL MESSAGING MATRIX */}
             <AnimatePresence mode="wait">
               {fileError && (
                 <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex items-center gap-2 p-3 text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-800 rounded-xl">
@@ -353,7 +354,7 @@ const ApplyOD = () => {
             </AnimatePresence>
           </div>
 
-          {/* INSTRUCTIONAL FOOTER WARNING */}
+          {/* INSTRUCTIONAL FOOTER WARNING CONTEXT BOARD */}
           <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-xl flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
             <div className="text-xs text-amber-800 space-y-1">
@@ -364,7 +365,7 @@ const ApplyOD = () => {
             </div>
           </div>
 
-          {/* ACTION BUTTONS */}
+          {/* ACTION SUBMIT SUBMISSION CONTROLLER TRIGGERS */}
           {!isApplicationApproved ? (
             <Button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors" disabled={submitting}>
               {submitting ? <Loader2 className="animate-spin" size={16} /> : <Send size={14} />}
