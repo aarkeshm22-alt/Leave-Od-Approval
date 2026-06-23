@@ -43,15 +43,15 @@ const leaveSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save hook to ensure data consistency before writing to MongoDB
-leaveSchema.pre('save', function (next) {
+leaveSchema.pre('save', function () {
   if (this.duration === 'Half Day') {
     // Force end date to match start date for half-day requests
-    this.toDate = this.fromDate; 
+    this.toDate = this.fromDate;
   } else {
     // Clear out session strings if it's a full-day leave
-    this.halfDaySession = ''; 
+    this.halfDaySession = '';
   }
-  next();
+  
 });
 
 const Leave = mongoose.model('Leave', leaveSchema);
