@@ -8,7 +8,8 @@ import {
   hodApprove, 
   getLeaveHistory,
   getMentorPendingLeaves,
-  getHodPendingLeaves
+  getHodPendingLeaves,
+  mentorReject
 } from '../controllers/leaveController.js';
 
 // 🔌 NOW CONNECTED: Import your fresh newly created middleware layer
@@ -22,6 +23,7 @@ router.get('/my-leaves', protect, authorize('Student'), getLeaveHistory);
 router.get('/mentor/pending', protect, authorize('Mentor'), getMentorPendingLeaves);
 router.get('/hod/pending', protect, authorize('HOD'), getHodPendingLeaves);
 router.patch('/:id/mentor-approve', protect, authorize('Mentor'), mentorApprove);
+router.patch('/:id/mentor-reject', protect, mentorReject);
 router.patch('/:id/hod-approve', protect, authorize('HOD'), hodApprove);
 
 export default router;

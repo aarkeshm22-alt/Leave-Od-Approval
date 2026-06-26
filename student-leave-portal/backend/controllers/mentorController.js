@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import Leave from '../models/Leave.js';
 
-// @desc    Fetch students matching the mentor's string name with calculated Leave and OD aggregates
+// @desc    Fetch students matching the logged-in mentor's name against firstmentorName with calculated Leave and OD aggregates
 // @route   GET /api/mentor/my-students
 export const getMyStudents = async (req, res) => {
   try {
@@ -12,18 +12,22 @@ export const getMyStudents = async (req, res) => {
       return res.status(404).json({ message: 'Mentor profile registry not found.' });
     }
 
-    // Combine firstName and lastName to get the full name string if stored separately,
-    // or use a direct 'name' property depending on your exact User schema design.
-    const structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim() || mentorProfile.name;
+    // Safely structure the mentor name string to avoid unexpected spacer alignment gaps
+    let structuredMentorName = "";
+    if (mentorProfile.firstName || mentorProfile.lastName) {
+      structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim().replace(/\s+/g, ' ');
+    } else {
+      structuredMentorName = mentorProfile.name ? mentorProfile.name.trim() : "";
+    }
 
     if (!structuredMentorName) {
       return res.status(400).json({ message: 'Mentor identity string signature is unassigned or incomplete.' });
     }
 
-    // 2. Query the user collection for students matching the mentor's string name explicitly
+    // 2. Query the user collection: filter students where logged user name equals firstmentorName
     const students = await User.find({ 
       role: 'Student', 
-      mentorName: structuredMentorName // Matches the text field directly in your User schema!
+      firstmentorName: structuredMentorName // 🌟 Fixed: Updated from mentorName to firstmentorName
     }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
 
     // 3. Loop through matched students to compute their active Leave and OD duration metrics
@@ -45,7 +49,7 @@ export const getMyStudents = async (req, res) => {
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
-      // Calculate approved OD counts (Total number of institutional days taken)
+      // Calculate approved approved OD counts (Total number of institutional days taken)
       const odAgg = await Leave.aggregate([
         { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
         {
@@ -70,7 +74,7 @@ export const getMyStudents = async (req, res) => {
     }));
 
     // Return the response package to feed into your StudentList.jsx layout table
-    return res.status(200).json({ success: true, data: updatedStudentArray });
+    return res.status(200).json({ success: true, count: updatedStudentArray.length, data: updatedStudentArray });
     
   } catch (error) {
     console.error('Mentor extraction execution string-loop failure:', error);

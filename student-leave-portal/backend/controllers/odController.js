@@ -229,14 +229,17 @@ export const getHodPendingODs = async (req, res) => {
               ] 
             },
             department: '$studentDetails.department',
-            // 🚨 UPDATED: Swapped reference parameter here as well to maintain perfect baseline consistency
-            firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
+            // Added year, section, and firstmentorName strings with safety fallbacks
+            year: { $ifNull: ['$studentDetails.year', 'IV Year'] },
+            section: { $ifNull: ['$studentDetails.section', 'A'] },
+            firstmentorName: { $ifNull: ['$studentDetails.firstmentorName', { $ifNull: ['$studentDetails.mentorName', 'Dr. K. Mentor'] }] }
           }
         }
       },
       { $sort: { updatedAt: -1, createdAt: -1 } }
     ]);
 
+    // Secondary backup execution sequence if department strictly filters out everything
     if (filteredHodODs.length === 0) {
       filteredHodODs = await OnDuty.aggregate([
         statusMatchCriteria,
@@ -259,7 +262,10 @@ export const getHodPendingODs = async (req, res) => {
               firstName: { $ifNull: ['$studentDetails.firstName', ''] },
               lastName: { $ifNull: ['$studentDetails.lastName', ''] },
               department: { $ifNull: ['$studentDetails.department', 'N/A'] },
-              firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
+              // Added year, section, and firstmentorName metrics to the secondary projection matrix block
+              year: { $ifNull: ['$studentDetails.year', 'IV Year'] },
+              section: { $ifNull: ['$studentDetails.section', 'A'] },
+              firstmentorName: { $ifNull: ['$studentDetails.firstmentorName', { $ifNull: ['$studentDetails.mentorName', 'Dr. K. Mentor'] }] }
             }
           }
         }

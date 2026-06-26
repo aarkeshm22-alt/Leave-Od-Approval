@@ -220,43 +220,49 @@ export const getMentorsByHod = async (req, res) => {
 // 7. Get students assigned to a specific mentor with split assignment structures (CA1 / CA2) and live application tallies
 export const getStudentsByMentor = async (req, res) => {
   try {
-    // Front-end queries can pass both mentorName and their categorical scope if filtering unique tracks
-    const { mentorName, category } = req.query;
+    // 🌟 FIXED: Look for parameters in query strings, the body, or headers to ensure it never reads as undefined
+    const mentorName = req.query.firstmentorName || req.body.firstmentorName || req.headers['x-mentor-name'];
+    const category = req.query.category || req.body.category || req.headers['x-category'];
 
     if (!mentorName) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Mentor tracking parameter variable is required.' 
+        message: 'Mentor tracking parameter variable is required. Checked query, body, and headers.' 
       });
     }
 
-    const cleanMentorName = mentorName.trim();
+    // Deep clean and strip any accidental quotes sent down by localStorage parsing anomalies
+    const cleanMentorName = mentorName.toString().replace(/[规律"'"`]/g, '').trim().replace(/\s+/g, ' ');
+    
+    // Create case-insensitive matching logic regex
+    const mentorRegex = new RegExp(`^${cleanMentorName}$`, 'i');
     let studentFindQuery = { role: 'Student' };
 
     // Dynamic routing condition checks matching your split system criteria
     if (category === 'CA1') {
-      studentFindQuery.firstmentorName = cleanMentorName;
+      studentFindQuery.firstmentorName = { $regex: mentorRegex };
     } else if (category === 'CA2') {
-      studentFindQuery.secondmentorName = cleanMentorName;
+      studentFindQuery.secondmentorName = { $regex: mentorRegex };
     } else {
       // General broad fallback checking for any active allocations across both properties
       studentFindQuery.$or = [
-        { firstmentorName: cleanMentorName },
-        { secondmentorName: cleanMentorName }
+        { firstmentorName: { $regex: mentorRegex } },
+        { secondmentorName: { $regex: mentorRegex } }
       ];
     }
 
     // Fetch allocated student accounts
     const students = await User.find(studentFindQuery)
-      .select('firstName lastName name registerNo studentType email mobileNo firstmentorName secondmentorName')
+      .select('firstName lastName name registerNo studentType email mobileNo firstmentorName secondmentorName year yr section sec role')
       .lean();
 
     // Map through records and aggregate true live counts out of Leave database reference trees
     const structuredStudentsPayload = await Promise.all(
       students.map(async (student) => {
-        
-        // Match the specific tracking context context dynamically for output UI visibility flags
-        let assignedRoleContext = category || (student.firstmentorName?.toLowerCase() === cleanMentorName.toLowerCase() ? "CA1" : "CA2");
+        const isFirstMentor = student.firstmentorName && 
+          student.firstmentorName.trim().toLowerCase() === cleanMentorName.toLowerCase();
+
+        let assignedRoleContext = category || (isFirstMentor ? "CA1" : "CA2");
 
         const leaveRecords = await Leave.find({
           student: student._id
@@ -268,7 +274,7 @@ export const getStudentsByMentor = async (req, res) => {
 
         return {
           ...student,
-          mentorType: assignedRoleContext, // Returns 'CA1' or 'CA2' cleanly
+          mentorType: assignedRoleContext, 
           leaveCount: liveLeaveCount,
           odCount: liveOdCount
         };
@@ -277,6 +283,7 @@ export const getStudentsByMentor = async (req, res) => {
 
     return res.status(200).json({ 
       success: true, 
+      count: structuredStudentsPayload.length,
       data: structuredStudentsPayload 
     });
 

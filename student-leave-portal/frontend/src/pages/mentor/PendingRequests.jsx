@@ -39,15 +39,15 @@ const PendingRequests = () => {
 
       // Extract records in parallel streams
       const [leavesResponse, odResponse] = await Promise.all([
-        axios.get('https://leave-od-approval.onrender.com/api/leaves/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true })),
-        axios.get('https://leave-od-approval.onrender.com/api/od/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true }))
+        axios.get('/api/leaves/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true })),
+        axios.get('/api/od/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true }))
       ]);
 
       // 💻 BROWSER CONSOLE RUNTIME DIAGNOSTIC PRINTS
       console.log("=== 🔍 FRONTEND NETWORK PAYLOAD DEBUGGING ===");
       console.log("Raw Leaves Response Object:", leavesResponse);
       console.log("Raw On-Duty Response Object:", odResponse);
-
+ 
       let combinedPool = [];
 
       // Unpack Leave requests safely
@@ -119,15 +119,15 @@ const PendingRequests = () => {
         };
 
         response = await axios.patch(
-          `https://leave-od-approval.onrender.com/api/od/${id}/action`, 
+          `/api/od/${id}/action`, 
           payloadBody, 
           configHeaders
         );
       } else {
         // 📝 LEAVE PATHWAY: Legacy split endpoints system routing fallback
         const endpoint = approvalState === 'approve' 
-          ? `https://leave-od-approval.onrender.com/api/leaves/${id}/mentor-approve` 
-          : `https://leave-od-approval.onrender.com/api/leaves/${id}/mentor-reject`;
+          ? `/api/leaves/${id}/mentor-approve` 
+          : `/api/leaves/${id}/mentor-reject`;
 
         response = await axios.patch(
           endpoint, 

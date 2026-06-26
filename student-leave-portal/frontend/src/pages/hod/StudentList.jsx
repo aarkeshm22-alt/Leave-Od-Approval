@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, UserCheck, X, Loader2, Mail, Phone, Calendar, Layers, FileText, Eye } from 'lucide-react';
+import { GraduationCap, UserCheck, X, Loader2, Mail, Phone, Calendar, Grid, Layers, FileText, Eye, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
@@ -7,9 +7,10 @@ const StudentList = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🚀 MATRIX FILTERING STATES (Default to ALL to see everyone instantly)
-  const [activeYear, setActiveYear] = useState('ALL'); 
-  const [activeSection, setActiveSection] = useState('ALL'); 
+  // 🚀 MATRIX FILTERING & SEARCH STATES
+  const [activeYear, setActiveYear] = useState('ALL');
+  const [activeSection, setActiveSection] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Profile modal drawer tracking states
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -23,6 +24,7 @@ const StudentList = () => {
         const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
         const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
+        // Added absolute URL mapping wrapper fallback path structure
         const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students', {
           headers: {
             'Authorization': `Bearer ${cleanToken}`,
@@ -32,9 +34,8 @@ const StudentList = () => {
 
         const userList = response.data.data || response.data || [];
         const studentFilter = userList.filter(u => u.role?.toLowerCase() === 'student');
-        
-        // 🚨 IMPORTANT: Open your browser inspect console to look at this array matrix printout!
-        console.log("👉 INSPECT ALL RECIEVED BACKEND STUDENTS:", studentFilter);
+
+        console.log("👉 INSPECT ALL RECEIVED BACKEND STUDENTS:", studentFilter);
         setStudents(studentFilter);
       } catch (error) {
         console.error('Failed retrieving global institutional student records:', error);
@@ -74,7 +75,7 @@ const StudentList = () => {
       .sort()
   )];
 
-  // 🚀 FILTER MATCH ENGINE
+  // 🚀 FILTER & SEARCH MATCH ENGINE
   const filteredStudentsMatrix = students.filter(student => {
     const studentYear = normalizeYear(student.year || student.yr);
     const studentSection = normalizeSection(student.section || student.sec);
@@ -82,7 +83,13 @@ const StudentList = () => {
     const matchesYear = activeYear === 'ALL' || studentYear === activeYear;
     const matchesSection = activeSection === 'ALL' || studentSection === activeSection;
 
-    return matchesYear && matchesSection;
+    // Search Engine Matrix Logic Matching
+    const studentName = (student.name || `${student.firstName || ''} ${student.lastName || ''}`).toLowerCase();
+    const regNo = (student.registerNo || student.id || '').toLowerCase();
+    const cleanQuery = searchQuery.toLowerCase().trim();
+    const matchesSearch = studentName.includes(cleanQuery) || regNo.includes(cleanQuery);
+
+    return matchesYear && matchesSection && matchesSearch;
   });
 
   const handleViewStudentProfile = async (student) => {
@@ -92,9 +99,19 @@ const StudentList = () => {
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
       const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
+      const mentorLookupName = student.firstmentorName || student.secondmentorName || '';
+
       const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
-        params: { mentorName: student.mentorName },
-        headers: { 'Authorization': `Bearer ${cleanToken}` }
+        params: {
+          mentorName: mentorLookupName,
+          category: 'CA1'
+        },
+        headers: {
+          'Authorization': `Bearer ${cleanToken}`,
+          'Content-Type': 'application/json',
+          'x-mentor-name': mentorLookupName, 
+          'x-category': 'CA1'          
+        }
       });
 
       const matchedList = response.data.data || response.data || [];
@@ -130,13 +147,29 @@ const StudentList = () => {
       {/* 1. Header Control Block */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Entire Student Departmental Registry</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">All Registered Student Details</h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Filter student information blocks across standard institutional configurations.</p>
         </div>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-2 self-start sm:self-auto">
-          <GraduationCap size={15} className="text-slate-400" />
-          <span className="text-xs font-bold text-slate-700">{students.length} Registered Students</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+          {/* 🌟 NEW: Live Text Search Input Element */}
+          <div className="relative w-full sm:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Search size={14} />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or reg number..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 focus:border-slate-400 focus:outline-none text-xs rounded-xl shadow-2xs font-medium text-slate-800 transition-colors"
+            />
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-2 shrink-0">
+            <GraduationCap size={15} className="text-slate-400" />
+            <span className="text-xs font-bold text-slate-700">{filteredStudentsMatrix.length} Displayed</span>
+          </div>
         </div>
       </div>
 
@@ -153,11 +186,23 @@ const StudentList = () => {
                 type="button"
                 onClick={() => setActiveYear(yearKey)}
                 className={`px-4 py-1.5 text-xs font-black tracking-tight rounded-lg transition-all duration-150 ${activeYear === yearKey
-                    ? 'bg-white text-blue-600 shadow-xs border border-slate-200/20'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                   }`}
               >
-                {yearKey === 'ALL' ? '🚨 All Years' : `Year ${yearKey}`}
+                <span className="flex items-center gap-1.5 font-bold">
+                  {yearKey === 'ALL' ? (
+                    <>
+                      <Calendar size={12} className="text-slate-400 shrink-0" />
+                      <span>All Years</span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap size={12} className="text-blue-500 shrink-0" />
+                      <span>Year {yearKey}</span>
+                    </>
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -173,11 +218,23 @@ const StudentList = () => {
                 type="button"
                 onClick={() => setActiveSection(secKey)}
                 className={`px-3 py-1 rounded-md text-xs font-bold transition-all border ${activeSection === secKey
-                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-3xs'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-3xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   }`}
               >
-                {secKey === 'ALL' ? '🌎 All Sections' : `Section ${secKey}`}
+                <span className="flex items-center gap-1.5 font-bold">
+                  {secKey === 'ALL' ? (
+                    <>
+                      <Layers size={12} className="text-slate-400 shrink-0" />
+                      <span>All Sections</span>
+                    </>
+                  ) : (
+                    <>
+                      <Grid size={12} className="text-blue-500 shrink-0" />
+                      <span>Section {secKey}</span>
+                    </>
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -193,9 +250,10 @@ const StudentList = () => {
               <tr>
                 <th className="p-4 pl-6 font-extrabold">Register Number</th>
                 <th className="p-4 font-extrabold">Student Name</th>
-                <th className="p-4 font-extrabold">Branch/Track Info</th>
-                <th className="p-4 font-extrabold">Assigned Mentor</th>
-                <th className="p-4 font-extrabold text-left">Actions Matrix</th>
+                <th className="p-4 font-extrabold">Year & Section</th>
+                <th className="p-4 font-extrabold">Assigned CA1</th>
+                <th className="p-4 font-extrabold">Assigned CA2</th>
+                <th className="p-4 font-extrabold text-left">Student Details</th>
               </tr>
             </thead>
 
@@ -225,7 +283,14 @@ const StudentList = () => {
                     <td className="p-4 font-bold text-slate-900">
                       <div className="flex items-center gap-1.5">
                         <UserCheck size={13} className="text-slate-400" />
-                        <span>{row.mentorName || 'Unassigned'}</span>
+                        <span>{row.firstmentorName || 'Unassigned'}</span>
+                      </div>
+                    </td>
+
+                    <td className="p-4 font-bold text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        <UserCheck size={13} className="text-slate-400" />
+                        <span>{row.secondmentorName || 'Unassigned'}</span>
                       </div>
                     </td>
 
@@ -251,7 +316,7 @@ const StudentList = () => {
         {filteredStudentsMatrix.length === 0 && (
           <div className="text-center py-16 bg-white">
             <p className="text-xs text-slate-400 font-medium px-4">
-              No students found for Year <span className="font-black text-slate-700">"{activeYear}"</span> and Section <span className="font-black text-slate-700">"{activeSection}"</span>.
+              No students found matching your active filter criteria values.
             </p>
           </div>
         )}
@@ -280,7 +345,7 @@ const StudentList = () => {
                 <GraduationCap className="text-slate-400 shrink-0" size={16} />
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Registration Number</p>
-                  <p className="text-sm font-mono font-bold text-slate-800">{selectedStudent.registerNo || 'N/A'}</p>
+                  <p className="text-sm font-mono font-bold text-slate-800">{selectedStudent.registerNo || selectedStudent.id || 'N/A'}</p>
                 </div>
               </div>
 
@@ -308,6 +373,38 @@ const StudentList = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Dynamic Counters Metric View Layer */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-white mt-2">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">Leave Approval Counters</h4>
+                {loadingProfileDetails ? (
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 py-2">
+                    <Loader2 className="animate-spin text-slate-400" size={14} />
+                    <span>Syncing dynamic ledger matrix...</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
+                      <p className="text-xl font-black text-green-600">{studentMetadata.leaveCount}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Leaves Approved</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
+                      <p className="text-xl font-black text-yellow-600">{studentMetadata.odCount}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Duty Leaves (OD)</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-colors text-center shadow-xs"
+              >
+                Close Profile Drawer
+              </button>
             </div>
           </div>
         </div>

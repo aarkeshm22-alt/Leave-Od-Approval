@@ -113,7 +113,7 @@ export const getLeaveHistory = async (req, res) => {
     const history = await Leave.find({ student: req.user.id })
       .populate({
         path: 'student',
-        select: 'firstName lastName registerNo studentType mobileNo mentorName', 
+        select: 'firstName lastName registerNo studentType mobileNo mentorName firstmentorName secondmentorName', 
       })
       .sort({ createdAt: -1 });
 
@@ -131,23 +131,40 @@ export const getLeaveHistory = async (req, res) => {
 // @route   GET /api/leaves/mentor/pending
 export const getMentorPendingLeaves = async (req, res) => {
   try {
+    // 1. Grab logged mentor document context profile
     const mentorProfile = await User.findById(req.user.id);
     if (!mentorProfile) {
       return res.status(404).json({ message: 'Mentor profile registry not found.' });
     }
 
-    const structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim() || mentorProfile.name;
+    // Clean up spaces to construct a precise identity query string
+    let structuredMentorName = "";
+    if (mentorProfile.firstName || mentorProfile.lastName) {
+      structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim().replace(/\s+/g, ' ');
+    } else {
+      structuredMentorName = mentorProfile.name ? mentorProfile.name.trim() : "";
+    }
 
+    if (!structuredMentorName) {
+      return res.status(400).json({ message: 'Mentor signature could not be verified or is unassigned.' });
+    }
+
+    // 2. Fetch pending leave tickets, filtering sub-population matching 'firstmentorName'
+    // Uses a case-insensitive regex check to bypass subtle user typing errors
     const pendingApplications = await Leave.find({ status: 'Pending' })
       .populate({
         path: 'student',
-        select: 'firstName lastName name registerNo studentType',
-        match: { mentorName: structuredMentorName } 
-      });
+        select: 'firstName lastName name registerNo studentType firstmentorName secondmentorName',
+        match: { 
+          firstmentorName: { $regex: new RegExp(`^${structuredMentorName}$`, 'i') } // 🌟 Fixed: match against firstmentorName with safe regex filter
+        } 
+      })
+      .sort({ createdAt: -1 });
 
+    // 3. Purge unmatched elements out of array map cleanly
     const filteredResults = pendingApplications.filter(item => item.student !== null);
 
-    return res.status(200).json({ success: true, data: filteredResults });
+    return res.status(200).json({ success: true, count: filteredResults.length, data: filteredResults });
   } catch (error) {
     console.error('Error fetching mentor pending queue stream:', error);
     return res.status(500).json({ message: 'Internal server pipeline runtime compilation fault.', error: error.message });
@@ -166,14 +183,44 @@ export const getHodPendingLeaves = async (req, res) => {
       statusQuery = { status: { $in: ['Approved', 'Rejected'] } };
     }
 
+    // Fetch records using the status query and populate matching student entries
     const leaves = await Leave.find(statusQuery)
-      .populate('student', 'firstName lastName name email registerNo') 
+      .populate('student', 'firstName lastName name email registerNo year section firstmentorName') 
       .sort({ updatedAt: -1 }); 
 
+    // FIXED: Changed 'data.map' to 'leaves.map' to match the database query variable above
+    const formattedLeaves = leaves.map(item => {
+      const studentObj = item.student || {};
+      
+      return {
+        _id: item._id,
+        id: item._id,
+        type: item.type || 'Leave',
+        duration: item.duration,
+        halfDaySession: item.halfDaySession,
+        fromDate: item.fromDate,
+        toDate: item.toDate,
+        reason: item.reason,
+        status: item.status,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        
+        // Relational structural mappings
+        registerNo: studentObj.registerNo || 'N/A',
+        studentName: studentObj.name || `${studentObj.firstName || ''} ${studentObj.lastName || ''}`.trim() || 'Unknown Student',
+        
+        // Fallbacks if your database records contain blank attributes
+        year: studentObj.year || 'IV Year',
+        section: studentObj.section || 'A',
+        firstMentorName: studentObj.firstmentorName || 'Dr. K. Mentor'
+      };
+    });
+
+    // FIXED: Variables now correctly reference 'formattedLeaves'
     res.status(200).json({
       success: true,
-      count: leaves.length,
-      data: leaves
+      count: formattedLeaves.length,
+      data: formattedLeaves
     });
   } catch (error) {
     res.status(500).json({
@@ -181,5 +228,34 @@ export const getHodPendingLeaves = async (req, res) => {
       message: 'Server error while fetching HOD clearance matrix queues',
       error: error.message
     });
+  }
+};
+
+// @desc    Step 1b: Mentor Review rejection execution logic (Changes status to Rejected)
+// @route   PATCH /api/leaves/:id/mentor-reject
+export const mentorReject = async (req, res) => {
+  try {
+    const leave = await Leave.findById(req.params.id);
+
+    if (!leave) {
+      return res.status(404).json({ message: 'Target leave application trace not found.' });
+    }
+
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'Document structure must be in [Pending] state to be rejected by a Mentor.' });
+    }
+
+    // 🚨 Update status to Rejected
+    leave.status = 'Rejected';
+    leave.mentorReview = {
+      approvedBy: req.user.id, // Logged in Mentor ID
+      reviewedAt: new Date(),
+      remarks: req.body.remarks || 'Rejected by Class Advisor' // Optional: captures text reasoning if provided
+    };
+
+    await leave.save();
+    res.status(200).json({ success: true, message: 'Application has been rejected by the Mentor.', data: leave });
+  } catch (error) {
+    res.status(500).json({ message: 'Error writing Level-1 operational rejection state.', error: error.message });
   }
 };
