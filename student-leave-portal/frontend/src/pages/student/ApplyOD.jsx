@@ -28,7 +28,7 @@ const ApplyOD = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [fileError, setFileError] = useState('');
   const [isApplicationApproved, setIsApplicationApproved] = useState(false);
-  
+
   // State variables synchronized to receive database tracker responses
   const [currentOdId, setCurrentOdId] = useState(null);
   const [applicationStatus, setApplicationStatus] = useState('Pending');
@@ -87,7 +87,7 @@ const ApplyOD = () => {
       ...prev,
       duration: durationValue,
       halfDaySession: durationValue === 'Half Day' ? 'Morning Session' : '',
-      toDate: durationValue === 'Half Day' ? prev.fromDate : prev.toDate 
+      toDate: durationValue === 'Half Day' ? prev.fromDate : prev.toDate
     }));
   };
 
@@ -134,7 +134,7 @@ const ApplyOD = () => {
       payload.append('collegeLocation', formData.collegeLocation);
       payload.append('reason', formData.reason);
 
-      const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', { 
+      const response = await fetch('https://leave-od-approval.onrender.com/api/od/apply-od', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -146,17 +146,33 @@ const ApplyOD = () => {
 
       if (response.ok) {
         setMessage({
-          type: 'success',
-          text: `On-Duty (${formData.duration}) data registry initialized successfully! Awaiting multi-tier approval loop actions.`
+          type: "success",
+          text: `Your On-Duty (${formData.duration}) request has been submitted successfully.\n\nRequest Status: Pending`
         });
 
         const backendId = resData?.data?._id || resData?.data?.id;
         if (backendId) {
           setCurrentOdId(backendId);
         }
-
         setApplicationStatus('Partially Approved');
         setIsApplicationApproved(true); // Locks inputs and safely unfolds upload canvas frame
+        
+        // --- CLEAR FORM DATA LOG & INPUT FIELDS HERE ---
+        setFormData({
+          type: 'On-Duty',
+          duration: 'Full Day',
+          halfDaySession: '',
+          fromDate: '',
+          toDate: '',
+          collegeName: '',
+          collegeLocation: '',
+          reason: '',
+          document: null // Clears out structural logs or reference files as well
+        });
+        
+        // Optional: If you also want to clear any validation/error traces at this point
+        setFileError('');
+
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission initialization failed.' });
       }
@@ -172,7 +188,7 @@ const ApplyOD = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 px-4">
         <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
-        <p className="text-sm font-medium text-center">Syncing secure profile architecture information...</p>
+        <p className="text-sm font-medium text-center">Loading Your profile information...</p>
       </div>
     );
   }
@@ -187,7 +203,7 @@ const ApplyOD = () => {
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight sm:text-3xl">Apply On-Duty (OD)</h2>
         <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">
-          Submit external technical academic performance credentials for institutional clearance tracking workflows.
+          Your application will automatically be set under department's <span className="font-bold underline text-blue-600">{formData.type}</span> request platform.
         </p>
       </div>
 
@@ -205,7 +221,7 @@ const ApplyOD = () => {
 
           {/* PROFILE ARCHITECTURE: Fully Responsive Layout Grid */}
           <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Verified Student Details</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Your Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
               <div className="min-w-0">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student Name</label>
@@ -216,12 +232,16 @@ const ApplyOD = () => {
                 <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold mt-1 truncate"><Hash size={15} className="text-slate-400 shrink-0" /> <span className="truncate">{profile.registerNo}</span></div>
               </div>
               <div className="min-w-0">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Mentor</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student Type</label>
+                <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold mt-1 truncate"><Hash size={15} className="text-slate-400 shrink-0" /> <span className="truncate">{profile.studentType}</span></div>
+              </div>
+              <div className="min-w-0">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned CA1</label>
                 <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold mt-1 truncate"><UserCheck size={15} className="text-slate-400 shrink-0" /> <span className="truncate">{profile.mentor}</span></div>
               </div>
               <div className="min-w-0">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Classification</label>
-                <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold mt-1 truncate"><ShieldCheck size={15} className="text-slate-400 shrink-0" /> <span className="truncate">{formData.type}</span></div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mobile Number</label>
+                <div className="flex items-center gap-2 text-sm text-slate-700 font-semibold mt-1 truncate"><ShieldCheck size={15} className="text-slate-400 shrink-0" /> <span className="truncate">{profile.mobile}</span></div>
               </div>
             </div>
           </div>
@@ -230,7 +250,7 @@ const ApplyOD = () => {
 
           {/* DURATION CONFIGURATION SECTION */}
           <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">OD Configuration</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">OD Request</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Duration Type *</label>
@@ -249,7 +269,7 @@ const ApplyOD = () => {
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Select Session *</label>
                   <div className="relative">
                     <Clock className="absolute left-4 top-3.5 text-slate-400" size={16} />
-                    <select required disabled={isApplicationApproved} value={formData.halfDaySession} onChange={(e) => setFormData({...formData, halfDaySession: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all appearance-none font-medium disabled:bg-slate-50 disabled:text-slate-400">
+                    <select required disabled={isApplicationApproved} value={formData.halfDaySession} onChange={(e) => setFormData({ ...formData, halfDaySession: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all appearance-none font-medium disabled:bg-slate-50 disabled:text-slate-400">
                       <option value="Morning Session">Morning Session (FN)</option>
                       <option value="Afternoon Session">Afternoon Session (AN)</option>
                     </select>
@@ -261,7 +281,7 @@ const ApplyOD = () => {
 
           {/* EVENTS MANAGEMENT SCHEDULE: Tablet/Desktop Grid Breakpoints */}
           <div>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Event Scheduling & Location Bounds</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Event Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InputField label={formData.duration === 'Half Day' ? "OD Date *" : "OD Starting Date *"} type="date" icon={Calendar} value={formData.fromDate} onChange={(e) => handleDateChange('fromDate', e.target.value)} required disabled={isApplicationApproved} />
               {formData.duration === 'Full Day' && (
@@ -276,10 +296,10 @@ const ApplyOD = () => {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Reason / Purpose of Event *</label>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider pl-0.5">Reason (Purpose of Event) *</label>
             <div className="relative">
               <FileText className="absolute left-4 top-3.5 text-slate-400" size={16} />
-              <textarea required rows={4} value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="Participating in the Grand Finale of Inter-University Smart Hackathon 2026..." disabled={isApplicationApproved} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed" />
+              <textarea required rows={4} value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="eg. Participating in the Grand Finale of Inter-University Smart Hackathon 2026..." disabled={isApplicationApproved} className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm text-slate-800 focus:outline-none focus:border-blue-500 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed" />
             </div>
           </div>
 
@@ -294,8 +314,8 @@ const ApplyOD = () => {
 
               {/* STATUS INDICATOR BADGE COMPONENT WITH ICONS */}
               <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full self-start sm:self-auto border transition-all ${isApplicationApproved
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-3xs'
-                  : 'bg-slate-100 text-slate-400 border-slate-200'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-3xs'
+                : 'bg-slate-100 text-slate-400 border-slate-200'
                 }`}>
                 {isApplicationApproved ? (
                   <>
@@ -322,10 +342,10 @@ const ApplyOD = () => {
                 if (e.dataTransfer.files[0]) validateAndSetImage(e.dataTransfer.files[0]);
               }}
               className={`border-2 border-dashed rounded-xl p-6 lg:p-10 text-center transition-all relative ${!isApplicationApproved
-                  ? 'border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed pointer-events-none'
-                  : dragActive
-                    ? 'border-blue-500 bg-blue-50/50 cursor-pointer shadow-inner'
-                    : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer group'
+                ? 'border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed pointer-events-none'
+                : dragActive
+                  ? 'border-blue-500 bg-blue-50/50 cursor-pointer shadow-inner'
+                  : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer group'
                 }`}
             >
               <input

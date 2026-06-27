@@ -55,7 +55,7 @@ const MyRequests = () => {
       setRequests(combinedRecords);
 
       if (!leavesResponse.ok && !odResponse.ok) {
-        setErrorMsg('Failed to completely synchronize database tracking profiles.');
+        setErrorMsg('Failed to fetch your request.');
       }
     } catch (err) {
       console.error("Database Extraction Loop Exception:", err);
@@ -76,7 +76,7 @@ const MyRequests = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-slate-400 px-4">
         <Loader2 className="animate-spin text-blue-600 mb-2" size={28} />
-        <p className="text-xs font-mono tracking-widest uppercase text-center">Synchronizing Audit Records...</p>
+        <p className="text-xs font-mono tracking-widest uppercase text-center">Loading your request...</p>
       </div>
     );
   }

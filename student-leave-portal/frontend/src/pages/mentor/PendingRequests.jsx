@@ -142,7 +142,7 @@ const PendingRequests = () => {
       }
     } catch (error) {
       console.error('State matrix transaction update fault:', error);
-      alert(error.response?.data?.message || 'Authorization error executing transactional action.');
+      alert(error.response?.data?.message || 'Authorization error...!');
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +152,7 @@ const PendingRequests = () => {
     return (
       <div className="h-64 flex flex-col items-center justify-center gap-3 text-slate-500">
         <Loader2 className="animate-spin text-blue-600" size={24} />
-        <span className="text-xs font-semibold">Reading live validation infrastructure streams...</span>
+        <span className="text-xs font-semibold">Loading Your mentes pending request...!</span>
       </div>
     );
   }
