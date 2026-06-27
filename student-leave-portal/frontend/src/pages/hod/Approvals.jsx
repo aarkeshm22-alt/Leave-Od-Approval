@@ -40,8 +40,8 @@ const Approvals = () => {
       };
 
       const [leavesResponse, odResponse] = await Promise.all([
-        axios.get(`http://localhost:5000/api/leaves/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } })),
-        axios.get(`http://localhost:5000/api/od/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } }))
+        axios.get(`https://leave-od-approval.onrender.com/api/leaves/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } })),
+        axios.get(`https://leave-od-approval.onrender.com/api/od/hod/pending?tab=${activeTab}`, configHeaders).catch(() => ({ data: { data: [] } }))
       ]);
 
       const rawLeaves = leavesResponse.data?.data || leavesResponse.data || [];

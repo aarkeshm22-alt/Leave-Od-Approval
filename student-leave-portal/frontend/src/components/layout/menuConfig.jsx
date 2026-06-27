@@ -77,10 +77,5 @@ export const hodMenu = [
     title: "Pending Approvals",
     icon: CheckSquare,
     path: "/hod/approvals",
-  },
-  {
-    title: "System Reports",
-    icon: BarChart3, 
-    path: "/hod/reports",
-  },
+  }
 ]; 
