@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Bell, Search, Sun, Moon, Menu, LogOut, UserCheck, Trash2 } from 'lucide-react'; // Imported Trash2
+import { Bell, Search, Sun, Moon, Menu, LogOut, UserCheck, Trash2 } from 'lucide-react'; 
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { AnimatePresence } from 'framer-motion';
@@ -15,7 +15,16 @@ const Topbar = ({ onMenuToggle }) => {
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim() 
     : "Loading Identity...";
 
+  // Standardize the role value coming from your auth payload
   const userRole = user?.role || "HOD";
+
+  // DYNAMIC ROUTING ENGINE: Safely maps the profile route to match folder hierarchy (hod, mentor, student)
+  const getProfileRoute = () => {
+    const roleKey = userRole.toLowerCase().trim();
+    if (roleKey === 'mentor') return '/mentor/profile';
+    if (roleKey === 'student') return '/student/profile';
+    return '/hod/profile'; // Default safe fallback
+  };
 
   const userInitials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
@@ -27,7 +36,6 @@ const Topbar = ({ onMenuToggle }) => {
     navigate('/login');
   };
 
-  // 🔥 HANDLE ACCOUNT PURGE ENGINE W/ CONFIRMATION GUARD
   const handleDeleteAccountSession = async () => {
     const userConfirmed = window.confirm(
       "CRITICAL ACTION REQUIRED:\n\nAre you absolutely sure you want to permanently delete your account? This will erase your credentials from the database and cannot be undone."
@@ -93,21 +101,23 @@ const Topbar = ({ onMenuToggle }) => {
                 <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
                 <div className="z-50 absolute right-0 mt-2.5 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 flex flex-col gap-0.5">
                   
-                  {/* View Profile Tab Link */}
-                  <Link to="/hod/profile" onClick={() => setShowDropdown(false)} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 hover:bg-slate-50 font-bold text-xs">
+                  {/* 🔄 UPDATED: Routes to /hod/profile, /mentor/profile, or /student/profile dynamically */}
+                  <Link 
+                    to={getProfileRoute()} 
+                    onClick={() => setShowDropdown(false)} 
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 hover:bg-slate-50 font-bold text-xs"
+                  >
                     <UserCheck size={14} className="text-slate-400" />
                     <span>View Institutional Profile</span>
                   </Link>
                   
                   <div className="h-px bg-slate-100 my-1 w-full" />
 
-                  {/* Terminate Session Tab Link */}
                   <button onClick={handleTerminateSession} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl w-full text-left text-slate-700 hover:bg-slate-50 font-bold text-xs">
                     <LogOut size={14} className="text-slate-400" />
                     <span>Terminate Secure Session</span>
                   </button>
 
-                  {/* 🔥 Delete Account Tab Link */}
                   <button onClick={handleDeleteAccountSession} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl w-full text-left text-red-600 hover:bg-red-50/60 font-bold text-xs">
                     <Trash2 size={14} className="text-red-400" />
                     <span>Delete Account Permanently</span>
