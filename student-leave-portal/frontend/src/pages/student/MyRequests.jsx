@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, FileText, Briefcase, RefreshCw, Upload, Clock, Calendar, MapPin, School, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
+import { useTheme } from '../../context/ThemeContext'; // adjust import path
 
 const MyRequests = () => {
+  const { darkMode } = useTheme();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -74,8 +76,8 @@ const MyRequests = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] text-slate-400 px-4">
-        <Loader2 className="animate-spin text-blue-600 mb-2" size={28} />
+      <div className={`flex flex-col items-center justify-center min-h-[300px] px-4 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+        <Loader2 className={`animate-spin ${darkMode ? 'text-blue-400' : 'text-blue-600'} mb-2`} size={28} />
         <p className="text-xs font-mono tracking-widest uppercase text-center">Loading your request...</p>
       </div>
     );
@@ -85,11 +87,17 @@ const MyRequests = () => {
   const renderTable = (dataList, sectionTitle, IconComponent, isOD = false) => {
     if (dataList.length === 0) {
       return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 text-center flex flex-col items-center justify-center shadow-xs">
-          <div className="h-9 w-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mb-2 border border-slate-200/50">
+        <div className={`border rounded-2xl p-6 md:p-8 text-center flex flex-col items-center justify-center shadow-xs transition-colors
+          ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+        >
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center mb-2 border
+            ${darkMode ? 'bg-slate-700 text-slate-400 border-slate-600' : 'bg-slate-50 text-slate-400 border-slate-200/50'}`}
+          >
             <IconComponent size={16} />
           </div>
-          <p className="text-xs font-bold text-slate-700">No {sectionTitle} logs on file</p>
+          <p className={`text-xs font-bold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+            No {sectionTitle} logs on file
+          </p>
         </div>
       );
     }
@@ -110,34 +118,44 @@ const MyRequests = () => {
             const isApproved = row.status === 'Approved';
 
             return (
-              <div key={row._id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3.5 relative overflow-hidden">
+              <div key={row._id} className={`border rounded-2xl p-4 shadow-2xs space-y-3.5 relative overflow-hidden transition-colors
+                ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+              >
                 {/* Upper Badge metadata row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] font-mono font-black text-blue-600 tracking-wider block">{studentRegNo}</span>
-                    <span className="text-sm font-bold text-slate-900 block">{studentName}</span>
+                    <span className={`text-[10px] font-mono font-black tracking-wider block ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                      {studentRegNo}
+                    </span>
+                    <span className={`text-sm font-bold block ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                      {studentName}
+                    </span>
                   </div>
                   <StatusBadge status={row.status || "Pending"} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 bg-slate-50/70 p-3 rounded-xl text-[11px] border border-slate-100">
+                <div className={`grid grid-cols-2 gap-3 p-3 rounded-xl text-[11px] border transition-colors
+                  ${darkMode ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50/70 border-slate-100'}`}
+                >
                   <div>
-                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Duration Type</span>
-                    <span className={`font-bold block mt-0.5 ${durationType === 'Half Day' ? 'text-amber-600' : 'text-slate-700'}`}>
+                    <span className={`text-[9px] uppercase font-bold tracking-wider block ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                      Duration Type
+                    </span>
+                    <span className={`font-bold block mt-0.5 ${durationType === 'Half Day' ? 'text-amber-600 dark:text-amber-400' : darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                       {durationType}
                     </span>
                     {durationType === 'Half Day' && sessionDetail && (
-                      <span className="text-[9px] text-slate-400 font-medium flex items-center gap-0.5 mt-0.5">
+                      <span className={`text-[9px] font-medium flex items-center gap-0.5 mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
                         <Clock size={9} /> {sessionDetail === 'Morning Session' ? 'Morning (FN)' : 'Afternoon (AN)'}
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">
+                    <span className={`text-[9px] uppercase font-bold tracking-wider block ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
                       {isOD ? 'OD Date' : 'Timeline Duration'}
                     </span>
-                    <span className="font-semibold text-slate-700 font-mono block mt-0.5">
+                    <span className={`font-semibold font-mono block mt-0.5 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                       {isOD && durationType === 'Half Day' ? startDateStr : (isOD ? `${startDateStr}` : `${startDateStr} - ${endDateStr}`)}
                     </span>
                   </div>
@@ -145,33 +163,42 @@ const MyRequests = () => {
 
                 {isOD && row.collegeName && (
                   <div className="text-[11px] space-y-1">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Hosting Venue</span>
-                    <div className="flex items-start gap-1 text-slate-700 font-medium">
-                      <School size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                    <span className={`text-[9px] uppercase font-bold tracking-wider block ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                      Hosting Venue
+                    </span>
+                    <div className={`flex items-start gap-1 font-medium ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                      <School size={12} className={`shrink-0 mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`} />
                       <span>{row.collegeName} <span className="text-slate-400">({row.collegeLocation || 'N/A'})</span></span>
                     </div>
                   </div>
                 )}
 
                 <div className="text-[11px] space-y-1">
-                  <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Reason Statement</span>
-                  <p className="text-slate-600 leading-relaxed font-medium break-words">{row.reason}</p>
+                  <span className={`text-[9px] uppercase font-bold tracking-wider block ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+                    Reason Statement
+                  </span>
+                  <p className={`leading-relaxed font-medium break-words ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {row.reason}
+                  </p>
                 </div>
 
                 {/* Mobile Floating Action Row */}
                 {isOD && (
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+                  <div className={`pt-2 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-end`}>
                     {isApproved ? (
                       <button
                         type="button"
                         onClick={() => navigate('/apply-od')}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                        className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer
+                          ${darkMode ? 'text-emerald-400 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-800' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'}`}
                       >
                         <Upload size={12} />
                         <span>Upload Proof Certificate</span>
                       </button>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center block w-full bg-slate-50 border border-slate-100 py-1.5 rounded-lg opacity-60">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider text-center block w-full py-1.5 rounded-lg opacity-60
+                        ${darkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-400 bg-slate-50 border-slate-100'}`}
+                      >
                         Upload Attached (Locked)
                       </span>
                     )}
@@ -185,10 +212,16 @@ const MyRequests = () => {
         {/* =========================================================================
             2. TABLE LAYOUT: Rendered on Tablet and Desktops (`hidden md:block`)
            ========================================================================= */}
-        <div className="hidden md:block bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+        <div className={`hidden md:block border rounded-2xl overflow-hidden shadow-xs transition-colors
+          ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+        >
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs divide-y divide-slate-100">
-              <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest border-b border-slate-200/50">
+            <table className={`w-full text-left text-xs divide-y transition-colors
+              ${darkMode ? 'divide-slate-700' : 'divide-slate-100'}`}
+            >
+              <thead className={`text-[10px] uppercase font-bold tracking-widest border-b transition-colors
+                ${darkMode ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200/50'}`}
+              >
                 <tr>
                   <th className="p-4 pl-6">Reg No</th>
                   <th className="p-4">Student Name</th>
@@ -201,7 +234,7 @@ const MyRequests = () => {
                   {isOD && <th className="p-4 pr-6 text-right">Actions</th>}
                 </tr>
               </thead>
-              <tbody className="text-slate-700 divide-y divide-slate-100 font-medium">
+              <tbody className={`divide-y transition-colors ${darkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
                 {dataList.map((row) => {
                   const studentRegNo = row.student?.registerNo || 'N/A';
                   const studentName = row.student ? `${row.student.name || `${row.student.firstName || ''} ${row.student.lastName || ''}`}`.trim() : 'N/A';
@@ -212,27 +245,35 @@ const MyRequests = () => {
                   const isApproved = row.status === 'Approved';
 
                   return (
-                    <tr key={row._id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 pl-6 font-mono font-bold text-blue-600">{studentRegNo}</td>
-                      <td className="p-4 font-bold text-slate-900">{studentName}</td>
+                    <tr key={row._id} className={`transition-colors ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/50'}`}>
+                      <td className={`p-4 pl-6 font-mono font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {studentRegNo}
+                      </td>
+                      <td className={`p-4 font-bold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                        {studentName}
+                      </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-0.5">
-                          <span className={`font-bold ${durationType === 'Half Day' ? 'text-amber-600' : 'text-slate-700'}`}>
+                          <span className={`font-bold ${durationType === 'Half Day' ? 'text-amber-600 dark:text-amber-400' : darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
                             {durationType}
                           </span>
                           {durationType === 'Half Day' && sessionDetail && (
-                            <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                            <span className={`text-[10px] font-medium flex items-center gap-1 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>
                               <Clock size={10} className="shrink-0" />
                               {sessionDetail === 'Morning Session' ? 'Morning (FN)' : 'Afternoon (AN)'}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-slate-600 font-mono">{startDateStr}</td>
-                      {!isOD && <td className="p-4 text-slate-600 font-mono">{endDateStr}</td>}
-                      <td className="p-4 text-slate-500 max-w-xs truncate" title={row.reason}>{row.reason}</td>
+                      <td className={`p-4 font-mono ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                        {startDateStr}
+                      </td>
+                      {!isOD && <td className={`p-4 font-mono ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>{endDateStr}</td>}
+                      <td className={`p-4 max-w-xs truncate ${darkMode ? 'text-slate-300' : 'text-slate-500'}`} title={row.reason}>
+                        {row.reason}
+                      </td>
                       {isOD && (
-                        <td className="p-4 text-slate-700 font-semibold max-w-xs truncate" title={`${row.collegeName || ''}, ${row.collegeLocation || ''}`}>
+                        <td className={`p-4 font-semibold max-w-xs truncate ${darkMode ? 'text-slate-200' : 'text-slate-700'}`} title={`${row.collegeName || ''}, ${row.collegeLocation || ''}`}>
                           {row.collegeName ? `${row.collegeName} (${row.collegeLocation || 'N/A'})` : 'N/A'}
                         </td>
                       )}
@@ -245,13 +286,16 @@ const MyRequests = () => {
                             <button
                               type="button"
                               onClick={() => navigate('/apply-od')}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer
+                                ${darkMode ? 'text-emerald-400 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-800' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'}`}
                             >
                               <Upload size={12} />
                               <span>Upload Proof</span>
                             </button>
                           ) : (
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider select-none bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg opacity-60">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider select-none px-2.5 py-1 rounded-lg opacity-60
+                              ${darkMode ? 'text-slate-400 bg-slate-700 border-slate-600' : 'text-slate-400 bg-slate-50 border-slate-100'}`}
+                            >
                               Locked
                             </span>
                           )}
@@ -269,16 +313,28 @@ const MyRequests = () => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 p-1 sm:p-3 md:p-6 max-w-7xl mx-auto antialiased">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={`space-y-8 p-1 sm:p-3 md:p-6 max-w-7xl mx-auto antialiased transition-colors
+        ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-[#F8FAFC] text-slate-900'}`}
+    >
       {/* HEADER SECTION LAYOUT */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5 transition-colors
+        ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}
+      >
         <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Absence Audit Registry Logs</h2>
-          <p className="text-xs text-slate-500 font-medium">Track and monitor your personal leave requests and technical on-duty institutional profiles.</p>
+          <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+            Absence Audit Registry Logs
+          </h2>
+          <p className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            Track and monitor your personal leave requests and technical on-duty institutional profiles.
+          </p>
         </div>
-        <button 
+        <button
           onClick={fetchAllStudentLogs}
-          className="inline-flex items-center justify-center gap-1.5 self-stretch sm:self-center text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2 sm:py-1.5 rounded-xl transition-all shadow-2xs active:scale-[0.98]"
+          className={`inline-flex items-center justify-center gap-1.5 self-stretch sm:self-center text-xs font-bold px-4 py-2 sm:py-1.5 rounded-xl transition-all shadow-2xs active:scale-[0.98]
+            ${darkMode ? 'text-slate-300 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 border-slate-600' : 'text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border-slate-200'}`}
         >
           <RefreshCw size={12} />
           <span>Sync Records</span>
@@ -286,7 +342,9 @@ const MyRequests = () => {
       </div>
 
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2 shadow-2xs">
+        <div className={`p-4 text-xs font-bold rounded-xl flex items-center gap-2 shadow-2xs
+          ${darkMode ? 'bg-rose-900/30 border border-rose-800 text-rose-300' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}
+        >
           <AlertCircle size={14} className="shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -295,8 +353,10 @@ const MyRequests = () => {
       {/* SECTION 1: LEAVE REQUESTS STREAM */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
-          <FileText size={16} className="text-blue-600" />
-          <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider">Leave Allocation History</h3>
+          <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+          <h3 className={`text-xs sm:text-sm font-black uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+            Leave Allocation History
+          </h3>
         </div>
         {renderTable(leaveRequests, "Leave Application", FileText, false)}
       </div>
@@ -304,8 +364,10 @@ const MyRequests = () => {
       {/* SECTION 2: ON-DUTY (OD) REQUESTS STREAM */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
-          <Briefcase size={16} className="text-amber-600" />
-          <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider">On-Duty (OD) Verification History</h3>
+          <Briefcase size={16} className="text-amber-600 dark:text-amber-400" />
+          <h3 className={`text-xs sm:text-sm font-black uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+            On-Duty (OD) Verification History
+          </h3>
         </div>
         {renderTable(odRequests, "On-Duty (OD)", Briefcase, true)}
       </div>
