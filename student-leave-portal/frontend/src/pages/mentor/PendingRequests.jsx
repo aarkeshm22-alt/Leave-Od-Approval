@@ -39,8 +39,8 @@ const PendingRequests = () => {
 
       // Extract records in parallel streams
       const [leavesResponse, odResponse] = await Promise.all([
-        axios.get('/api/leaves/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true })),
-        axios.get('/api/od/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true }))
+        axios.get('https://leave-od-approval.onrender.com/api/leaves/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true })),
+        axios.get('https://leave-od-approval.onrender.com/api/od/mentor/pending', configHeaders).catch(err => ({ data: [], isError: true }))
       ]);
 
       // 💻 BROWSER CONSOLE RUNTIME DIAGNOSTIC PRINTS

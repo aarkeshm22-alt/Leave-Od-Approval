@@ -1,18 +1,12 @@
-import User from '../models/User.js'; // Adjust paths as per your project setup
-import Leave from '../models/Leave.js';
-import OnDuty from '../models/OnDuty.js'; // 🌟 Added import for your separate OnDuty model
 import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
   try {
-    // 1. Fetch the logged-in mentor's profile to extract their exact string name field
-    const mentorProfile = await User.findById(req.user.id);
-
+    const mentorProfile = await User.findById(req.user._id);
     if (!mentorProfile) {
       return res.status(404).json({ message: 'Mentor profile registry not found.' });
     }
 
-    // Safely structure the mentor name string to avoid unexpected spacer alignment gaps
     let structuredMentorName = "";
     if (mentorProfile.firstName || mentorProfile.lastName) {
       structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim().replace(/\s+/g, ' ');
@@ -24,77 +18,97 @@ export const getMyStudents = async (req, res) => {
       return res.status(400).json({ message: 'Mentor identity string signature is unassigned or incomplete.' });
     }
 
-    // 2. Query the user collection: filter students where logged user name equals firstmentorName
     const students = await User.find({
       role: 'Student',
       firstmentorName: structuredMentorName
     }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
 
-    // 3. Loop through matched students to compute their active Leave and OD duration metrics
-    // 3. Loop through matched students to compute their active Leave and OD duration metrics
-    const updatedStudentArray = await Promise.all(students.map(async (student) => {
+    console.log(`[Mentor] Found ${students.length} students for mentor "${structuredMentorName}"`);
 
-      // Calculate approved leave counts...
+    const updatedStudentArray = await Promise.all(students.map(async (student) => {
+      console.log(`[Mentor] Processing student: ${student.registerNo} (ID: ${student._id})`);
+
+      // --- Leave & OD counts (unchanged) ---
       const leaveAgg = await Leave.aggregate([
         { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
-        {
-          $project: {
-            days: {
-              $add: [
-                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
-                1
-              ]
-            }
-          }
-        },
+        { $project: { days: { $add: [ { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000*60*60*24] }, 1 ] } } },
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
-      // Calculate approved OD counts...
       const odAgg = await OnDuty.aggregate([
         { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
-        {
-          $project: {
-            days: {
-              $add: [
-                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
-                1
-              ]
-            }
-          }
-        },
+        { $project: { days: { $add: [ { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000*60*60*24] }, 1 ] } } },
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
-      // 🌟 FIX: Force explicit cast to a real MongoDB ObjectId to ensure index matching hits correctly
-      const targetStudentObjectId = new mongoose.Types.ObjectId(student._id.toString());
+      // --- 🔍 DOCUMENT FETCHING WITH EXTENSIVE LOGGING ---
+      let latestODWithDoc = null;
 
-      // Query the separate onDuty collection targeting the casted object reference
-      const latestODWithDoc = await OnDuty.findOne({
-        student: targetStudentObjectId,
-        document: { $exists: true, $ne: null, $ne: "" } // Ensures text length is valid
+      // 1. Try direct ObjectId match
+      console.log(`[Mentor]   Attempting ObjectId match with student._id: ${student._id}`);
+      let found = await OnDuty.findOne({
+        student: student._id,
+        document: { $exists: true, $ne: null, $ne: "" }
       })
-        .sort({ createdAt: -1, fromDate: -1 }) // Get the absolute latest entry
-        .select('document');
+      .sort({ createdAt: -1 })
+      .select('document')
+      .lean();
 
-      // Convert the mongoose document into a plain JSON object
+      if (found) {
+        console.log(`[Mentor]   ✅ Found document with ObjectId match`);
+        latestODWithDoc = found;
+      } else {
+        // 2. Try string match (convert ObjectId to string)
+        const idString = student._id.toString();
+        console.log(`[Mentor]   Attempting string match with: "${idString}"`);
+        found = await OnDuty.findOne({
+          student: idString,
+          document: { $exists: true, $ne: null, $ne: "" }
+        })
+        .sort({ createdAt: -1 })
+        .select('document')
+        .lean();
+
+        if (found) {
+          console.log(`[Mentor]   ✅ Found document with string match`);
+          latestODWithDoc = found;
+        } else {
+          // 3. Fallback: try matching by registerNo (if the field exists in OnDuty)
+          console.log(`[Mentor]   Attempting registerNo match: ${student.registerNo}`);
+          found = await OnDuty.findOne({
+            registerNo: student.registerNo,
+            document: { $exists: true, $ne: null, $ne: "" }
+          })
+          .sort({ createdAt: -1 })
+          .select('document')
+          .lean();
+
+          if (found) {
+            console.log(`[Mentor]   ✅ Found document with registerNo match`);
+            latestODWithDoc = found;
+          }
+        }
+      }
+
+      if (!latestODWithDoc) {
+        console.log(`[Mentor]   ❌ No document found for student ${student.registerNo}`);
+      }
+
       const studentObject = student.toObject();
-
       return {
         ...studentObject,
         leaveCount: leaveAgg[0]?.totalDays || 0,
         odCount: odAgg[0]?.totalDays || 0,
-        // Safely apply fallback formatting check
         document: latestODWithDoc ? latestODWithDoc.document : null
       };
     }));
-    // Return the response package to feed into your StudentList.jsx layout table
+
     return res.status(200).json({ success: true, count: updatedStudentArray.length, data: updatedStudentArray });
 
   } catch (error) {
-    console.error('Mentor extraction execution string-loop failure:', error);
+    console.error('[Mentor] Error:', error);
     return res.status(500).json({
-      message: 'Error compiling assigned student matrices via string lookup parameters.',
+      message: 'Error compiling assigned student matrices.',
       error: error.message
     });
   }
