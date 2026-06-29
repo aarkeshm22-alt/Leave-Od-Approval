@@ -1,3 +1,6 @@
+import User from '../models/User.js';
+import Leave from '../models/Leave.js';
+import OnDuty from '../models/OnDuty.js';
 import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
@@ -28,23 +31,42 @@ export const getMyStudents = async (req, res) => {
     const updatedStudentArray = await Promise.all(students.map(async (student) => {
       console.log(`[Mentor] Processing student: ${student.registerNo} (ID: ${student._id})`);
 
-      // --- Leave & OD counts (unchanged) ---
+      // --- Leave count ---
       const leaveAgg = await Leave.aggregate([
         { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
-        { $project: { days: { $add: [ { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000*60*60*24] }, 1 ] } } },
+        {
+          $project: {
+            days: {
+              $add: [
+                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
+                1
+              ]
+            }
+          }
+        },
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
+      // --- OD count ---
       const odAgg = await OnDuty.aggregate([
         { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
-        { $project: { days: { $add: [ { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000*60*60*24] }, 1 ] } } },
+        {
+          $project: {
+            days: {
+              $add: [
+                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
+                1
+              ]
+            }
+          }
+        },
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
-      // --- 🔍 DOCUMENT FETCHING WITH EXTENSIVE LOGGING ---
+      // --- Document fetching with multiple attempts ---
       let latestODWithDoc = null;
 
-      // 1. Try direct ObjectId match
+      // 1. Try ObjectId match
       console.log(`[Mentor]   Attempting ObjectId match with student._id: ${student._id}`);
       let found = await OnDuty.findOne({
         student: student._id,
@@ -58,7 +80,7 @@ export const getMyStudents = async (req, res) => {
         console.log(`[Mentor]   ✅ Found document with ObjectId match`);
         latestODWithDoc = found;
       } else {
-        // 2. Try string match (convert ObjectId to string)
+        // 2. Try string match
         const idString = student._id.toString();
         console.log(`[Mentor]   Attempting string match with: "${idString}"`);
         found = await OnDuty.findOne({
@@ -73,7 +95,7 @@ export const getMyStudents = async (req, res) => {
           console.log(`[Mentor]   ✅ Found document with string match`);
           latestODWithDoc = found;
         } else {
-          // 3. Fallback: try matching by registerNo (if the field exists in OnDuty)
+          // 3. Try registerNo fallback (if the field exists)
           console.log(`[Mentor]   Attempting registerNo match: ${student.registerNo}`);
           found = await OnDuty.findOne({
             registerNo: student.registerNo,
