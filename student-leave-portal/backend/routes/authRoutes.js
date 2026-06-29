@@ -164,7 +164,6 @@ router.route('/users/profile')
         // ✨ FIXED EXTENSIONS:
         firstmentorName: user.firstmentorName || 'Not Assigned',
         secondmentorName: user.secondmentorName || 'Not Assigned',
-        document: user.document || "Not Uploaded",
         // Fixed typo here
         hodName: user.hodName || 'Not Assigned', // Added safe fallback
         category: user.category,
