@@ -1,6 +1,6 @@
-import User from '../models/user.js'; // Adjust paths as per your project setup
-import Leave from '../models/leave.js';
-import OnDuty from '../models/onDuty.js'; // 🌟 Added import for your separate OnDuty model
+import User from '../models/User.js'; // Adjust paths as per your project setup
+import Leave from '../models/Leave.js';
+import OnDuty from '../models/OnDuty.js'; // 🌟 Added import for your separate OnDuty model
 import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
