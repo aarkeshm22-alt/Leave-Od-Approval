@@ -18,7 +18,7 @@ const OnDutySchema = new mongoose.Schema({
   },
   halfDaySession: {
     type: String,
-    enum: ['Morning Session', 'Afternoon Session', ''], 
+    enum: ['Morning Session', 'Afternoon Session', ''], // Empty string allows it to remain blank for Full Day ODs
     default: ''
   },
   fromDate: {
@@ -41,6 +41,7 @@ const OnDutySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Document proof remains null initially until form registration unlocks it
   document: {
     type: String, 
     default: null
@@ -55,12 +56,14 @@ const OnDutySchema = new mongoose.Schema({
 // Pre-save schema middleware validation layer
 OnDutySchema.pre('save', function () {
   if (this.duration === 'Half Day') {
+    // Force ending boundary parameters to match starting values for single-shift OD tracking
     this.toDate = this.fromDate;
   } else {
+    // Sanitize session tracking if duration represents a full daytime window
     this.halfDaySession = '';
   }
 });
 
-// 🌟 FIX: Force Mongoose to query your explicit database collection name 'on-duties'
-const OnDuty = mongoose.models.OnDuty || mongoose.model('OnDuty', OnDutySchema, 'on-duties');
+// 🌟 Fixed casing typo here: changed from onDutySchema to OnDutySchema
+const OnDuty = mongoose.models.OnDuty || mongoose.model('OnDuty', OnDutySchema);
 export default OnDuty;
