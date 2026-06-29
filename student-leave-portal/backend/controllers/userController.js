@@ -25,12 +25,14 @@ export const getAllMentors = async (req, res) => {
 };
 
 // 3. Sample controller to pull complete student profiles
-export const getAllStudents = async (req, res) => {
+// Check your auth or user controller (e.g., getStudentProfile)
+export const getStudentProfile = async (req, res) => {
   try {
-    const allStudents = await User.find({ role: 'Student' }).select('-password');
-    res.status(200).json({ success: true, data: allStudents });
+    // 🫵 FIX THIS ONE TOO! Ensure it doesn't have mixed selection statements.
+    const user = await User.findById(req.user.id).select('-password');
+    res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 

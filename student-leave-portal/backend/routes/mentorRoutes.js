@@ -7,4 +7,4 @@ const router = express.Router();
 // Protects the route, ensuring only users logged in as a 'Mentor' can query this student list
 router.get('/my-students', protect, authorize('Mentor'), getMyStudents);
 
-export default router;
+export default router; 

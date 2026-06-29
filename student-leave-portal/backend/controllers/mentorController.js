@@ -1,13 +1,13 @@
-import User from '../models/User.js';
-import Leave from '../models/Leave.js';
+import User from '../models/user.js'; // Adjust paths as per your project setup
+import Leave from '../models/leave.js';
+import OnDuty from '../models/onDuty.js'; // 🌟 Added import for your separate OnDuty model
+import mongoose from 'mongoose';
 
-// @desc    Fetch students matching the logged-in mentor's name against firstmentorName with calculated Leave and OD aggregates
-// @route   GET /api/mentor/my-students
 export const getMyStudents = async (req, res) => {
   try {
     // 1. Fetch the logged-in mentor's profile to extract their exact string name field
     const mentorProfile = await User.findById(req.user.id);
-    
+
     if (!mentorProfile) {
       return res.status(404).json({ message: 'Mentor profile registry not found.' });
     }
@@ -25,15 +25,16 @@ export const getMyStudents = async (req, res) => {
     }
 
     // 2. Query the user collection: filter students where logged user name equals firstmentorName
-    const students = await User.find({ 
-      role: 'Student', 
-      firstmentorName: structuredMentorName // 🌟 Fixed: Updated from mentorName to firstmentorName
+    const students = await User.find({
+      role: 'Student',
+      firstmentorName: structuredMentorName
     }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
 
     // 3. Loop through matched students to compute their active Leave and OD duration metrics
+    // 3. Loop through matched students to compute their active Leave and OD duration metrics
     const updatedStudentArray = await Promise.all(students.map(async (student) => {
-      
-      // Calculate approved leave counts (Total number of days taken)
+
+      // Calculate approved leave counts...
       const leaveAgg = await Leave.aggregate([
         { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
         {
@@ -49,8 +50,8 @@ export const getMyStudents = async (req, res) => {
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
-      // Calculate approved approved OD counts (Total number of institutional days taken)
-      const odAgg = await Leave.aggregate([
+      // Calculate approved OD counts...
+      const odAgg = await OnDuty.aggregate([
         { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
         {
           $project: {
@@ -65,22 +66,36 @@ export const getMyStudents = async (req, res) => {
         { $group: { _id: null, totalDays: { $sum: "$days" } } }
       ]);
 
+      // 🌟 FIX: Force explicit cast to a real MongoDB ObjectId to ensure index matching hits correctly
+      const targetStudentObjectId = new mongoose.Types.ObjectId(student._id.toString());
+
+      // Query the separate onDuty collection targeting the casted object reference
+      const latestODWithDoc = await OnDuty.findOne({
+        student: targetStudentObjectId,
+        document: { $exists: true, $ne: null, $ne: "" } // Ensures text length is valid
+      })
+        .sort({ createdAt: -1, fromDate: -1 }) // Get the absolute latest entry
+        .select('document');
+
+      // Convert the mongoose document into a plain JSON object
+      const studentObject = student.toObject();
+
       return {
-        ...student._doc,
-        // Fallback to 0 if the student doesn't have any approved records yet
+        ...studentObject,
         leaveCount: leaveAgg[0]?.totalDays || 0,
-        odCount: odAgg[0]?.totalDays || 0
+        odCount: odAgg[0]?.totalDays || 0,
+        // Safely apply fallback formatting check
+        document: latestODWithDoc ? latestODWithDoc.document : null
       };
     }));
-
     // Return the response package to feed into your StudentList.jsx layout table
     return res.status(200).json({ success: true, count: updatedStudentArray.length, data: updatedStudentArray });
-    
+
   } catch (error) {
     console.error('Mentor extraction execution string-loop failure:', error);
-    return res.status(500).json({ 
-      message: 'Error compiling assigned student matrices via string lookup parameters.', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error compiling assigned student matrices via string lookup parameters.',
+      error: error.message
     });
   }
 };

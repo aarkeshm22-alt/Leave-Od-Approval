@@ -64,4 +64,6 @@ OnDutySchema.pre('save', function () {
   }
 });
 
-export default mongoose.model('OnDuty', OnDutySchema);
+// 🌟 Fixed casing typo here: changed from onDutySchema to OnDutySchema
+const OnDuty = mongoose.models.OnDuty || mongoose.model('OnDuty', OnDutySchema);
+export default OnDuty;

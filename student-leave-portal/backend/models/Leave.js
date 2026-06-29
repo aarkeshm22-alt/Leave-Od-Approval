@@ -54,5 +54,5 @@ leaveSchema.pre('save', function () {
   
 });
 
-const Leave = mongoose.model('Leave', leaveSchema);
+const Leave = mongoose.models.Leave || mongoose.model('Leave', leaveSchema);
 export default Leave;

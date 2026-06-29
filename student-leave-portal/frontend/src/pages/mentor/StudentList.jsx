@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertCircle, Users, User, ShieldCheck, Phone, Mail, Hash, Calendar, X, Eye, User2 } from 'lucide-react';
+import { Loader2, AlertCircle, Users, User, ShieldCheck, Phone, Hash, Calendar, X, Eye, User2 } from 'lucide-react';
 
 const StudentList = () => {
   const [students, setStudents] = useState([]);
@@ -54,6 +54,33 @@ const StudentList = () => {
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
     setIsDrawerOpen(true);
+  };
+
+  // ✨ HELPER: Opens raw Base64 data URI text formats safely in an isolated browser layout context tab
+  const handleViewDocument = (base64Data) => {
+    if (!base64Data) return;
+    
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.body.style.margin = '0';
+      newTab.document.body.style.display = 'flex';
+      newTab.document.body.style.justifyContent = 'center';
+      newTab.document.body.style.alignItems = 'center';
+      newTab.document.body.style.backgroundColor = '#0f172a'; // Dark theme slate-900 background
+      
+      const img = newTab.document.createElement('img');
+      img.src = base64Data;
+      img.style.maxWidth = '95%';
+      img.style.maxHeight = '95vh';
+      img.style.objectFit = 'contain';
+      img.style.borderRadius = '8px';
+      img.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.5)';
+      
+      newTab.document.body.appendChild(img);
+      newTab.document.title = "Student Uploaded Certificate Proof";
+    } else {
+      alert("Pop-up blocked! Please allow pop-ups for this domain to inspect document attachments.");
+    }
   };
 
   if (loading) {
@@ -130,7 +157,7 @@ const StudentList = () => {
                   {/* Trigger call module row */}
                   <button
                     onClick={() => openProfileDrawer(st)}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-slate-900 active:bg-blue-600 text-white font-bold rounded-xl transition-colors shadow-2xs"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-slate-900 active:bg-blue-600 text-white font-bold rounded-xl transition-colors shadow-2xs cursor-pointer"
                   >
                     <Eye size={14} />
                     <span>View Student Profile</span>
@@ -180,7 +207,7 @@ const StudentList = () => {
                         <td className="p-4 pr-6 text-right">
                           <button
                             onClick={() => openProfileDrawer(st)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-900 hover:bg-blue-600 text-white rounded-xl transition-all shadow-xs group font-semibold"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-900 hover:bg-blue-600 text-white rounded-xl transition-all shadow-xs group font-semibold cursor-pointer"
                           >
                             <Eye size={13} className="transition-transform group-hover:scale-110" />
                             <span>View Profile</span>
@@ -197,7 +224,7 @@ const StudentList = () => {
         </div>
       )}
 
-      {/* 🚀 ANIMATED SLIDE PROFILE DRAWER SYSTEM (Responsive adaptation built-in) */}
+      {/* 🚀 ANIMATED SLIDE PROFILE DRAWER SYSTEM */}
       <AnimatePresence>
         {isDrawerOpen && selectedStudent && (
           <>
@@ -210,7 +237,7 @@ const StudentList = () => {
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50"
             />
 
-            {/* Dynamic Drawer Sheet panel layout (w-full max-w-md on desktop, complete fullscreen on mobile viewport bounds) */}
+            {/* Dynamic Drawer Sheet panel layout */}
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -224,7 +251,7 @@ const StudentList = () => {
                 </div>
                 <button 
                   onClick={() => setIsDrawerOpen(false)}
-                  className="h-8 w-8 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border border-slate-200/60 rounded-lg flex items-center justify-center transition-colors"
+                  className="h-8 w-8 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 border border-slate-200/60 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -271,6 +298,22 @@ const StudentList = () => {
                     <span className="text-slate-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> Class Advisor 2</span>
                     <span className="font-semibold text-slate-700 truncate text-right">{selectedStudent.secondmentorName || 'Assigned to Self'}</span>
                   </div>
+
+                  {/* ⚡ ATTACHED PROOF INSPECTION GRID BLOCK NODE */}
+                  {selectedStudent.document && (
+                    <div className="bg-white border border-indigo-100 rounded-xl p-3 flex items-center justify-between gap-4 text-xs shadow-xs">
+                      <span className="text-indigo-600 font-bold flex items-center gap-1.5 shrink-0">
+                        <Eye size={14} /> Uploaded OD Proof
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleViewDocument(selectedStudent.document)}
+                        className="text-[11px] font-black tracking-tight bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                      >
+                        View Certificate
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Aggregation metrics logs preview summary banner */}
