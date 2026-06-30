@@ -99,3 +99,38 @@ export const getMyStudents = async (req, res) => {
     });
   }
 };
+
+export const getMentorsWithStudents = async (req, res) => {
+  try {
+    // Find all users with role 'Mentor' (or 'Faculty')
+    const mentors = await User.find({ 
+      role: { $in: ['Mentor', 'Faculty'] } 
+    }).select('firstName lastName name email mobileNo role category department');
+
+    // For each mentor, get student count and also the documents? No, we only need count at this stage.
+    // We'll compute counts by querying the students collection.
+    const mentorData = await Promise.all(mentors.map(async (mentor) => {
+      const mentorName = mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
+      
+      // Count students for this mentor (both first and second)
+      const studentCount = await User.countDocuments({
+        role: 'Student',
+        $or: [
+          { firstmentorName: mentorName },
+          { secondmentorName: mentorName }
+        ]
+      });
+
+      return {
+        ...mentor.toObject(),
+        studentCount,
+        mentorName
+      };
+    }));
+
+    res.status(200).json({ success: true, data: mentorData });
+  } catch (error) {
+    console.error('Error fetching mentors with students:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

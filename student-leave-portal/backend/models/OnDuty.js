@@ -42,7 +42,7 @@ const OnDutySchema = new mongoose.Schema({
     required: true
   },
   // Document proof remains null initially until form registration unlocks it
-  document: {
+  certificate: {
     type: String, 
     default: null
   },

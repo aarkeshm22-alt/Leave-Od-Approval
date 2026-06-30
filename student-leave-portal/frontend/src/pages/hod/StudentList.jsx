@@ -6,89 +6,67 @@ import axios from 'axios';
 const StudentList = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // 🚀 MATRIX FILTERING & SEARCH STATES
   const [activeYear, setActiveYear] = useState('ALL');
   const [activeSection, setActiveSection] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Profile modal drawer tracking states
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [loadingProfileDetails, setLoadingProfileDetails] = useState(false);
-  const [studentMetadata, setStudentMetadata] = useState({ leaveCount: 0, odCount: 0 });
 
   useEffect(() => {
-  const fetchGlobalStudentsRegistry = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      const cleanToken = token ? token.replace(/"/g, '').trim() : '';
+    const fetchAllStudents = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
-      // 🌟 CHANGED: Route mapped to your active, refactored endpoint
-      const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
-        headers: {
-          'Authorization': `Bearer ${cleanToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+        // 🔥 No mentorName parameter → returns all students
+        const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      // 🌟 UPDATED: Read from response.data.data directly matching our backend response shape
-      const receivedStudents = response.data.data || response.data || [];
-      
-      console.log("👉 INSPECT ALL RECEIVED MENTOR STUDENTS:", receivedStudents);
-      
-      // Since our new backend endpoint already filters by role: 'Student', 
-      // we can set the array directly with fallback safety validation
-      setStudents(Array.isArray(receivedStudents) ? receivedStudents : []);
-      
-    } catch (error) {
-      console.error('Failed retrieving mentor student allocation matrix records:', error);
-      setStudents([]); // Fail safely to prevent app rendering breaks
-    } finally {
-      setLoading(false);
-    }
-  };
+        const receivedStudents = response.data.data || [];
+        console.log('✅ Loaded students:', receivedStudents.length);
+        setStudents(receivedStudents);
+      } catch (error) {
+        console.error('Failed fetching student registry:', error);
+        setStudents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchGlobalStudentsRegistry();
-}, []);
+    fetchAllStudents();
+  }, []);
 
-  // 🚀 HELPER: Clean up section names (e.g., "SECTION B" -> "B")
+  // Helper functions for filtering
   const normalizeSection = (sectionValue) => {
     if (!sectionValue) return 'UNKNOWN';
     return sectionValue.toString().trim().toUpperCase().replace('SECTION', '').trim();
   };
 
-  // 🚀 HELPER: Clean up year values to a uniform capitalized string (e.g., 3 -> "3", "3rd" -> "3RD")
   const normalizeYear = (yearValue) => {
     if (!yearValue) return 'UNKNOWN';
     return yearValue.toString().trim().toUpperCase().replace('YEAR', '').trim();
   };
 
-  // 🚀 DYNAMIC ACADEMIC YEAR GENERATOR: Reads whatever values exist in your DB records
+  // Dynamic filter options
   const dynamicYearsArray = ['ALL', ...new Set(
-    students
-      .map(s => normalizeYear(s.year || s.yr))
-      .filter(Boolean)
-      .sort()
+    students.map(s => normalizeYear(s.year || s.yr)).filter(Boolean).sort()
   )];
 
-  // 🚀 DYNAMIC SECTION GENERATOR: Reads whatever sections exist in your DB records
   const dynamicSectionsArray = ['ALL', ...new Set(
-    students
-      .map(s => normalizeSection(s.section || s.sec))
-      .filter(Boolean)
-      .sort()
+    students.map(s => normalizeSection(s.section || s.sec)).filter(Boolean).sort()
   )];
 
-  // 🚀 FILTER & SEARCH MATCH ENGINE
+  // Filtered students
   const filteredStudentsMatrix = students.filter(student => {
     const studentYear = normalizeYear(student.year || student.yr);
     const studentSection = normalizeSection(student.section || student.sec);
-
     const matchesYear = activeYear === 'ALL' || studentYear === activeYear;
     const matchesSection = activeSection === 'ALL' || studentSection === activeSection;
 
-    // Search Engine Matrix Logic Matching
     const studentName = (student.name || `${student.firstName || ''} ${student.lastName || ''}`).toLowerCase();
     const regNo = (student.registerNo || student.id || '').toLowerCase();
     const cleanQuery = searchQuery.toLowerCase().trim();
@@ -97,43 +75,27 @@ const StudentList = () => {
     return matchesYear && matchesSection && matchesSearch;
   });
 
-  const handleViewStudentProfile = async (student) => {
-    setSelectedStudent(student);
-    setLoadingProfileDetails(true);
-    try {
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      const cleanToken = token ? token.replace(/"/g, '').trim() : '';
-
-      const mentorLookupName = student.firstmentorName || student.secondmentorName || '';
-
-      const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
-        params: {
-          mentorName: mentorLookupName,
-          category: 'CA1'
-        },
-        headers: {
-          'Authorization': `Bearer ${cleanToken}`,
-          'Content-Type': 'application/json',
-          'x-mentor-name': mentorLookupName, 
-          'x-category': 'CA1'          
-        }
-      });
-
-      const matchedList = response.data.data || response.data || [];
-      const accurateRow = matchedList.find(s => s._id === student._id);
-
-      if (accurateRow) {
-        setStudentMetadata({
-          leaveCount: accurateRow.leaveCount || 0,
-          odCount: accurateRow.odCount || 0
-        });
-      } else {
-        setStudentMetadata({ leaveCount: student.leaveCount || 0, odCount: student.odCount || 0 });
-      }
-    } catch (err) {
-      setStudentMetadata({ leaveCount: student.leaveCount || 0, odCount: student.odCount || 0 });
-    } finally {
-      setLoadingProfileDetails(false);
+  // View document in new tab
+  const handleViewDocument = (base64Data) => {
+    if (!base64Data) return;
+    const newTab = window.open();
+    if (newTab) {
+      newTab.document.body.style.margin = '0';
+      newTab.document.body.style.display = 'flex';
+      newTab.document.body.style.justifyContent = 'center';
+      newTab.document.body.style.alignItems = 'center';
+      newTab.document.body.style.backgroundColor = '#f1f5f9';
+      const img = newTab.document.createElement('img');
+      img.src = base64Data;
+      img.style.maxWidth = '95%';
+      img.style.maxHeight = '95vh';
+      img.style.objectFit = 'contain';
+      img.style.borderRadius = '8px';
+      img.style.boxShadow = '0 10px 40px rgba(0,0,0,0.4)';
+      newTab.document.body.appendChild(img);
+      newTab.document.title = "Student Certificate";
+    } else {
+      alert("Pop-up blocked! Please allow pop-ups.");
     }
   };
 
@@ -148,16 +110,13 @@ const StudentList = () => {
 
   return (
     <div className="space-y-6 font-sans pb-12 selection:bg-blue-100 relative">
-
-      {/* 1. Header Control Block */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">All Registered Student Details</h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Filter student information blocks across standard institutional configurations.</p>
         </div>
-
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-          {/* 🌟 NEW: Live Text Search Input Element */}
           <div className="relative w-full sm:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
               <Search size={14} />
@@ -170,7 +129,6 @@ const StudentList = () => {
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 focus:border-slate-400 focus:outline-none text-xs rounded-xl shadow-2xs font-medium text-slate-800 transition-colors"
             />
           </div>
-
           <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-2 shrink-0">
             <GraduationCap size={15} className="text-slate-400" />
             <span className="text-xs font-bold text-slate-700">{filteredStudentsMatrix.length} Displayed</span>
@@ -178,10 +136,8 @@ const StudentList = () => {
         </div>
       </div>
 
-      {/* 2. DYNAMIC GENERATED FILTER PANEL */}
+      {/* Filters */}
       <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-2xs space-y-4">
-
-        {/* Row A: Academic Years */}
         <div className="space-y-1.5">
           <label className="text-[10px] uppercase font-black tracking-wider text-slate-400">Academic Year Filter</label>
           <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl w-max border border-slate-200/40">
@@ -190,10 +146,11 @@ const StudentList = () => {
                 key={yearKey}
                 type="button"
                 onClick={() => setActiveYear(yearKey)}
-                className={`px-4 py-1.5 text-xs font-black tracking-tight rounded-lg transition-all duration-150 ${activeYear === yearKey
-                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                  }`}
+                className={`px-4 py-1.5 text-xs font-black tracking-tight rounded-lg transition-all duration-150 ${
+                  activeYear === yearKey
+                    ? 'bg-white text-blue-600 shadow-xs border border-slate-200/20'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
               >
                 <span className="flex items-center gap-1.5 font-bold">
                   {yearKey === 'ALL' ? (
@@ -213,7 +170,6 @@ const StudentList = () => {
           </div>
         </div>
 
-        {/* Row B: Section Displays */}
         <div className="space-y-1.5 pt-2 border-t border-slate-100">
           <label className="text-[10px] uppercase font-black tracking-wider text-slate-400">Section Selection Matrix</label>
           <div className="flex flex-wrap gap-1">
@@ -222,10 +178,11 @@ const StudentList = () => {
                 key={secKey}
                 type="button"
                 onClick={() => setActiveSection(secKey)}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all border ${activeSection === secKey
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-3xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all border ${
+                  activeSection === secKey
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-3xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
               >
                 <span className="flex items-center gap-1.5 font-bold">
                   {secKey === 'ALL' ? (
@@ -244,10 +201,9 @@ const StudentList = () => {
             ))}
           </div>
         </div>
-
       </div>
 
-      {/* 3. Students Data Table */}
+      {/* Table */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm shadow-slate-100/50">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
@@ -258,51 +214,58 @@ const StudentList = () => {
                 <th className="p-4 font-extrabold">Year & Section</th>
                 <th className="p-4 font-extrabold">Assigned CA1</th>
                 <th className="p-4 font-extrabold">Assigned CA2</th>
-                <th className="p-4 font-extrabold text-left">Student Details</th>
+                <th className="p-4 font-extrabold">Certificate</th>
+                <th className="p-4 font-extrabold text-left">Details</th>
               </tr>
             </thead>
-
             <tbody className="text-slate-700 divide-y divide-slate-100 bg-white">
               {filteredStudentsMatrix.map((row, idx) => {
-                const studentFullName = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim();
-
+                const fullName = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim();
                 return (
                   <tr key={row._id || idx} className="hover:bg-slate-50/40 transition-colors duration-150 group">
                     <td className="p-4 pl-6 font-mono font-bold text-blue-700 tracking-wide">
                       {row.registerNo || row.id || 'N/A'}
                     </td>
-
                     <td className="p-4">
                       <p className="font-semibold text-slate-900 text-sm tracking-tight group-hover:text-blue-600 transition-colors">
-                        {studentFullName}
+                        {fullName}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium">{row.email || 'No email saved'}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{row.email || 'No email'}</p>
                     </td>
-
                     <td className="p-4">
                       <span className="px-2 py-0.5 font-bold uppercase text-[9px] tracking-wide rounded bg-slate-100 text-slate-600 border border-slate-200">
                         Yr {normalizeYear(row.year || row.yr)}-{normalizeSection(row.section || row.sec)}
                       </span>
                     </td>
-
                     <td className="p-4 font-bold text-slate-900">
                       <div className="flex items-center gap-1.5">
                         <UserCheck size={13} className="text-slate-400" />
                         <span>{row.firstmentorName || 'Unassigned'}</span>
                       </div>
                     </td>
-
                     <td className="p-4 font-bold text-slate-900">
                       <div className="flex items-center gap-1.5">
                         <UserCheck size={13} className="text-slate-400" />
                         <span>{row.secondmentorName || 'Unassigned'}</span>
                       </div>
                     </td>
-
+                    <td className="p-4">
+                      {row.document ? (
+                        <button
+                          onClick={() => handleViewDocument(row.document)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg transition-colors"
+                        >
+                          <Eye size={12} />
+                          <span>View</span>
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">No file</span>
+                      )}
+                    </td>
                     <td className="p-4 text-left w-36">
                       <motion.button
                         type="button"
-                        onClick={() => handleViewStudentProfile(row)}
+                        onClick={() => setSelectedStudent(row)}
                         whileHover={{ scale: 1.04, backgroundColor: '#0f172a' }}
                         whileTap={{ scale: 0.98 }}
                         className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[11px] px-3 py-1.5 rounded-lg transition-colors shadow-sm tracking-tight"
@@ -317,7 +280,6 @@ const StudentList = () => {
             </tbody>
           </table>
         </div>
-
         {filteredStudentsMatrix.length === 0 && (
           <div className="text-center py-16 bg-white">
             <p className="text-xs text-slate-400 font-medium px-4">
@@ -327,7 +289,7 @@ const StudentList = () => {
         )}
       </div>
 
-      {/* 4. Sliding Profile Inspection Drawer Layer */}
+      {/* Profile Drawer */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end transition-opacity">
           <div className="w-full max-w-md bg-slate-50 h-full shadow-2xl flex flex-col justify-between overflow-y-auto p-6 font-sans">
@@ -379,27 +341,36 @@ const StudentList = () => {
                 </div>
               </div>
 
-              {/* Dynamic Counters Metric View Layer */}
+              {/* Leave/OD counters */}
               <div className="border border-slate-200 rounded-xl p-4 bg-white mt-2">
                 <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3">Leave Approval Counters</h4>
-                {loadingProfileDetails ? (
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-500 py-2">
-                    <Loader2 className="animate-spin text-slate-400" size={14} />
-                    <span>Syncing dynamic ledger matrix...</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
+                    <p className="text-xl font-black text-green-600">{selectedStudent.leaveCount || 0}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Leaves Approved</p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
-                      <p className="text-xl font-black text-green-600">{studentMetadata.leaveCount}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Leaves Approved</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
-                      <p className="text-xl font-black text-yellow-600">{studentMetadata.odCount}</p>
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Duty Leaves (OD)</p>
-                    </div>
+                  <div className="bg-slate-50 p-3 border border-slate-200 rounded-xl text-center">
+                    <p className="text-xl font-black text-yellow-600">{selectedStudent.odCount || 0}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">Duty Leaves (OD)</p>
                   </div>
-                )}
+                </div>
               </div>
+
+              {/* Document section */}
+              {selectedStudent.document && (
+                <div className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-700">Certificate attached</span>
+                  </div>
+                  <button
+                    onClick={() => handleViewDocument(selectedStudent.document)}
+                    className="text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                  >
+                    View
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-slate-200">
@@ -414,7 +385,6 @@ const StudentList = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

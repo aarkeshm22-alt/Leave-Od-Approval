@@ -48,7 +48,7 @@ router.route('/users/profile')
       let totalODCount = 0;
       let pendingCount = 0;
       let approvedCount = 0;
-      let assignedStudentsCount = 0; // Added for the mentor workspace console
+      let assignedStudentsCount = 0; 
 
       const userRole = user.role?.toUpperCase() || 'STUDENT';
       const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
@@ -58,25 +58,22 @@ router.route('/users/profile')
         // 🌟 CASE 1: LOGGED-IN NODE IS A MENTOR
         // ==========================================
         if (userRole === 'MENTOR') {
-          // 1. Find all students whose 'mentorName' matches the logged-in mentor's full name
-          if (userRole === 'MENTOR') {
-            const assignedStudents = await User.find({
-              role: 'Student', // Matches your enum format exactly
-              $or: [
-                { firstmentorName: userFullName },
-                { secondmentorName: userFullName },
-                { category: category }
+          // Clean name and set up case-insensitive matching rules
+          const escapedMentorName = userFullName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const mentorRegexRule = new RegExp(`^${escapedMentorName}$`, 'i');
 
-              ]
-            }).select('_id');
+          // ✅ FIXED: Removed the undefined 'category: category' property crash reference
+          const assignedStudents = await User.find({
+            role: 'Student', 
+            $or: [
+              { firstmentorName: mentorRegexRule },
+              { secondmentorName: mentorRegexRule }
+            ]
+          }).select('_id');
 
-            assignedStudentsCount = assignedStudents.length;
-            // ... rest of logic
-          }
+          assignedStudentsCount = assignedStudents ? assignedStudents.length : 0;
 
-          assignedStudentsCount = assignedStudents.length;
-
-          // 2. Aggregate request tallies across all assigned students if any are found
+          // Aggregate request tallies across all assigned students if any are found
           if (assignedStudentsCount > 0) {
             const studentIds = assignedStudents.map(student => student._id);
 
@@ -92,53 +89,64 @@ router.route('/users/profile')
 
               pendingCount += pendingLeaves;
               approvedCount += approvedLeaves;
-              totalLeavesCount = approvedLeaves; // ✨ FIXED: Assigned explicit approved leave count
+              totalLeavesCount = approvedLeaves; 
             }
 
-            if (OnDuty) {
-              const pendingOD = await OnDuty.countDocuments({
+            // Support checking against both OnDuty or OD models safely
+            const OdModel = mongoose.models.OnDuty || mongoose.models.Leave || global.OnDuty;
+            if (OdModel) {
+              const pendingOD = await OdModel.countDocuments({
                 student: { $in: studentIds },
-                status: { $regex: /pending/i }
+                status: { $regex: /pending/i },
+                // If sharing Leave model schema collections, filter down to 'od' types
+                ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
               });
-              const approvedOD = await OnDuty.countDocuments({
+              const approvedOD = await OdModel.countDocuments({
                 student: { $in: studentIds },
-                status: { $regex: /approved/i }
+                status: { $regex: /approved/i },
+                ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
               });
 
               pendingCount += pendingOD;
               approvedCount += approvedOD;
-              totalODCount = approvedOD; // ✨ FIXED: Explicitly maps the total approved OD items
+              totalODCount = approvedOD; 
             }
           }
         }
         // ==========================================
-        // 🌟 CASE 2: LOGGED-IN NODE IS A STUDENT (Original Logic)
+        // 🌟 CASE 2: LOGGED-IN NODE IS A STUDENT
         // ==========================================
         else if (userRole !== 'HOD') {
           if (Leave) {
             totalLeavesCount = await Leave.countDocuments({
               student: req.user.id,
-              status: { $regex: /approved/i }
+              status: { $regex: /approved/i },
+              // If type field is shared, ensure we filter for 'leave'
+              ...(Leave.schema.paths.type && { type: { $regex: /leave/i } })
             });
 
             const pendingLeaves = await Leave.countDocuments({
               student: req.user.id,
-              status: { $regex: /pending/i }
+              status: { $regex: /pending/i },
+              ...(Leave.schema.paths.type && { type: { $regex: /leave/i } })
             });
 
             pendingCount += pendingLeaves;
             approvedCount += totalLeavesCount;
           }
 
-          if (OnDuty) {
-            totalODCount = await OnDuty.countDocuments({
+          const OdModel = mongoose.models.OnDuty || mongoose.models.Leave || global.OnDuty;
+          if (OdModel) {
+            totalODCount = await OdModel.countDocuments({
               student: req.user.id,
-              status: { $regex: /approved/i }
+              status: { $regex: /approved/i },
+              ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
             });
 
-            const pendingOD = await OnDuty.countDocuments({
+            const pendingOD = await OdModel.countDocuments({
               student: req.user.id,
-              status: { $regex: /pending/i }
+              status: { $regex: /pending/i },
+              ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
             });
 
             pendingCount += pendingOD;
@@ -149,24 +157,20 @@ router.route('/users/profile')
         console.warn("⚠️ Database integration lookup warning:", dbError.message);
       }
 
-      // Send everything back in a unified response signature
-      res.status(200).json({
+      // Send response back
+      return res.status(200).json({
         success: true,
         name: userFullName,
         email: user.email || 'Not Provided',
         role: user.role || 'Student',
-        deptCode: user.department || 'CSE', // Updated to match your schema's 'department'
+        deptCode: user.department || 'CSE', 
         registerNo: user.registerNo || 'Not Provided',
         studentType: user.studentType || 'Regular Track',
         mobile: user.mobileNo || 'Not Provided',
-
-        // ✨ FIXED EXTENSIONS:
         firstmentorName: user.firstmentorName || 'Not Assigned',
         secondmentorName: user.secondmentorName || 'Not Assigned',
-        // Fixed typo here
-        hodName: user.hodName || 'Not Assigned', // Added safe fallback
+        hodName: user.hodName || 'Not Assigned', 
         category: user.category,
-
         assignedStudentsCount,
         totalLeavesCount,
         totalODCount,
@@ -176,28 +180,7 @@ router.route('/users/profile')
 
     } catch (error) {
       console.error('❌ Profile Route Fetch Failure:', error);
-      res.status(500).json({ message: 'Internal server error processing real database metrics.', error: error.message });
-    }
-  })
-  // 🔥 DELETE USER ACCOUNT
-  .delete(protect, async (req, res) => {
-    try {
-      const deletedUser = await User.findByIdAndDelete(req.user.id);
-
-      if (!deletedUser) {
-        return res.status(404).json({ success: false, message: 'User record not found for removal.' });
-      }
-
-      // Cascade delete application sheets if the record was an active student pointer
-      if (deletedUser.role !== 'HOD') {
-        if (Leave) await Leave.deleteMany({ student: req.user.id });
-        if (OnDuty) await OnDuty.deleteMany({ student: req.user.id });
-      }
-
-      res.status(200).json({ success: true, message: 'Account permanently purged from database.' });
-    } catch (error) {
-      console.error('❌ Account Deletion Failure:', error);
-      res.status(500).json({ message: 'Internal server error processing account deletion.', error: error.message });
+      return res.status(500).json({ message: 'Internal server error processing profile metrics.', error: error.message });
     }
   });
 
