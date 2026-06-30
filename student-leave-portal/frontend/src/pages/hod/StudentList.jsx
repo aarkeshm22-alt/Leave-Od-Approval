@@ -18,34 +18,39 @@ const StudentList = () => {
   const [studentMetadata, setStudentMetadata] = useState({ leaveCount: 0, odCount: 0 });
 
   useEffect(() => {
-    const fetchGlobalStudentsRegistry = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-        const cleanToken = token ? token.replace(/"/g, '').trim() : '';
+  const fetchGlobalStudentsRegistry = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      const cleanToken = token ? token.replace(/"/g, '').trim() : '';
 
-        // Added absolute URL mapping wrapper fallback path structure
-        const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students', {
-          headers: {
-            'Authorization': `Bearer ${cleanToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
+      // 🌟 CHANGED: Route mapped to your active, refactored endpoint
+      const response = await axios.get('https://leave-od-approval.onrender.com/api/users/students-by-mentor', {
+        headers: {
+          'Authorization': `Bearer ${cleanToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-        const userList = response.data.data || response.data || [];
-        const studentFilter = userList.filter(u => u.role?.toLowerCase() === 'student');
+      // 🌟 UPDATED: Read from response.data.data directly matching our backend response shape
+      const receivedStudents = response.data.data || response.data || [];
+      
+      console.log("👉 INSPECT ALL RECEIVED MENTOR STUDENTS:", receivedStudents);
+      
+      // Since our new backend endpoint already filters by role: 'Student', 
+      // we can set the array directly with fallback safety validation
+      setStudents(Array.isArray(receivedStudents) ? receivedStudents : []);
+      
+    } catch (error) {
+      console.error('Failed retrieving mentor student allocation matrix records:', error);
+      setStudents([]); // Fail safely to prevent app rendering breaks
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        console.log("👉 INSPECT ALL RECEIVED BACKEND STUDENTS:", studentFilter);
-        setStudents(studentFilter);
-      } catch (error) {
-        console.error('Failed retrieving global institutional student records:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchGlobalStudentsRegistry();
-  }, []);
+  fetchGlobalStudentsRegistry();
+}, []);
 
   // 🚀 HELPER: Clean up section names (e.g., "SECTION B" -> "B")
   const normalizeSection = (sectionValue) => {

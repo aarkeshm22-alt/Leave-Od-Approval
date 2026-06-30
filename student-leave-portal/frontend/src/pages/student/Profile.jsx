@@ -65,7 +65,7 @@ const Profile = () => {
         <div className="text-center sm:text-left space-y-1">
           <h2 className="text-xl font-black text-slate-900 tracking-tight">{profileName}</h2>
           <p className="text-xs text-indigo-600 font-bold uppercase tracking-wider">
-            {activeUser?.role || 'Student'} Member
+            {activeUser?.role || 'Student'}
           </p>
         </div>
       </div>

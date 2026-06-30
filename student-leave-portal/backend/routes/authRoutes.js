@@ -65,7 +65,6 @@ router.route('/users/profile')
               $or: [
                 { firstmentorName: userFullName },
                 { secondmentorName: userFullName },
-                {document: document},
                 { category: category }
 
               ]

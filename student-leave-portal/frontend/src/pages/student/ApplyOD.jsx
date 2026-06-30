@@ -61,7 +61,7 @@ const ApplyOD = () => {
             name: data.name,
             registerNo: data.registerNo || 'Not Provided',
             studentType: data.studentType || 'Regular Track',
-            mentor: data.mentorName || 'Not Assigned',
+            mentor: data.firstmentorName || 'Not Assigned',
             mobile: data.mobile || 'Not Provided'
           });
         } else {

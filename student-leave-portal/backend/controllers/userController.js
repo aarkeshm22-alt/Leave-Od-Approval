@@ -1,6 +1,8 @@
 // controllers/userController.js
 import User from '../models/User.js';
 import Leave from '../models/Leave.js'; // Import the Leave model to count leave and OD records 
+import OnDuty from '../models/OnDuty.js';
+import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -39,9 +41,9 @@ export const getStudentProfile = async (req, res) => {
 // 4. Process Account Registration Pipeline
 export const registerUser = async (req, res) => {
   try {
-    const { 
-      role, firstName, lastName, gender, department, 
-      email, mobileNo, password, year, section, studentType, 
+    const {
+      role, firstName, lastName, gender, department,
+      email, mobileNo, password, year, section, studentType,
       firstmentorName, secondmentorName, hodName, category,
       registerNo // CAPTURE REGISTRATION NUMBER FROM FRONTEND
     } = req.body;
@@ -66,8 +68,8 @@ export const registerUser = async (req, res) => {
 
     // Dynamic payload building mapping string targets
     const newUserPayload = {
-      role, firstName, lastName, gender, department, 
-      email: email.toLowerCase().trim(), 
+      role, firstName, lastName, gender, department,
+      email: email.toLowerCase().trim(),
       mobileNo,
       password: hashedPassword,
       // MAP FIELD IN EXCLUSIVE STUDENT STRUCTURAL SPREAD
@@ -81,13 +83,13 @@ export const registerUser = async (req, res) => {
     return res.status(201).json({ message: 'User profile created successfully!' });
   } catch (error) {
     console.error("Detailed DB Save Error:", error);
-    
+
     // Handle manual Mongo Duplicate Key Index error (#11000) gracefully
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyValue)[0];
       return res.status(400).json({ message: `The provided ${duplicateField} is already registered on our servers.` });
     }
-    
+
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(val => val.message);
       return res.status(400).json({ message: `Validation Failed: ${messages.join(', ')}` });
@@ -115,8 +117,8 @@ export const loginUser = async (req, res) => {
 
     // Prevent cross-role spoofing
     if (user.role.toLowerCase() !== role.toLowerCase()) {
-      return res.status(403).json({ 
-        message: `Access denied. Your profile is registered as a ${user.role}, not an ${role}.` 
+      return res.status(403).json({
+        message: `Access denied. Your profile is registered as a ${user.role}, not an ${role}.`
       });
     }
 
@@ -136,7 +138,7 @@ export const loginUser = async (req, res) => {
     // Strip the encrypted password hash from the return payload
     const userResponse = {
       _id: user._id,
-      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(), 
+      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       email: user.email,
       role: user.role,
       department: user.department,
@@ -164,9 +166,9 @@ export const getMentorsByHod = async (req, res) => {
     const currentHodName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.name;
 
     if (!currentHodName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Authentication token is missing valid HOD name attributes.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication token is missing valid HOD name attributes.'
       });
     }
 
@@ -174,7 +176,7 @@ export const getMentorsByHod = async (req, res) => {
     const mentors = await User.find({
       role: 'Mentor',
       hodName: { $regex: currentHodName, $options: 'i' }
-    }).select('+email +mobileNo +role +hodName -password +category').lean(); 
+    }).select('+email +mobileNo +role +hodName -password +category').lean();
 
     const synchronizedMentors = await Promise.all(
       mentors.map(async (mentor) => {
@@ -199,102 +201,128 @@ export const getMentorsByHod = async (req, res) => {
 
         return {
           ...mentor,
-          capacity: realStudentCount 
+          capacity: realStudentCount
         };
       })
     );
 
-    return res.status(200).json({ 
-      success: true, 
-      data: synchronizedMentors 
+    return res.status(200).json({
+      success: true,
+      data: synchronizedMentors
     });
 
   } catch (error) {
     console.error('Error calculating dynamic mentor allocation statistics:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server failed aggregating real-time allocation records.', 
-      error: error.message 
+    return res.status(500).json({
+      success: false,
+      message: 'Server failed aggregating real-time allocation records.',
+      error: error.message
     });
   }
 };
 
-// 7. Get students assigned to a specific mentor with split assignment structures (CA1 / CA2) and live application tallies
 export const getStudentsByMentor = async (req, res) => {
   try {
-    // 🌟 FIXED: Look for parameters in query strings, the body, or headers to ensure it never reads as undefined
-    const mentorName = req.query.firstmentorName || req.body.firstmentorName || req.headers['x-mentor-name'];
-    const category = req.query.category || req.body.category || req.headers['x-category'];
+    // 🌟 1. COMPLETELY BULLETPROOF CHECK: Safe extraction using Optional Chaining (?.)
+    const userFirstName = req.user?.firstName || '';
+    const userLastName = req.user?.lastName || '';
+    let loggedInMentorName = `${userFirstName} ${userLastName}`.trim();
 
-    if (!mentorName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Mentor tracking parameter variable is required. Checked query, body, and headers.' 
+    // Fallback if firstName/lastName aren't populated but 'name' property is present
+    if (!loggedInMentorName && req.user?.name) {
+      loggedInMentorName = req.user.name.trim();
+    }
+
+    // 🌟 2. EXPLICIT STATUS HANDLING: Fail with a clear 401 instead of crashing with a 500
+    if (!req.user || !loggedInMentorName) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication failure. The route middleware is missing 'protect', or the logged-in user profile has no name attributes."
       });
     }
 
-    // Deep clean and strip any accidental quotes sent down by localStorage parsing anomalies
-    const cleanMentorName = mentorName.toString().replace(/[规律"'"`]/g, '').trim().replace(/\s+/g, ' ');
-    
-    // Create case-insensitive matching logic regex
-    const mentorRegex = new RegExp(`^${cleanMentorName}$`, 'i');
-    let studentFindQuery = { role: 'Student' };
+    // 3. REGEX & DATABASE SEARCH
+    const escapedMentorName = loggedInMentorName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const mentorRegex = new RegExp(`^${escapedMentorName}$`, 'i');
 
-    // Dynamic routing condition checks matching your split system criteria
-    if (category === 'CA1') {
-      studentFindQuery.firstmentorName = { $regex: mentorRegex };
-    } else if (category === 'CA2') {
-      studentFindQuery.secondmentorName = { $regex: mentorRegex };
-    } else {
-      // General broad fallback checking for any active allocations across both properties
-      studentFindQuery.$or = [
+    const studentFindQuery = {
+      role: 'Student',
+      $or: [
         { firstmentorName: { $regex: mentorRegex } },
         { secondmentorName: { $regex: mentorRegex } }
-      ];
-    }
+      ]
+    };
 
-    // Fetch allocated student accounts
+    // Keep the rest of your User.find() and map tracking blocks exactly the same...
+
+    // Execute Mongo query using .lean() for rapid rendering speeds
     const students = await User.find(studentFindQuery)
       .select('firstName lastName name registerNo studentType email mobileNo firstmentorName secondmentorName year yr section sec role')
       .lean();
 
-    // Map through records and aggregate true live counts out of Leave database reference trees
+    if (!students || students.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+
+    // 4. METRICS AGGREGATION: Loop safely without throwing undefined property crashes
     const structuredStudentsPayload = await Promise.all(
       students.map(async (student) => {
-        const isFirstMentor = student.firstmentorName && 
-          student.firstmentorName.trim().toLowerCase() === cleanMentorName.toLowerCase();
+        // Double-check element allocation to prevent loop execution blocks
+        if (!student) return null;
 
-        let assignedRoleContext = category || (isFirstMentor ? "CA1" : "CA2");
+        // Extract values safely casting to string wrappers
+        const currentFirstMentor = student.firstmentorName ? String(student.firstmentorName).trim().toLowerCase() : '';
+        const targetSearchString = loggedInMentorName.toLowerCase();
 
-        const leaveRecords = await Leave.find({
-          student: student._id
-        });
+        // Label if this student belongs to them as a CA1 or CA2 advisor
+        const isFirstMentor = currentFirstMentor === targetSearchString;
+        const assignedRoleContext = isFirstMentor ? "CA1" : "CA2";
 
-        // Compute isolated lengths dynamically based on document case configuration tags
-        const liveLeaveCount = leaveRecords.filter(item => item.type?.toLowerCase() === 'leave').length;
-        const liveOdCount = leaveRecords.filter(item => item.type?.toLowerCase() === 'od').length;
+        let liveLeaveCount = 0;
+        let liveOdCount = 0;
+
+        // Fetch leave records safely wrapped away
+        try {
+          const LeaveModel = mongoose.models.Leave || global.Leave;
+          if (LeaveModel) {
+            const leaveRecords = await LeaveModel.find({ student: student._id });
+            if (Array.isArray(leaveRecords)) {
+              liveLeaveCount = leaveRecords.filter(item => item.type && String(item.type).toLowerCase() === 'leave').length;
+              liveOdCount = leaveRecords.filter(item => item.type && String(item.type).toLowerCase() === 'od').length;
+            }
+          }
+        } catch (dbErr) {
+          console.error(`Sub-metrics tracing skipped for student ID ${student._id}:`, dbErr.message);
+        }
 
         return {
           ...student,
-          mentorType: assignedRoleContext, 
+          mentorType: assignedRoleContext,
           leaveCount: liveLeaveCount,
           odCount: liveOdCount
         };
       })
     );
 
-    return res.status(200).json({ 
-      success: true, 
-      count: structuredStudentsPayload.length,
-      data: structuredStudentsPayload 
+    // Remove any unexpected null entries
+    const polishedPayload = structuredStudentsPayload.filter(Boolean);
+
+    return res.status(200).json({
+      success: true,
+      count: polishedPayload.length,
+      data: polishedPayload
     });
 
   } catch (error) {
-    console.error('Error calculating dynamic profile matrix metrics:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server failed compiling context matrix counters.', 
-      error: error.message 
+    console.error('🔴 EXPLICIT BACKEND CRASH LOG:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server failed compiling context matrix counters.',
+      error: error.message
     });
   }
 };
