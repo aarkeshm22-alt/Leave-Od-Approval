@@ -67,11 +67,11 @@ export const getMyStudents = async (req, res) => {
 
         // --- Latest certificate (field is `certificate` in the OD schema) ---
         const latestODWithCert = await OnDuty.findOne({
-          student: student._id,
-          certificate: { $exists: true, $ne: null, $ne: "" }
-        })
-          .sort({ createdAt: -1, fromDate: -1 })
-          .select('certificate');
+  student: student._id,
+  certificate: { $exists: true, $ne: null, $ne: "" }
+})
+.sort({ createdAt: -1, fromDate: -1 })
+.select('certificate');
 
         // --- Recent Leaves (last 5) ---
         const recentLeaves = await Leave.find({ student: student._id })

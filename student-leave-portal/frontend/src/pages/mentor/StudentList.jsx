@@ -290,7 +290,7 @@ const StudentList = () => {
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleViewDocument(selectedStudent.document)}
+                        onClick={() => handleViewDocument(selectedStudent.certificate)}
                         className="text-[11px] font-black tracking-tight bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
                       >
                         View Certificate
