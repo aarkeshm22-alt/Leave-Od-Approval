@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, CheckSquare, BarChart2, Info, Loader2, AlertCircle } from 'lucide-react';
+import { Users, Clock, CheckSquare, BarChart2, Info, Loader2, AlertCircle, Loader } from 'lucide-react';
 import axios from 'axios';
 import StatusCard from '../../components/cards/StatusCard';
 
@@ -52,10 +52,9 @@ const MentorDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 font-sans">
-        <Loader2 className="animate-spin text-blue-600 mb-3" size={32} />
+      <div className="flex flex-col items-center justify-center min-h-[700px] text-slate-400 font-sans">
         <p className="text-xs font-black tracking-widest uppercase text-slate-500 animate-pulse">
-          Aggregating Supervision Pipeline Telemetry...
+          Loading Your Dashboard <Loader className="inline-block animate-spin" size={18} />
         </p>
       </div>
     );

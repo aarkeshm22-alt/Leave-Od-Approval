@@ -1,5 +1,6 @@
 import Leave from '../models/Leave.js'; // Note the explicit .js extension required by ES Modules
 import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 // @desc    Submit a new request (Automatically logs 'Leave' or 'On-Duty' via system typing)
 // @route   POST /api/leaves/apply

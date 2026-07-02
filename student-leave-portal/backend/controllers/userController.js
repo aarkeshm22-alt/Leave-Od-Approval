@@ -255,7 +255,7 @@ export const getMentorsByHod = async (req, res) => {
       success: false,
       message: 'Server failed aggregating real-time allocation records.',
       error: error.message
-    });
+    }); 
   }
 };
 

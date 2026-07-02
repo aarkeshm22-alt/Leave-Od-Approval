@@ -43,29 +43,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/od', odRoutes); 
 app.use('/api/mentor', mentorRoutes); 
 
-// 3. User Profile Protected Route
-app.get('/api/users/profile', protect, async (req, res) => {
-  try {
-    // Look up the logged-in user using the ID stored in the JWT token
-    // and populate their mentor's name automatically
-    const user = await User.findById(req.user.id).populate('mentorId', 'name');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User reference missing.' });
-    }
 
-    // Return the fields exactly as your React frontend expects them
-    res.json({
-      name: user.name,
-      studentType: user.studentType || 'Regular Track',
-      mobile: user.mobile || 'Not Provided',
-      mentorName: user.mentorId ? user.mentorId.name : 'Not Assigned'
-    });
-  } catch (error) {
-    console.error('Profile Retrieval Error:', error);
-    res.status(500).json({ message: 'Error retrieving user profile from the database.' });
-  }
-});
 
 // Pull deployment target gateway port dynamically 
 const PORT = process.env.PORT || 5000;

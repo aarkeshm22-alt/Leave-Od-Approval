@@ -1,58 +1,73 @@
 import React from 'react';
 
 const StatusCard = ({ title, value, icon: Icon, color }) => {
-  // Hardcoded hex layout configurations to forcefully override child utility rendering errors
-  const cardStyles = {
+  // Map color prop to Tailwind classes
+  const colorMap = {
     blue: {
-      bg: 'bg-[#EFF6FF] border-[#BFDBFE]', 
-      title: '#1E40AF', 
-      value: '#1E3A8A', 
-      iconBg: 'bg-[#DBEAFE] text-[#2563EB] border-[#93C5FD]'
-    },
-    emerald: {
-      bg: 'bg-[#ECFDF5] border-[#A7F3D0]',
-      title: '#065F46', 
-      value: '#064E3B', 
-      iconBg: 'bg-[#D1FAE5] text-[#059669] border-[#6EE7B7]'
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      title: 'text-blue-700',
+      value: 'text-blue-900',
+      iconBg: 'bg-blue-100',
+      iconText: 'text-blue-600',
+      iconBorder: 'border-blue-300',
     },
     amber: {
-      bg: 'bg-[#FFFBEB] border-[#FDE68A]',
-      title: '#92400E', 
-      value: '#78350F', 
-      iconBg: 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]'
+      bg: 'bg-amber-50',
+      border: 'border-amber-200',
+      title: 'text-amber-700',
+      value: 'text-amber-900',
+      iconBg: 'bg-amber-100',
+      iconText: 'text-amber-600',
+      iconBorder: 'border-amber-300',
+    },
+    emerald: {
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200',
+      title: 'text-emerald-700',
+      value: 'text-emerald-900',
+      iconBg: 'bg-emerald-100',
+      iconText: 'text-emerald-600',
+      iconBorder: 'border-emerald-300',
+    },
+    gray: {
+      bg: 'bg-gray-50',
+      border: 'border-gray-200',
+      title: 'text-gray-700',
+      value: 'text-gray-900',
+      iconBg: 'bg-gray-100',
+      iconText: 'text-gray-600',
+      iconBorder: 'border-gray-300',
     },
     indigo: {
-      bg: 'bg-[#EEF2FF] border-[#C7D2FE]',
-      title: '#3730A3', 
-      value: '#312E81', 
-      iconBg: 'bg-[#E0E7FF] text-[#4F46E5] border-[#A5B4FC]'
-    }
+      bg: 'bg-indigo-50',
+      border: 'border-indigo-200',
+      title: 'text-indigo-700',
+      value: 'text-indigo-900',
+      iconBg: 'bg-indigo-100',
+      iconText: 'text-indigo-600',
+      iconBorder: 'border-indigo-300',
+    },
   };
 
-  const style = cardStyles[color] || cardStyles.blue;
+  const style = colorMap[color] || colorMap.blue;
 
   return (
-    <div className={`p-6 rounded-2xl border flex items-center justify-between shadow-xs transition-all ${style.bg}`}>
+    <div className={`p-6 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${style.bg} ${style.border}`}>
       <div className="space-y-1.5">
-        {/* Metric Label Title */}
-        <p 
-          className="text-[10px] font-black uppercase tracking-widest block"
-          style={{ color: style.title, opacity: 1, visibility: 'visible' }}
-        >
+        {/* Title */}
+        <p className={`text-[10px] font-black uppercase tracking-widest block ${style.title}`}>
           {title}
         </p>
-        
-        {/* Large Main Counting Value */}
-        <p 
-          className="text-2xl md:text-3xl font-black tracking-tight block"
-          style={{ color: style.value, opacity: 1, visibility: 'visible' }}
-        >
+
+        {/* Value */}
+        <p className={`text-2xl md:text-3xl font-black tracking-tight block ${style.value}`}>
           {value}
         </p>
       </div>
 
-      {/* Trailing Icon Container */}
-      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${style.iconBg}`}>
+      {/* Icon Container */}
+      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${style.iconBg} ${style.iconText} ${style.iconBorder}`}>
         <Icon size={18} className="stroke-[2.5]" />
       </div>
     </div>

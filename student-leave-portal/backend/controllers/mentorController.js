@@ -4,101 +4,122 @@ import OnDuty from '../models/OnDuty.js'; // 🌟 Added import for your separate
 import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
-  try {
-    // 1. Fetch the logged-in mentor's profile to extract their exact string name field
-    const mentorProfile = await User.findById(req.user.id);
+  try {
+    // 1. Fetch mentor profile
+    const mentorProfile = await User.findById(req.user.id);
+    if (!mentorProfile) {
+      return res.status(404).json({ message: 'Mentor profile not found.' });
+    }
 
-    if (!mentorProfile) {
-      return res.status(404).json({ message: 'Mentor profile registry not found.' });
-    }
+    let structuredMentorName = "";
+    if (mentorProfile.firstName || mentorProfile.lastName) {
+      structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`
+        .trim()
+        .replace(/\s+/g, ' ');
+    } else {
+      structuredMentorName = mentorProfile.name ? mentorProfile.name.trim() : "";
+    }
 
-    // Safely structure the mentor name string to avoid unexpected spacer alignment gaps
-    let structuredMentorName = "";
-    if (mentorProfile.firstName || mentorProfile.lastName) {
-      structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`.trim().replace(/\s+/g, ' ');
-    } else {
-      structuredMentorName = mentorProfile.name ? mentorProfile.name.trim() : "";
-    }
+    if (!structuredMentorName) {
+      return res.status(400).json({ message: 'Mentor identity is incomplete.' });
+    }
 
-    if (!structuredMentorName) {
-      return res.status(400).json({ message: 'Mentor identity string signature is unassigned or incomplete.' });
-    }
+    // 2. Find students under this mentor
+    const students = await User.find({
+      role: 'Student',
+      firstmentorName: structuredMentorName
+    }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
 
-    // 2. Query the user collection: filter students where logged user name equals firstmentorName
-    const students = await User.find({
-      role: 'Student',
-      firstmentorName: structuredMentorName
-    }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
+    // 3. Enrich each student
+    const updatedStudentArray = await Promise.all(
+      students.map(async (student) => {
+        // --- Approved Leave Count ---
+        const leaveAgg = await Leave.aggregate([
+          { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
+          {
+            $project: {
+              days: {
+                $add: [
+                  { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
+                  1
+                ]
+              }
+            }
+          },
+          { $group: { _id: null, totalDays: { $sum: "$days" } } }
+        ]);
 
-    // 3. Loop through matched students to compute their active Leave and OD duration metrics
-    // 3. Loop through matched students to compute their active Leave and OD duration metrics
-    const updatedStudentArray = await Promise.all(students.map(async (student) => {
+        // --- Approved OD Count ---
+        const odAgg = await OnDuty.aggregate([
+          { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
+          {
+            $project: {
+              days: {
+                $add: [
+                  { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
+                  1
+                ]
+              }
+            }
+          },
+          { $group: { _id: null, totalDays: { $sum: "$days" } } }
+        ]);
 
-      // Calculate approved leave counts...
-      const leaveAgg = await Leave.aggregate([
-        { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
-        {
-          $project: {
-            days: {
-              $add: [
-                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
-                1
-              ]
-            }
-          }
-        },
-        { $group: { _id: null, totalDays: { $sum: "$days" } } }
-      ]);
+        // --- Latest certificate (field is `certificate` in the OD schema) ---
+        const latestODWithCert = await OnDuty.findOne({
+          student: student._id,
+          certificate: { $exists: true, $ne: null, $ne: "" }
+        })
+          .sort({ createdAt: -1, fromDate: -1 })
+          .select('certificate');
 
-      // Calculate approved OD counts...
-      const odAgg = await OnDuty.aggregate([
-        { $match: { student: student._id, type: { $in: ['On-Duty', 'OD'] }, status: 'Approved' } },
-        {
-          $project: {
-            days: {
-              $add: [
-                { $divide: [{ $subtract: ["$toDate", "$fromDate"] }, 1000 * 60 * 60 * 24] },
-                1
-              ]
-            }
-          }
-        },
-        { $group: { _id: null, totalDays: { $sum: "$days" } } }
-      ]);
+        // --- Recent Leaves (last 5) ---
+        const recentLeaves = await Leave.find({ student: student._id })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .select('fromDate toDate status duration halfDaySession createdAt')
+          .lean();
 
-      // 🌟 FIX: Force explicit cast to a real MongoDB ObjectId to ensure index matching hits correctly
-      const targetStudentObjectId = new mongoose.Types.ObjectId(student._id.toString());
+        // --- Recent ODs (last 5) ---
+        const recentODs = await OnDuty.find({ student: student._id })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .select('fromDate toDate status duration halfDaySession createdAt')
+          .lean();
 
-      // Query the separate onDuty collection targeting the casted object reference
-      const latestODWithDoc = await OnDuty.findOne({
-        student: targetStudentObjectId,
-        document: { $exists: true, $ne: null, $ne: "" } // Ensures text length is valid
-      })
-        .sort({ createdAt: -1, fromDate: -1 }) // Get the absolute latest entry
-        .select('document');
+        // 🔍 Debug logging (remove after confirming)
+        console.log(`📌 Student: ${student.registerNo || student._id}`);
+        console.log(`   ✅ Leaves found: ${recentLeaves.length}`);
+        console.log(`   ✅ ODs found: ${recentODs.length}`);
 
-      // Convert the mongoose document into a plain JSON object
-      const studentObject = student.toObject();
+        const studentObject = student.toObject();
 
-      return {
-        ...studentObject,
-        leaveCount: leaveAgg[0]?.totalDays || 0,
-        odCount: odAgg[0]?.totalDays || 0,
-        // Safely apply fallback formatting check
-        document: latestODWithDoc ? latestODWithDoc.document : null
-      };
-    }));
-    // Return the response package to feed into your StudentList.jsx layout table
-    return res.status(200).json({ success: true, count: updatedStudentArray.length, data: updatedStudentArray });
+        return {
+          ...studentObject,
+          leaveCount: leaveAgg[0]?.totalDays || 0,
+          odCount: odAgg[0]?.totalDays || 0,
+          certificate: latestODWithCert ? latestODWithCert.certificate : null,  // ✅ fixed field name
+          leaves: recentLeaves,
+          ods: recentODs
+        };
+      })
+    );
 
-  } catch (error) {
-    console.error('Mentor extraction execution string-loop failure:', error);
-    return res.status(500).json({
-      message: 'Error compiling assigned student matrices via string lookup parameters.',
-      error: error.message
-    });
-  }
+    return res.status(200).json({
+      success: true,
+      count: updatedStudentArray.length,
+      data: updatedStudentArray
+    });
+
+  } catch (error) {
+    console.error('❌ Mentor extraction failure:', error);
+    return res.status(500).json({
+      message: 'Error compiling assigned student matrices.',
+      error: error.message
+    });
+  }
 };
+
 
 export const getMentorsWithStudents = async (req, res) => {
   try {
@@ -133,4 +154,4 @@ export const getMentorsWithStudents = async (req, res) => {
     console.error('Error fetching mentors with students:', error);
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}; 

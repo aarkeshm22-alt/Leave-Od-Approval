@@ -34,7 +34,6 @@ router.get('/users/students-by-mentor', protect, getStudentsByMentor);
 // USER PROFILE: COMPREHENSIVE ROUTE LEDGER
 // ==========================================
 router.route('/users/profile')
-  // 🔍 GET PROFILE METRICS (Updated with dynamic Mentor-Student linking)
   .get(protect, async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
@@ -43,28 +42,30 @@ router.route('/users/profile')
         return res.status(404).json({ message: 'User registry profile not found.' });
       }
 
-      // Initialize default counter primitives safely
+      // Initialize default counters
       let totalLeavesCount = 0;
       let totalODCount = 0;
       let pendingCount = 0;
       let approvedCount = 0;
-      let assignedStudentsCount = 0; 
+      let assignedStudentsCount = 0;
+
+      // Recent applications (only for student role)
+      let recentLeaves = [];
+      let recentODs = [];
 
       const userRole = user.role?.toUpperCase() || 'STUDENT';
       const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
       try {
         // ==========================================
-        // 🌟 CASE 1: LOGGED-IN NODE IS A MENTOR
+        // 🌟 CASE 1: LOGGED‑IN NODE IS A MENTOR
         // ==========================================
         if (userRole === 'MENTOR') {
-          // Clean name and set up case-insensitive matching rules
           const escapedMentorName = userFullName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
           const mentorRegexRule = new RegExp(`^${escapedMentorName}$`, 'i');
 
-          // ✅ FIXED: Removed the undefined 'category: category' property crash reference
           const assignedStudents = await User.find({
-            role: 'Student', 
+            role: 'Student',
             $or: [
               { firstmentorName: mentorRegexRule },
               { secondmentorName: mentorRegexRule }
@@ -73,32 +74,28 @@ router.route('/users/profile')
 
           assignedStudentsCount = assignedStudents ? assignedStudents.length : 0;
 
-          // Aggregate request tallies across all assigned students if any are found
           if (assignedStudentsCount > 0) {
-            const studentIds = assignedStudents.map(student => student._id);
+            const studentIds = assignedStudents.map(s => s._id);
 
-            if (Leave) {
-              const pendingLeaves = await Leave.countDocuments({
-                student: { $in: studentIds },
-                status: { $regex: /pending/i }
-              });
-              const approvedLeaves = await Leave.countDocuments({
-                student: { $in: studentIds },
-                status: { $regex: /approved/i }
-              });
+            // Leave counts
+            const pendingLeaves = await Leave.countDocuments({
+              student: { $in: studentIds },
+              status: { $regex: /pending/i }
+            });
+            const approvedLeaves = await Leave.countDocuments({
+              student: { $in: studentIds },
+              status: { $regex: /approved/i }
+            });
+            pendingCount += pendingLeaves;
+            approvedCount += approvedLeaves;
+            totalLeavesCount = approvedLeaves;
 
-              pendingCount += pendingLeaves;
-              approvedCount += approvedLeaves;
-              totalLeavesCount = approvedLeaves; 
-            }
-
-            // Support checking against both OnDuty or OD models safely
+            // OD counts
             const OdModel = mongoose.models.OnDuty || mongoose.models.Leave || global.OnDuty;
             if (OdModel) {
               const pendingOD = await OdModel.countDocuments({
                 student: { $in: studentIds },
                 status: { $regex: /pending/i },
-                // If sharing Leave model schema collections, filter down to 'od' types
                 ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
               });
               const approvedOD = await OdModel.countDocuments({
@@ -106,35 +103,44 @@ router.route('/users/profile')
                 status: { $regex: /approved/i },
                 ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
               });
-
               pendingCount += pendingOD;
               approvedCount += approvedOD;
-              totalODCount = approvedOD; 
+              totalODCount = approvedOD;
             }
           }
         }
+
         // ==========================================
-        // 🌟 CASE 2: LOGGED-IN NODE IS A STUDENT
+        // 🌟 CASE 2: LOGGED‑IN NODE IS A STUDENT
         // ==========================================
         else if (userRole !== 'HOD') {
+          // --- Leave counts ---
           if (Leave) {
             totalLeavesCount = await Leave.countDocuments({
               student: req.user.id,
               status: { $regex: /approved/i },
-              // If type field is shared, ensure we filter for 'leave'
               ...(Leave.schema.paths.type && { type: { $regex: /leave/i } })
             });
-
             const pendingLeaves = await Leave.countDocuments({
               student: req.user.id,
               status: { $regex: /pending/i },
               ...(Leave.schema.paths.type && { type: { $regex: /leave/i } })
             });
-
             pendingCount += pendingLeaves;
             approvedCount += totalLeavesCount;
+
+            // --- Fetch recent 5 leave applications (sorted by createdAt) ---
+            recentLeaves = await Leave.find({
+              student: req.user.id,
+              ...(Leave.schema.paths.type && { type: { $regex: /leave/i } })
+            })
+              .sort({ createdAt: -1 })
+              .limit(5)
+              .select('fromDate toDate status duration halfDaySession createdAt')
+              .lean();
           }
 
+          // --- OD counts & recent ---
           const OdModel = mongoose.models.OnDuty || mongoose.models.Leave || global.OnDuty;
           if (OdModel) {
             totalODCount = await OdModel.countDocuments({
@@ -142,45 +148,64 @@ router.route('/users/profile')
               status: { $regex: /approved/i },
               ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
             });
-
             const pendingOD = await OdModel.countDocuments({
               student: req.user.id,
               status: { $regex: /pending/i },
               ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
             });
-
             pendingCount += pendingOD;
             approvedCount += totalODCount;
+
+            // --- Fetch recent 5 OD applications ---
+            recentODs = await OdModel.find({
+              student: req.user.id,
+              ...(OdModel.modelName === 'Leave' && { type: { $regex: /od/i } })
+            })
+              .sort({ createdAt: -1 })
+              .limit(5)
+              .select('fromDate toDate status duration halfDaySession createdAt')
+              .lean();
           }
         }
       } catch (dbError) {
         console.warn("⚠️ Database integration lookup warning:", dbError.message);
       }
 
-      // Send response back
-      return res.status(200).json({
+      // Build response object
+      const responsePayload = {
         success: true,
         name: userFullName,
         email: user.email || 'Not Provided',
         role: user.role || 'Student',
-        deptCode: user.department || 'CSE', 
+        deptCode: user.department || 'CSE',
         registerNo: user.registerNo || 'Not Provided',
         studentType: user.studentType || 'Regular Track',
         mobile: user.mobileNo || 'Not Provided',
         firstmentorName: user.firstmentorName || 'Not Assigned',
         secondmentorName: user.secondmentorName || 'Not Assigned',
-        hodName: user.hodName || 'Not Assigned', 
+        hodName: user.hodName || 'Not Assigned',
         category: user.category,
         assignedStudentsCount,
         totalLeavesCount,
         totalODCount,
-        pendingCount, 
-        approvedCount
-      });
+        pendingCount,
+        approvedCount,
+      };
+
+      // 👇 Only attach recent applications for students (or if you want for all, remove the condition)
+      if (userRole === 'STUDENT') {
+        responsePayload.recentLeaves = recentLeaves;
+        responsePayload.recentODs = recentODs;
+      }
+
+      return res.status(200).json(responsePayload);
 
     } catch (error) {
       console.error('❌ Profile Route Fetch Failure:', error);
-      return res.status(500).json({ message: 'Internal server error processing profile metrics.', error: error.message });
+      return res.status(500).json({
+        message: 'Internal server error processing profile metrics.',
+        error: error.message
+      });
     }
   });
 
