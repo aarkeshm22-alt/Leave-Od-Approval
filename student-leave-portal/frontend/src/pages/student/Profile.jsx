@@ -14,7 +14,7 @@ const Profile = () => {
       try {
         const token = localStorage.getItem('token');
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const response = await axios.get('/api/users/profile', config);
+        const response = await axios.get('https://leave-od-approval.onrender.com/api/users/profile', config);
         if (response.data) setProfileData(response.data);
       } catch (error) {
         console.error("Error fetching profile:", error);
