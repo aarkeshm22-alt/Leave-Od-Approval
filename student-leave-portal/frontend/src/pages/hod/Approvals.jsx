@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckSquare, Square, Clock, History, Calendar, User, FileText, Hash, Filter, Download, FileSpreadsheet, Layers3, Sparkles, Loader2, X, Check, ShieldAlert
+  CheckSquare, Square, Clock, History, User, FileText, Hash, Filter, Download, FileSpreadsheet, Layers3, Sparkles, Loader, X, Check, ShieldAlert, RotateCcw,
+  Tags,
+  Workflow
 } from 'lucide-react';
 import axios from 'axios';
-
-// Vite-safe named imports from sheetJS
 import { utils, writeFile } from 'xlsx';
-
-// Client-side premium PDF generator blocks - FIXED FOR VITE
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -16,16 +14,31 @@ const Approvals = () => {
   const [items, setItems] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('PENDING'); // 'PENDING' | 'ACTIONED'
+  const [activeTab, setActiveTab] = useState('PENDING');
   const [isExporting, setIsExporting] = useState(false);
 
-  // Filter Workbench Toolbar States
+  // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterSection, setFilterSection] = useState('');
   const [filterMentor, setFilterMentor] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+
+  const normalizeYear = (year) => {
+    if (!year || year === 'N/A') return 'N/A';
+    const map = {
+      '1st Year': 'I Year',
+      '2nd Year': 'II Year',
+      '3rd Year': 'III Year',
+      '4th Year': 'IV Year',
+      'I Year': 'I Year',
+      'II Year': 'II Year',
+      'III Year': 'III Year',
+      'IV Year': 'IV Year',
+    };
+    return map[year] || year;
+  };
 
   const fetchApprovalPipeline = async () => {
     try {
@@ -47,7 +60,6 @@ const Approvals = () => {
       const rawLeaves = leavesResponse.data?.data || leavesResponse.data || [];
       const rawODs = odResponse.data?.data || odResponse.data || [];
 
-      // Maps Leaves using flat root properties returned by your updated controller mapping layer
       const formattedLeaves = Array.isArray(rawLeaves) ? rawLeaves.map(leave => ({
         id: leave.id || leave._id,
         registerNo: leave.registerNo || 'N/A',
@@ -58,11 +70,10 @@ const Approvals = () => {
         scope: leave.reason || 'No description supplied',
         status: leave.status,
         mentorName: leave.firstMentorName || 'Unassigned Advisor',
-        year: leave.year || 'N/A',
+        year: normalizeYear(leave.year || 'N/A'),
         section: leave.section || 'N/A'
       })) : [];
 
-      // Maps On-Duty logs cleanly capturing your aggregate payload layout structure
       const formattedODs = Array.isArray(rawODs) ? rawODs.map(od => {
         const studentObj = od.student || {};
         return {
@@ -75,7 +86,7 @@ const Approvals = () => {
           scope: od.reason || `Event Venue Setup`,
           status: od.status,
           mentorName: studentObj.firstmentorName || od.mentorName || 'Unassigned Advisor',
-          year: studentObj.year || 'N/A',
+          year: normalizeYear(studentObj.year || 'N/A'),
           section: studentObj.section || 'N/A'
         };
       }) : [];
@@ -99,14 +110,20 @@ const Approvals = () => {
   const pendingItems = items.filter(i => i.status === 'Partially Approved' || i.status === 'Approved By Mentor');
   const baseTabItems = activeTab === 'PENDING' ? pendingItems : items.filter(i => i.status === 'Approved' || i.status === 'Rejected');
 
-  // Unified In-Memory Structural Query Matcher Engine
   const activeDisplayItems = baseTabItems.filter(item => {
     const matchesSearch = searchQuery === '' ||
       item.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.registerNo.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesYear = filterYear === '' || item.year === filterYear;
-    const matchesSection = filterSection === '' || item.section.toUpperCase() === filterSection.toUpperCase();
+    // Allow N/A items to pass through (they are not filtered out)
+    const matchesYear = filterYear === '' ||
+      item.year === 'N/A' ||
+      item.year.toLowerCase() === filterYear.toLowerCase();
+
+    const matchesSection = filterSection === '' ||
+      item.section === 'N/A' ||
+      item.section.toUpperCase() === filterSection.toUpperCase();
+
     const matchesMentor = filterMentor === '' || item.mentorName.toLowerCase().includes(filterMentor.toLowerCase());
 
     let matchesDate = true;
@@ -131,9 +148,15 @@ const Approvals = () => {
     setSelectedIds(prev => prev.length === activeDisplayItems.length ? [] : activeDisplayItems.map(i => i.id));
   };
 
-  // =========================================================================
-  // CORE LOCAL COMPILE AND EXPORT CONTROLLER (EXCEL + REAL PDF)
-  // =========================================================================
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterYear('');
+    setFilterSection('');
+    setFilterMentor('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
+
   const handleExportReport = (format) => {
     if (activeDisplayItems.length === 0) {
       alert("No data records match filters inside the viewport.");
@@ -142,7 +165,6 @@ const Approvals = () => {
 
     setIsExporting(true);
     try {
-      // 1. Structure rows layout arrays cleanly matching your dashboard headers
       const formattedRows = activeDisplayItems.map(row => {
         const d = new Date(row.createdAt);
         const dateStr = !isNaN(d.getTime()) ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : 'N/A';
@@ -159,21 +181,15 @@ const Approvals = () => {
         };
       });
 
-      // ----------------- GENUINE EXCEL COMPILATION ROUTINE -----------------
       if (format === 'excel') {
         const worksheet = utils.json_to_sheet(formattedRows);
         const workbook = utils.book_new();
         utils.book_append_sheet(workbook, worksheet, "Compliance Report");
-
-        // Triggers the direct browser file placement stream
         writeFile(workbook, `Compliance_Audit_Log_${activeTab}_${Date.now()}.xlsx`);
-      }
-      // ----------------- GENUINE PDF COMPILATION ROUTINE -----------------
-      else if (format === 'pdf') {
+      } else if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-        // Decorative Header Accents
-        doc.setFillColor(15, 23, 42); // Deep corporate slate gray fill
+        doc.setFillColor(26, 35, 50); // Navy (indigo-900)
         doc.rect(0, 0, 297, 24, 'F');
 
         doc.setFont("Helvetica", "bold");
@@ -186,7 +202,6 @@ const Approvals = () => {
         doc.setTextColor(203, 213, 225);
         doc.text(`Active Scope: HOD ${activeTab} Ledger Pipeline Trail`, 14, 18);
 
-        // Subtitle Filters Context Card Meta Grid
         doc.setFontSize(10);
         doc.setTextColor(71, 85, 105);
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Matching Filter Bound Records Count: ${activeDisplayItems.length}`, 14, 32);
@@ -202,13 +217,12 @@ const Approvals = () => {
           row.status
         ]);
 
-        //  Perfectly functional named execution passing the 'doc' instance manually
         autoTable(doc, {
           head: tableHeaders,
           body: tableBody,
           startY: 38,
           theme: 'striped',
-          headStyles: { fillColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9 },
+          headStyles: { fillColor: [26, 35, 50], fontStyle: 'bold', fontSize: 9 },
           bodyStyles: { fontSize: 9, textColor: [30, 41, 59] },
           columnStyles: {
             0: { fontStyle: 'bold', cellWidth: 32 },
@@ -222,7 +236,6 @@ const Approvals = () => {
         });
         doc.save(`Report_CSE_${Date.now()}.pdf`);
       }
-
     } catch (err) {
       console.error("Local client binary compilation runtime error:", err);
       alert("Failed compiling report metrics data map properties.");
@@ -295,14 +308,30 @@ const Approvals = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="h-72 flex flex-col items-center justify-center gap-3 text-slate-400 bg-white border border-slate-200 rounded-2xl shadow-xs">
-        <Loader2 className="animate-spin text-blue-600" size={26} />
-        <span className="text-xs font-medium tracking-wide text-slate-500">Syncing live request architecture...</span>
+  // Switch tab handler – clear filters when moving to Pending to avoid confusion
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedIds([]);
+    if (tab === 'PENDING') {
+      clearFilters(); // Reset filters so all pending items are shown (if any)
+    }
+  };
+
+ if (loading) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[700px] sm:min-h-[700px] md:min-h-[700px] text-gray-400 font-sans px-4">
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse text-center">
+          Fetching the <span className='text-amber-600'>Pending</span> Records
+        </p>
+        <div className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse">
+          <span>from Database...</span>
+          <Loader className="animate-spin" size={18} />
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="space-y-6 font-sans pb-12 antialiased text-slate-800">
@@ -310,104 +339,113 @@ const Approvals = () => {
       {/* Upper Title Block */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Institutional Approvals Desk</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Dual-stream leaves and on-duty workflow processing panel.</p>
+          <h2 className="text-xl font-black text-indigo-900 tracking-tight">HOD Approvals</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Dual-stream leaves and on-duty request processing panel.</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-xl self-start md:self-auto">
-          <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
-          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{pendingItems.length} Waiting Reviews</span>
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 p-2 rounded-xl self-start md:self-auto">
+          <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">{pendingItems.length} Waiting Requests</span>
         </div>
       </div>
 
       {/* Mode Switches Tabs Row */}
       <div className="flex gap-4 border-b border-slate-200 pb-px">
         <button
-          type="button" onClick={() => { setActiveTab('PENDING'); setSelectedIds([]); }}
-          className={`flex items-center gap-2 pb-3 px-1 text-xs font-bold tracking-tight border-b-2 transition-all ${activeTab === 'PENDING' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-800'}`}
+          type="button" onClick={() => handleTabChange('PENDING')}
+          className={`flex items-center gap-2 pb-3 px-1 text-xs font-bold tracking-tight border-b-2 transition-all ${activeTab === 'PENDING' ? 'border-amber-500 text-indigo-900' : 'border-transparent text-slate-400 hover:text-indigo-700'}`}
         >
           <Clock size={14} /> Pending Request(s)
         </button>
         <button
-          type="button" onClick={() => { setActiveTab('ACTIONED'); setSelectedIds([]); }}
-          className={`flex items-center gap-2 pb-3 px-1 text-xs font-bold tracking-tight border-b-2 transition-all ${activeTab === 'ACTIONED' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-800'}`}
+          type="button" onClick={() => handleTabChange('ACTIONED')}
+          className={`flex items-center gap-2 pb-3 px-1 text-xs font-bold tracking-tight border-b-2 transition-all ${activeTab === 'ACTIONED' ? 'border-amber-500 text-indigo-900' : 'border-transparent text-slate-400 hover:text-indigo-700'}`}
         >
-          <History size={14} /> Approval History Ledger
+          <History size={14} /> Approval History
         </button>
       </div>
 
-      {/* Filter Options Query Console Workspace widget card */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3.5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <Filter size={13} className="text-slate-400" />
-            <span>Structured Data Query Workspace Engine</span>
+      {/* Filter Options – only visible on Approval History tab */}
+      {activeTab === 'ACTIONED' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-900">
+              <Filter size={13} className="text-amber-500" />
+              <span>Filter Options</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button" onClick={clearFilters}
+                className="flex items-center gap-1.5 py-1.5 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 font-bold text-[11px] rounded-lg transition-all shadow-3xs"
+              >
+                <RotateCcw size={12} /> Clear Filters
+              </button>
+              <button
+                type="button" disabled={isExporting} onClick={() => handleExportReport('excel')}
+                className="flex items-center gap-1.5 py-1.5 px-3 border border-green-200 bg-green-100 hover:bg-green-200 text-green-700 font-bold text-[11px] rounded-lg transition-all shadow-3xs"
+              >
+                <FileSpreadsheet size={12} /> Download Excel
+              </button>
+              <button
+                type="button" disabled={isExporting} onClick={() => handleExportReport('pdf')}
+                className="flex items-center gap-1.5 py-1.5 px-3 border border-red-900 bg-red-700 hover:bg-red-800 text-white font-bold text-[11px] rounded-lg transition-all shadow-3xs"
+              >
+                <Download size={12} /> Download PDF
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button" disabled={isExporting} onClick={() => handleExportReport('excel')}
-              className="flex items-center gap-1.5 py-1.5 px-3 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] rounded-lg transition-all shadow-3xs"
-            >
-              <FileSpreadsheet size={12} /> Compile Excel
-            </button>
-            <button
-              type="button" disabled={isExporting} onClick={() => handleExportReport('pdf')}
-              className="flex items-center gap-1.5 py-1.5 px-3 border border-slate-900 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-lg transition-all shadow-3xs"
-            >
-              <Download size={12} /> Compile PDF
-            </button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Search Identity</label>
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Name / Reg No..." className="border border-slate-200 rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-blue-500" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Cohort Year</label>
-            <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-blue-500">
-              <option value="">-- All Years --</option>
-              <option value="1st Year">1st Year</option>
-              <option value="2nd Year">2nd Year</option>
-              <option value="3rd Year">3rd Year</option>
-              <option value="4th Year">4th Year</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Section</label>
-            <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-blue-500">
-              <option value="">-- All Sections --</option>
-              <option value="A">Section A</option>
-              <option value="B">Section B</option>
-              <option value="C">Section C</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Faculty Mentor (CA1)</label>
-            <input type="text" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)} placeholder="Advisor Title..." className="border border-slate-200 rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-blue-500" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">From Date</label>
-            <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="border border-slate-200 rounded-lg p-1.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-500" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">To Date</label>
-            <input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="border border-slate-200 rounded-lg p-1.5 text-xs font-medium text-slate-800 outline-none focus:border-blue-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Search Identity</label>
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Name / Reg No..." className="border border-slate-200 rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Year</label>
+              <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
+                <option value="">-- All Years --</option>
+                <option value="I Year">I Year</option>
+                <option value="II Year">II Year</option>
+                <option value="III Year">III Year</option>
+                <option value="IV Year">IV Year</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Section</label>
+              <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="border border-slate-200 bg-white rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
+                <option value="">-- All Sections --</option>
+                <option value="A"> A</option>
+                <option value="B"> B</option>
+                <option value="C"> C</option>
+                <option value="D"> D</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Faculty Mentor (CA1)</label>
+              <input type="text" value={filterMentor} onChange={(e) => setFilterMentor(e.target.value)} placeholder="Mentor Name..." className="border border-slate-200 rounded-lg p-2 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">From Date</label>
+              <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="border border-slate-200 rounded-lg p-1.5 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">To Date</label>
+              <input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="border border-slate-200 rounded-lg p-1.5 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Bulk Operations Overlay Banner row */}
       <AnimatePresence>
         {selectedIds.length > 0 && activeTab === 'PENDING' && (
-          <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900 p-4 rounded-xl shadow-md text-white">
+          <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }} className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-indigo-900 p-4 rounded-xl shadow-md text-white">
             <div className="flex items-center gap-3">
-              <ShieldAlert size={16} className="text-blue-400" />
+              <ShieldAlert size={16} className="text-amber-400" />
               <p className="text-xs font-medium text-slate-300"><span className="font-bold text-white">{selectedIds.length}</span> items inside filtering scope selected.</p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto shrink-0">
-              <button type="button" onClick={() => handleBulkAction('reject')} className="py-2 px-3 text-[11px] font-bold rounded-lg bg-rose-600/20 text-rose-300 border border-rose-500/20 w-full sm:w-auto">Reject Bulk</button>
-              <button type="button" onClick={() => handleBulkAction('approve')} className="py-2 px-4 text-[11px] font-bold rounded-lg bg-white text-slate-950 w-full sm:w-auto">Approve Bulk</button>
+              <button type="button" onClick={() => handleBulkAction('reject')} className="py-2 px-3 text-[11px] font-bold rounded-lg bg-amber-600/20 text-amber-300 border border-amber-500/20 w-full sm:w-auto">Reject Bulk</button>
+              <button type="button" onClick={() => handleBulkAction('approve')} className="py-2 px-4 text-[11px] font-bold rounded-lg bg-amber-500 text-indigo-900 w-full sm:w-auto hover:bg-amber-400 transition">Approve Bulk</button>
             </div>
           </motion.div>
         )}
@@ -415,21 +453,21 @@ const Approvals = () => {
 
       {/* Main Core Columns Matrix Table Component structure */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="p-3.5 bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden lg:grid lg:grid-cols-12 gap-4 items-center">
+        <div className="p-3.5 bg-amber-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider hidden lg:grid lg:grid-cols-12 gap-4 items-center">
           <div className="col-span-2 flex items-center gap-3">
             {activeTab === 'PENDING' && activeDisplayItems.length > 0 && (
-              <button type="button" onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-600 shrink-0">
-                {selectedIds.length === activeDisplayItems.length ? <CheckSquare size={15} className="text-blue-600" /> : <Square size={15} />}
+              <button type="button" onClick={toggleSelectAll} className="text-slate-400 hover:text-indigo-700 shrink-0">
+                {selectedIds.length === activeDisplayItems.length ? <CheckSquare size={15} className="text-amber-600" /> : <Square size={15} />}
               </button>
             )}
             <span className="flex items-center gap-1"><Hash size={11} /> Register No</span>
           </div>
           <div className="col-span-2 flex items-center gap-1.5"><User size={12} /> Student Identity</div>
-          <div className="col-span-2 flex items-center gap-1.5"><Layers3 size={12} /> Cohort / Section</div>
+          <div className="col-span-2 flex items-center gap-1.5"><Layers3 size={12} /> Section</div>
           <div className="col-span-2 flex items-center gap-1.5"><User size={12} /> Faculty Mentor (CA1)</div>
-          <div className="col-span-2 flex items-center gap-1.5"><FileText size={12} /> Reason Context</div>
-          <div className="col-span-1 text-center">Category</div>
-          <div className="col-span-1 text-right">Action</div>
+          <div className="col-span-2 flex items-center gap-1.5"><FileText size={12} /> Reason</div>
+          <div className="col-span-1 flex items-center gap-1.5"><Tags size={12} /> Category</div>
+          <div className="col-span-1 flex items-center gap-1.5"><Workflow size={12} /> Action</div>
         </div>
 
         <div className="divide-y divide-slate-100 text-xs">
@@ -439,15 +477,15 @@ const Approvals = () => {
             const formattedDate = !isNaN(rawDate.getTime()) ? `${String(rawDate.getDate()).padStart(2, '0')}/${String(rawDate.getMonth() + 1).padStart(2, '0')}/${rawDate.getFullYear()}` : 'N/A';
 
             return (
-              <div key={row.id} className={`p-4 lg:p-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center transition-all ${isSelected ? 'bg-blue-50/20' : 'bg-white hover:bg-slate-50/10'}`}>
+              <div key={row.id} className={`p-4 lg:p-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center transition-all ${isSelected ? 'bg-amber-50/30' : 'bg-white hover:bg-amber-50/10'}`}>
 
                 <div className="lg:col-span-2 flex items-center gap-3 min-w-0">
                   {activeTab === 'PENDING' && (
-                    <button type="button" onClick={() => toggleSelect(row.id)} className="text-slate-300 hover:text-slate-500 shrink-0">
-                      {isSelected ? <CheckSquare size={15} className="text-blue-600" /> : <Square size={15} />}
+                    <button type="button" onClick={() => toggleSelect(row.id)} className="text-slate-300 hover:text-indigo-700 shrink-0">
+                      {isSelected ? <CheckSquare size={15} className="text-amber-600" /> : <Square size={15} />}
                     </button>
                   )}
-                  <div className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-100/60 px-2 py-0.5 rounded text-[11px] tracking-tight">
+                  <div className="font-mono font-bold text-indigo-900 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded text-[11px] tracking-tight">
                     {row.registerNo}
                   </div>
                 </div>
@@ -459,8 +497,8 @@ const Approvals = () => {
                 </div>
 
                 <div className="lg:col-span-2 font-medium text-slate-600 flex items-center gap-1.5">
-                  <span className="lg:hidden text-[9px] uppercase font-bold text-slate-400 mr-1.5">Cohort Group:</span>
-                  <div className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] border border-slate-200/50 font-semibold">
+                  <span className="lg:hidden text-[9px] uppercase font-bold text-slate-400 mr-1.5">Cohort:</span>
+                  <div className="bg-slate-100 text-indigo-800 px-2 py-0.5 rounded text-[11px] border border-slate-200/50 font-semibold">
                     {row.year} — {row.section}
                   </div>
                 </div>
@@ -468,30 +506,39 @@ const Approvals = () => {
                 <div className="lg:col-span-2 font-medium text-slate-700 truncate">
                   <span className="lg:hidden block text-[9px] uppercase font-bold text-slate-400 mb-0.5">Faculty Advisor (CA1)</span>
                   <div className="flex items-center gap-1 text-slate-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 hidden lg:inline-block mr-1" />
-                    <span className="italic font-bold text-slate-700 text-[11px] lg:text-xs">{row.mentorName}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 hidden lg:inline-block mr-1" />
+                    <span className="italic font-bold text-indigo-800 text-[11px] lg:text-xs">{row.mentorName}</span>
                   </div>
                 </div>
 
                 <div className="lg:col-span-2 text-slate-500 font-medium truncate">
-                  <span className="lg:hidden block text-[9px] uppercase font-bold text-slate-400 mb-0.5">Reason Statement</span>
+                  <span className="lg:hidden block text-[9px] uppercase font-bold text-slate-400 mb-0.5">Reason</span>
                   {row.scope}
                 </div>
 
                 <div className="lg:col-span-1 lg:text-center flex items-center">
-                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded border ${row.class === 'Leave' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
+                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded border ${
+                    row.class === 'Leave' 
+                      ? 'bg-amber-50 text-indigo-800 border-amber-200' 
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                  }`}>
                     {row.class}
                   </span>
                 </div>
 
-                <div className="lg:col-span-1 flex flex-row lg:flex-row-reverse justify-between lg:justify-start items-center gap-2 pt-2.5 lg:pt-0 border-t border-slate-100 lg:border-none mt-1 lg:mt-0">
+                {/* ACTION COLUMN – FIXED ALIGNMENT (ml-auto on inner content) */}
+                <div className="lg:col-span-1 flex flex-row items-center pt-2.5 lg:pt-0 border-t border-slate-100 lg:border-none mt-1 lg:mt-0">
                   {row.status === 'Partially Approved' || row.status === 'Approved By Mentor' || row.status === 'Pending' ? (
                     <div className="flex items-center gap-1 ml-auto">
-                      <button type="button" onClick={() => handleSingleAction(row.id, 'reject', row.class)} className="p-1.5 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-400 hover:text-rose-600 rounded-lg transition-all"><X size={12} /></button>
-                      <button type="button" onClick={() => handleSingleAction(row.id, 'approve', row.class)} className="p-1.5 bg-slate-900 hover:bg-emerald-600 text-white rounded-lg transition-all"><Check size={12} /></button>
+                      <button type="button" onClick={() => handleSingleAction(row.id, 'reject', row.class)} className="p-1.5 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-400 hover:text-amber-700 rounded-lg transition-all"><X size={12} /></button>
+                      <button type="button" onClick={() => handleSingleAction(row.id, 'approve', row.class)} className="p-1.5 bg-indigo-900 hover:bg-indigo-800 text-white rounded-lg transition-all"><Check size={12} /></button>
                     </div>
                   ) : (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ml-auto ${row.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ml-auto ${
+                      row.status === 'Approved' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
                       {row.status === 'Approved' ? 'Cleared' : 'Declined'}
                     </span>
                   )}
@@ -503,8 +550,13 @@ const Approvals = () => {
 
           {activeDisplayItems.length === 0 && (
             <div className="p-16 text-center text-slate-400 font-medium flex flex-col items-center justify-center gap-2">
-              <Sparkles size={16} className="text-slate-300" />
+              <Sparkles size={16} className="text-amber-400" />
               <p className="text-slate-800 text-xs font-bold">No Records Match Filters</p>
+              {activeTab === 'PENDING' && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  There are currently no pending requests.
+                </p>
+              )}
             </div>
           )}
         </div>
