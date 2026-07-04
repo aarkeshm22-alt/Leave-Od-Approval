@@ -91,7 +91,7 @@ const MyRequests = () => {
 
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    formData.append('document', file);
+    formData.append('certificate', file);
 
     try {
       setUploadingId(activeOdId);
