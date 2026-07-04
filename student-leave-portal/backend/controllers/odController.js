@@ -363,33 +363,41 @@ export const uploadODProofImage = async (req, res) => {
   try {
     const { odId } = req.params;
 
+    // Check existence & status
     const odRecord = await OnDuty.findById(odId);
     if (!odRecord) {
       return res.status(404).json({ success: false, message: 'Target OD request trace not found.' });
     }
-
     if (odRecord.status !== 'Approved') {
       return res.status(403).json({
         success: false,
         message: 'Upload blocked. Attestation images can only be attached after explicit HOD Approval.'
       });
     }
-
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please attach a valid certificate image file payload.' });
     }
 
     const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-    odRecord.document = base64Image;
-    await odRecord.save();
+    // ✅ Use findByIdAndUpdate with $set
+    const updated = await OnDuty.findByIdAndUpdate(
+      odId,
+      { $set: { certificate: base64Image } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'OD request not found during update.' });
+    }
 
     res.status(200).json({
       success: true,
       message: 'Certificate attestation image pinned successfully!',
-      data: odRecord
+      data: updated
     });
   } catch (error) {
+    console.error('❌ Upload error:', error);
     res.status(500).json({ success: false, message: 'Image modification upload failed.', error: error.message });
   }
 };

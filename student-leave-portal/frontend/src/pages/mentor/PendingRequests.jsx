@@ -150,9 +150,14 @@ const PendingRequests = () => {
 
   if (loading) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center gap-3 text-slate-500">
-        <Loader2 className="animate-spin text-blue-600" size={24} />
-        <span className="text-xs font-semibold">Loading Your mentes pending request...!</span>
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-indigo-700 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
+          Loading Your Mentes Pending Requests...
+        </p>
       </div>
     );
   }

@@ -22,7 +22,6 @@ import HodProfile from '../pages/hod/Profile';
 import MentorDashboard from '../pages/mentor/Dashboard';
 import MentorPending from '../pages/mentor/PendingRequests';
 import MentorStudents from '../pages/mentor/StudentList';
-import MentorReports from '../pages/mentor/Reports';
 import MentorProfile from '../pages/mentor/Profile';
 
 // Student Panel views
@@ -71,7 +70,6 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<MentorDashboard />} />
         <Route path="pending-requests" element={<MentorPending />} />
         <Route path="students" element={<MentorStudents />} />
-        <Route path="reports" element={<MentorReports />} />
         <Route path="profile" element={<MentorProfile />} />
       </Route>
 

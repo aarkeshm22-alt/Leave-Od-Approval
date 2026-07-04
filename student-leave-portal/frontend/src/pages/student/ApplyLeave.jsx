@@ -156,9 +156,12 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
 
   if (loadingProfile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-        <Loader2 className="animate-spin text-amber-500 mb-3" size={36} />
-        <p className="text-sm font-medium text-gray-600">Loading your profile…</p>
+     <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-blue-900">Leave</span> form…</p>
       </div>
     );
   }
@@ -176,15 +179,15 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
           <Sparkles className="text-amber-500" size={24} />
           Apply {formData.type}
         </h1>
+        <br />
         <p className="text-sm text-gray-500 mt-1">
-          Your request will be routed through the{' '}
+          You can submit your{' '}
           <span className="font-semibold text-blue-900 underline decoration-amber-500 underline-offset-2">
             {formData.type}
           </span>{' '}
-          approval workflow.
+          request through this form. Please ensure all details are correct before submission.
         </p>
       </div>
-
       {/* Message Alert */}
       {message.text && (
         <motion.div

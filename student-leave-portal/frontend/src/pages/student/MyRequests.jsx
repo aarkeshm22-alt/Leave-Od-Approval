@@ -126,8 +126,11 @@ const MyRequests = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] px-4 text-gray-500">
-        <Loader2 className="animate-spin text-amber-500 mb-3" size={32} />
+     <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+        </div>
         <p className="text-xs font-mono tracking-widest uppercase text-gray-600 text-center">Loading your request…</p>
       </div>
     );

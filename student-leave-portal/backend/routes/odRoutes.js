@@ -38,8 +38,8 @@ router.get('/student-history', protect, getStudentODHistory);
  * @note    Intercepts multipart form-data payload safely. Restricts to images under 300 KB.
  */
 router.patch('/upload-proof/:odId', protect, (req, res, next) => {
-  // Looks specifically for FormData key matching 'document'
-  uploadODDocument.single('document')(req, res, function (err) {
+  // Looks specifically for FormData key matching 'certificate'
+  uploadODDocument.single('certificate')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ 

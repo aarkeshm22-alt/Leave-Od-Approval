@@ -370,26 +370,26 @@ const Approvals = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div className="flex items-center gap-2 text-xs font-bold text-indigo-900">
               <Filter size={13} className="text-amber-500" />
-              <span>Filter Options</span>
+              <span>Filter</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={clearFilters}
                 className="flex items-center gap-1.5 py-1.5 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 font-bold text-[11px] rounded-lg transition-all shadow-3xs"
               >
-                <RotateCcw size={12} /> Clear Filters
+                <RotateCcw size={12} /> Clear
               </button>
               <button
                 type="button" disabled={isExporting} onClick={() => handleExportReport('excel')}
                 className="flex items-center gap-1.5 py-1.5 px-3 border border-green-200 bg-green-100 hover:bg-green-200 text-green-700 font-bold text-[11px] rounded-lg transition-all shadow-3xs"
               >
-                <FileSpreadsheet size={12} /> Download Excel
+                <FileSpreadsheet size={12} /> Excel
               </button>
               <button
                 type="button" disabled={isExporting} onClick={() => handleExportReport('pdf')}
                 className="flex items-center gap-1.5 py-1.5 px-3 border border-red-900 bg-red-700 hover:bg-red-800 text-white font-bold text-[11px] rounded-lg transition-all shadow-3xs"
               >
-                <Download size={12} /> Download PDF
+                <Download size={12} /> PDF
               </button>
             </div>
           </div>

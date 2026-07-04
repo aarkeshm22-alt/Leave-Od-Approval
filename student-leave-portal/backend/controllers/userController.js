@@ -291,12 +291,12 @@ export const getStudentsByMentor = async (req, res) => {
     console.log('[getStudentsByMentor] Query:', JSON.stringify(query));
 
     const students = await User.find(query)
-      .select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName year section')
+      .select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName ')
       .lean();
 
     console.log(`[getStudentsByMentor] Found ${students.length} students`);
 
-    // Enrich with leave/OD counts and document
+    // Enrich with leave/OD counts and certificate
     const enrichedStudents = await Promise.all(students.map(async (student) => {
       // Count leaves and ODs
       const leaveCount = await Leave.countDocuments({
@@ -316,17 +316,17 @@ export const getStudentsByMentor = async (req, res) => {
       try {
         const docResult = await OnDuty.findOne({
           student: student._id,
-          document: { $exists: true, $ne: null, $ne: "" }
+          certificate: { $exists: true, $ne: null, $ne: "" }
         })
         .sort({ createdAt: -1 })
-        .select('document')
+        .select('certificate')
         .lean();
 
         if (docResult) {
-          document = docResult.document;
+          document = docResult.certificate;
         }
       } catch (err) {
-        console.warn(`Could not fetch document for student ${student._id}:`, err.message);
+        console.warn(`Could not fetch certificate for student ${student._id}:`, err.message);
       }
 
       return {
@@ -334,7 +334,7 @@ export const getStudentsByMentor = async (req, res) => {
         name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
         leaveCount: leaveCount,
         odCount: odCount,
-        document: document
+        certificate: document || 'No certificate available'
       };
     }));
 

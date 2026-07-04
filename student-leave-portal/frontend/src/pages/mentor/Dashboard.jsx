@@ -52,9 +52,13 @@ const MentorDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[700px] text-slate-400 font-sans">
-        <p className="text-xs font-black tracking-widest uppercase text-slate-500 animate-pulse">
-          Loading Your Dashboard <Loader className="inline-block animate-spin" size={18} />
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-indigo-700 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
+          Loading Your Dashboard...
         </p>
       </div>
     );

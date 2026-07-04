@@ -197,7 +197,7 @@ const StudentDashboard = () => {
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
         <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
-          Fetching details...
+          Loading Your Dashboard...
         </p>
       </div>
     );

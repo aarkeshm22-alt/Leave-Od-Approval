@@ -49,12 +49,7 @@ export const mentorMenu = [
     title: "Pending Requests",
     icon: CheckSquare,
     path: "/mentor/pending-requests",
-  },
-  {
-    title: "Performance Reports",
-    icon: BarChart3,
-    path: "/mentor/reports",
-  },
+  }
 ];
 
 export const hodMenu = [

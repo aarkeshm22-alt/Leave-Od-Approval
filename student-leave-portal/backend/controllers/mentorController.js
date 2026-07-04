@@ -28,7 +28,7 @@ export const getMyStudents = async (req, res) => {
     const students = await User.find({
       role: 'Student',
       firstmentorName: structuredMentorName
-    }).select('firstName lastName name registerNo studentType mobileNo email firstmentorName secondmentorName');
+    }).select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName  department');
 
     // 3. Enrich each student
     const updatedStudentArray = await Promise.all(
@@ -126,7 +126,7 @@ export const getMentorsWithStudents = async (req, res) => {
     // Find all users with role 'Mentor' (or 'Faculty')
     const mentors = await User.find({ 
       role: { $in: ['Mentor', 'Faculty'] } 
-    }).select('firstName lastName name email mobileNo role category department');
+    }).select('firstName lastName name year section email mobileNo role  category department');
 
     // For each mentor, get student count and also the documents? No, we only need count at this stage.
     // We'll compute counts by querying the students collection.

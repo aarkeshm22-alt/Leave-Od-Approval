@@ -174,9 +174,12 @@ const ApplyOD = () => {
 
   if (loadingProfile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500 px-4">
-        <Loader2 className="animate-spin text-amber-500 mb-3" size={36} />
-        <p className="text-sm font-medium text-gray-600 text-center">Loading your profile…</p>
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+        </div>
+         <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-amber-600">On-Duty</span> form…</p>
       </div>
     );
   }
@@ -193,12 +196,13 @@ const ApplyOD = () => {
         <h2 className="text-2xl sm:text-3xl font-extrabold text-blue-900 mt-2 flex items-center gap-2 sm:gap-3">
           <span className="text-amber-500">✦</span> Apply On-Duty (OD)
         </h2>
+        <br />
         <p className="text-sm text-gray-500 mt-1">
-          Your application will automatically be set under department's{' '}
+          You can submit your{' '}
           <span className="font-semibold text-blue-900 underline decoration-amber-500 underline-offset-2">
             {formData.type}
           </span>{' '}
-          request platform.
+          request through this form. Please ensure all details are correct before submission.
         </p>
       </div>
 

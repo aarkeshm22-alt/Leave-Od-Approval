@@ -39,9 +39,14 @@ const Profile = () => {
 
   if (loading) {
     return (
-     <div className="flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px] md:min-h-[700px] text-gray-400 font-sans px-4">
-        <p className="text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse flex items-center gap-2">
-          Loading Your Profile Details <Loader className="inline-block animate-spin" size={18} />
+     <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-sm font-medium text-gray-600 text-center uppercase">
+          Loading Your { ' '} 
+          <span className="font-bold text-amber-600">Profile</span> Details...
         </p>
       </div>
     );
