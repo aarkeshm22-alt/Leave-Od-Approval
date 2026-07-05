@@ -1,4 +1,5 @@
 import OnDuty from '../models/OnDuty.js';
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 import multer from 'multer';
 import { protect } from '../middleware/authMiddleware.js';
@@ -83,99 +84,69 @@ export const getStudentODHistory = async (req, res) => {
 // =========================================================================
 // FETCH MENTOR'S PENDING QUEUE (Dynamic Name Concat Mapping Enabled)
 // =========================================================================
+// =========================================================================
+// FETCH MENTOR OD REQUESTS (Pending + Actioned)
+// =========================================================================
 export const getMentorPendingODs = async (req, res) => {
   try {
-    const rawMentorId = req.user?.id || req.user?._id;
-    if (!rawMentorId) {
-      return res.status(401).json({ success: false, message: 'Authorization error: Mentor identity missing.' });
+    // 1. Get the mentor's profile
+    const mentorProfile = await User.findById(req.user.id);
+    if (!mentorProfile) {
+      return res.status(404).json({ message: 'Mentor profile not found.' });
     }
-    
-    const targetMentorId = new mongoose.Types.ObjectId(rawMentorId.toString().trim());
 
-    // 1. Attempt strict match join (Finds students explicitly assigned to THIS mentor)
-    let filteredODs = await OnDuty.aggregate([
-      { $match: { status: 'Pending' } },
-      { $addFields: { studentObjectId: { $toObjectId: '$student' } } },
-      {
-        $lookup: {
-          from: 'users', 
-          localField: 'studentObjectId',
-          foreignField: '_id',
-          as: 'studentDetails'
-        }
-      },
-      { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: false } },
-      // 🚨 UPDATED: If your User model uses a field named 'mentor', matches the structural check.
-      // If your matching user record maps mentor strings using firstmentorname, adjust this field criteria path.
-      { $match: { 'studentDetails.mentor': targetMentorId } },
-      {
-        $project: {
-          _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
-          student: {
-            _id: '$studentDetails._id',
-            registerNo: '$studentDetails.registerNo',
-            firstName: '$studentDetails.firstName',
-            lastName: '$studentDetails.lastName',
-            name: { 
-              $ifNull: [
-                '$studentDetails.name', 
-                { $concat: [{ $ifNull: ['$studentDetails.firstName', ''] }, ' ', { $ifNull: ['$studentDetails.lastName', ''] }] }
-              ] 
-            },
-            // 🚨 UPDATED: Swapped key identifier reference pointer to read 'firstmentorname'
-            firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
-          }
-        }
-      }
-    ]);
-
-    // 2. 🛡️ FAIL-SAFE FALLBACK: If strict matching returns 0 records, fetch ALL pending requests globally
-    if (filteredODs.length === 0) {
-      console.log(`\n[DIAGNOSTIC] Strict mentor matching returned 0 rows for Mentor ID: ${rawMentorId}. Running global fallback...`);
-      
-      filteredODs = await OnDuty.aggregate([
-        { $match: { status: 'Pending' } },
-        { $addFields: { studentObjectId: { $toObjectId: '$student' } } },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'studentObjectId',
-            foreignField: '_id',
-            as: 'studentDetails'
-          }
-        },
-        { $unwind: { path: '$studentDetails', preserveNullAndEmptyArrays: true } }, 
-        {
-          $project: {
-            _id: 1, type: 1, duration: 1, halfDaySession: 1, fromDate: 1, toDate: 1, collegeName: 1, collegeLocation: 1, reason: 1, status: 1, createdAt: 1,
-            student: {
-              _id: { $ifNull: ['$studentDetails._id', '$student'] },
-              registerNo: { $ifNull: ['$studentDetails.registerNo', 'N/A'] },
-              firstName: { $ifNull: ['$studentDetails.firstName', ''] },
-              lastName: { $ifNull: ['$studentDetails.lastName', ''] },
-              name: { 
-                $ifNull: [
-                  '$studentDetails.name', 
-                  { $concat: [{ $ifNull: ['$studentDetails.firstName', 'Testing'], }, ' ', { $ifNull: ['$studentDetails.lastName', 'Student'] }] }
-                ] 
-              },
-              // 🚨 UPDATED: Swapped key identifier reference pointer to read 'firstmentorname'
-              firstmentorname: { $ifNull: ['$studentDetails.firstmentorname', '$studentDetails.mentorName'] }
-            }
-          }
-        }
-      ]);
+    // Build the mentor's full name exactly as stored in student documents
+    let structuredMentorName = "";
+    if (mentorProfile.firstName || mentorProfile.lastName) {
+      structuredMentorName = `${mentorProfile.firstName || ''} ${mentorProfile.lastName || ''}`
+        .trim()
+        .replace(/\s+/g, ' ');
+    } else {
+      structuredMentorName = mentorProfile.name ? mentorProfile.name.trim() : "";
     }
+
+    if (!structuredMentorName) {
+      return res.status(400).json({ message: 'Mentor name could not be resolved.' });
+    }
+
+    // 2. Determine which statuses to fetch based on `tab` query parameter
+    const tab = req.query.tab || 'PENDING';
+    let statusFilter = {};
+    if (tab === 'PENDING') {
+      statusFilter.status = { $regex: /pending/i }; // only 'Pending' (case‑insensitive)
+    } else {
+      // ACTIONED: include both Approved and Rejected
+      statusFilter.status = { $in: ['Approved', 'Rejected'] };
+    }
+
+    // 3. Query OnDuty with population and match on mentor name
+    const odRequests = await OnDuty.find(statusFilter)
+      .populate({
+        path: 'student',
+        select: 'firstName lastName name registerNo studentType firstmentorName secondmentorName',
+        match: {
+          $or: [
+            { firstmentorName: { $regex: new RegExp(`^${structuredMentorName}$`, 'i') } },
+            { secondmentorName: { $regex: new RegExp(`^${structuredMentorName}$`, 'i') } }
+          ]
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    // 4. Remove any records where the student didn't match (i.e. `student` is null)
+    const filteredResults = odRequests.filter(item => item.student !== null);
 
     return res.status(200).json({
       success: true,
-      count: filteredODs.length,
-      data: filteredODs
+      count: filteredResults.length,
+      data: filteredResults
     });
-
   } catch (error) {
-    console.error("CRITICAL EXCEPTION IN DIRECT JOIN LOGIC:", error);
-    return res.status(500).json({ success: false, message: 'Server failed database operations.', error: error.message });
+    console.error('Error fetching mentor OD requests:', error);
+    return res.status(500).json({
+      message: 'Server error while fetching OD requests.',
+      error: error.message
+    });
   }
 };
 

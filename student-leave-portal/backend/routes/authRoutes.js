@@ -11,7 +11,7 @@ import {
 } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
-
+import mongoose from 'mongoose';
 // 🚨 FIXED: Imported the actual split models from your file structure to prevent 500 runtime crashes
 import Leave from '../models/Leave.js';
 import OnDuty from '../models/OnDuty.js';

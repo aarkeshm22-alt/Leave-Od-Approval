@@ -1,55 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Award, Calendar, Clock, CheckCircle2, PlusCircle, Info, Quote, X, Smile, Sparkle, Sparkles } from 'lucide-react';
+import { Award, Calendar, Clock, CheckCircle2, PlusCircle, Info, Quote, X, Smile, Sparkle, Sparkles, FileText, Briefcase } from 'lucide-react';
 import axios from 'axios';
 import StatusCard from '../../components/cards/StatusCard';
 import eventBus from '../../utils/eventBus';
 
-// ---------- Toast Component (Light Navy/Amber/Silver) ----------
+// ---------- Toast Component (unchanged) ----------
 const Toast = ({ message, emoji, onClose }) => (
   <motion.div
     initial={{ opacity: 0, x: 50, scale: 0.9 }}
     animate={{ opacity: 1, x: 0, scale: 1 }}
     exit={{ opacity: 0, x: 50, scale: 0.9 }}
     transition={{ duration: 0.3 }}
-    className="fixed top-6 right-6 z-50 max-w-sm w-full bg-white shadow-xl rounded-2xl border border-gray-300 p-4 flex items-start gap-3"
+    className="fixed top-4 right-4 z-50 max-w-[90vw] sm:max-w-sm w-full bg-white shadow-xl rounded-2xl border border-gray-300 p-4 flex items-start gap-3"
   >
     <span className="text-2xl leading-none">{emoji}</span>
-    <div className="flex-1">
-      <p className="text-sm font-bold text-blue-900 leading-tight">{message}</p>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-bold text-blue-900 leading-tight break-words">{message}</p>
       <p className="text-[10px] text-gray-400 font-medium mt-0.5">Just now</p>
     </div>
-    <button onClick={onClose} className="text-gray-400 hover:text-blue-900 transition-colors">
+    <button onClick={onClose} className="text-gray-400 hover:text-blue-900 transition-colors shrink-0">
       <X size={16} />
     </button>
   </motion.div>
 );
 
-// ---------- Unified Navy/Amber Palette (no gender split) ----------
-const palette = {
-  primary: 'blue-900',
-  primaryLight: 'blue-50',
-  primaryBorder: 'blue-200',
-  accent: 'amber-500',
-  accentLight: 'amber-50',
-  accentBorder: 'amber-200',
-  silver: 'gray-300',
-  silverLight: 'gray-100',
-  buttonBg: 'bg-blue-900',
-  buttonHover: 'hover:bg-amber-500',
-  buttonShadow: 'shadow-blue-900/20',
-  infoBg: 'bg-amber-50/60',
-  infoBorder: 'border-amber-200/80',
-  infoText: 'text-blue-900/90',
-  timeBg: 'bg-gray-100',
-  timeBorder: 'border-gray-200',
-  timeText: 'text-blue-900',
-  quoteBorder: 'border-amber-200',
-  quoteIconColor: 'text-amber-500',
-};
-
-// ---------- Daily Quotes ----------
+// ---------- Daily Quotes (unchanged) ----------
 const QUOTES = [
   { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
   { text: "In the middle of difficulty lies opportunity.", author: "Albert Einstein" },
@@ -73,9 +50,12 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [dateTime, setDateTime] = useState(new Date());
   const [metrics, setMetrics] = useState({
+    name: '',
     totalLeaves: 0,
     totalOD: 0,
     pendingApprovals: 0,
+    pendingLeaves: 0,
+    pendingOD: 0,
     approvedRequests: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -88,7 +68,7 @@ const StudentDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Load daily quote – persists via localStorage
+  // Daily quote
   useEffect(() => {
     const todayStr = new Date().toDateString();
     const stored = localStorage.getItem('dailyQuote');
@@ -99,7 +79,7 @@ const StudentDashboard = () => {
           setDailyQuote(parsed.quote);
           return;
         }
-      } catch (_) { }
+      } catch (_) {}
     }
     const quote = getDailyQuote();
     setDailyQuote(quote);
@@ -134,11 +114,14 @@ const StudentDashboard = () => {
       const { data } = await axios.get('https://leave-od-approval.onrender.com/api/users/profile', config);
 
       if (data) {
+        // Update metrics with pending splits if available
         setMetrics({
           name: data.name || '',
           totalLeaves: data.totalLeavesCount || 0,
           totalOD: data.totalODCount || 0,
           pendingApprovals: data.pendingCount || 0,
+          pendingLeaves: data.pendingLeavesCount || 0,
+          pendingOD: data.pendingODCount || 0,
           approvedRequests: data.approvedCount || 0,
         });
 
@@ -191,13 +174,13 @@ const StudentDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC] p-4">
         <div className="relative w-10 h-10">
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
-        <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
-          Loading Your Dashboard...
+        <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse text-center">
+          Loading Your <span className='text-indigo-600'>Dashboard</span>...
         </p>
       </div>
     );
@@ -208,40 +191,42 @@ const StudentDashboard = () => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-8 max-w-7xl mx-auto p-4 md:p-8 min-h-screen font-sans antialiased bg-[#F8FAFC] text-gray-900"
+      className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 min-h-screen font-sans antialiased bg-[#F8FAFC] text-gray-900"
     >
       {/* Toast container */}
-      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 items-end">
-        <AnimatePresence>
-          {toasts.map((toast) => (
-            <Toast
-              key={toast.id}
-              message={toast.message}
-              emoji={toast.emoji}
-              onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-            />
-          ))}
-        </AnimatePresence>
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 items-end pointer-events-none">
+        <div className="pointer-events-auto">
+          <AnimatePresence>
+            {toasts.map((toast) => (
+              <Toast
+                key={toast.id}
+                message={toast.message}
+                emoji={toast.emoji}
+                onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Header with Navy/Amber/Silver */}
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between border-b border-gray-200 pb-6">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-blue-900 flex items-center gap-2">
-            <Sparkles className="text-amber-500" />
-            Welcome,{' '}
-            <span className="bg-gradient-to-r from-blue-900 via-blue-700 to-amber-500 bg-clip-text text-transparent">
+      {/* Header */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between border-b border-gray-200 pb-6">
+        <div className="space-y-2">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-blue-900 flex flex-wrap items-center gap-1.5">
+            <Sparkles className="text-amber-500 shrink-0" size={24} />
+            <span>Welcome,</span>
+            <span className="bg-gradient-to-r from-blue-900 via-blue-700 to-amber-500 bg-clip-text text-transparent break-words">
               {metrics.name || 'Student'}
             </span>
-            !
+            <span>!</span>
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="px-2.5 py-1 rounded-lg shadow-sm font-bold bg-gray-100 border border-gray-200 text-gray-700">
               {formattedDay}
             </span>
-            <span className="text-gray-300">•</span>
+            <span className="text-gray-300 hidden sm:inline">•</span>
             <span className="text-gray-600 font-medium">{formattedDate}</span>
-            <span className="text-gray-300">•</span>
+            <span className="text-gray-300 hidden sm:inline">•</span>
             <span className="font-mono px-2.5 py-0.5 rounded-lg font-bold shadow-sm bg-gray-100 border border-gray-200 text-blue-900">
               {formattedTime}
             </span>
@@ -249,17 +234,17 @@ const StudentDashboard = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => navigate('/student/apply-leave')}
-            className="inline-flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5 hover:bg-amber-500 bg-blue-900 active:scale-98"
+            className="inline-flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5 hover:bg-amber-500 bg-blue-900 active:scale-98 w-full sm:w-auto"
           >
             <PlusCircle size={15} className="stroke-[2.5]" />
             Apply Leave
           </button>
           <button
             onClick={() => navigate('/student/apply-od')}
-            className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-98"
+            className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-98 w-full sm:w-auto"
           >
             <PlusCircle size={15} className="stroke-[2.5]" />
             Apply On-Duty (OD)
@@ -267,41 +252,61 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="space-y-6 w-full">
-        {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <StatusCard title="TOTAL LEAVES TAKEN" value={`${metrics.totalLeaves} Days`} icon={Calendar} color="blue" />
-          <StatusCard title="TOTAL ON-DUTY (OD)" value={`${metrics.totalOD} Days`} icon={Award} color="amber" />
-          <StatusCard title="PENDING APPROVALS" value={`${metrics.pendingApprovals} Request${metrics.pendingApprovals === 1 ? '' : 's'}`} icon={Clock} color="gray" />
-          <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Item${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />
-        </div>
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <StatusCard title="TOTAL LEAVES" value={`${metrics.totalLeaves} Days`} icon={Calendar} color="blue" />
+        <StatusCard title="TOTAL ON-DUTY (OD)" value={`${metrics.totalOD} Days`} icon={Award} color="amber" />
 
-        {/* Daily Quote – Navy/Amber accents */}
-        {dailyQuote && (
-          <div className="bg-white border border-amber-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-start gap-4">
-              <Quote className="w-8 h-8 shrink-0 text-amber-500" />
-              <div>
-                <p className="text-lg md:text-xl font-semibold leading-relaxed text-gray-800">
-                  “{dailyQuote.text}”
-                </p>
-                <p className="mt-2 text-sm font-medium text-gray-500">
-                  — {dailyQuote.author}
-                </p>
-              </div>
+        {/* CUSTOM PENDING CARD – shows split breakdown */}
+        <div className="p-5 bg-white border border-gray-300 rounded-2xl shadow-sm relative group hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Pending Requests</p>
+              <p className="text-xl font-black text-blue-900 mt-1">
+                {metrics.pendingApprovals}
+              </p>
+            </div>
+            <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-amber-300 group-hover:bg-amber-50 transition-colors">
+              <Clock size={16} />
             </div>
           </div>
-        )}
-
-        {/* Info Banner – Amber background with Navy text */}
-        <div className="p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-amber-200/80 bg-amber-50/60">
-          <Info className="shrink-0 mt-0.5 text-blue-900/90" size={16} />
-          <p className="text-xs leading-relaxed font-semibold text-blue-900/90">
-            Stay updated with your leave and OD records — all counts refresh in real‑time after each approval or new submission.
-            For any discrepancies, please contact your Mentor.
-          </p>
+          <div className="flex items-center gap-3 mt-3 text-xs font-bold">
+            <span className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+              <FileText size={12} /> Leave: {metrics.pendingLeaves}
+            </span>
+            <span className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
+              <Briefcase size={12} /> OD: {metrics.pendingOD}
+            </span>
+          </div>
         </div>
+
+        <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />
+      </div>
+
+      {/* Daily Quote */}
+      {dailyQuote && (
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <Quote className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 text-amber-500" />
+            <div>
+              <p className="text-base sm:text-lg md:text-xl font-semibold leading-relaxed text-gray-800">
+                “{dailyQuote.text}”
+              </p>
+              <p className="mt-2 text-xs sm:text-sm font-medium text-gray-500">
+                — {dailyQuote.author}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Info Banner */}
+      <div className="p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-amber-200/80 bg-amber-50/60">
+        <Info className="shrink-0 mt-0.5 text-blue-900/90" size={16} />
+        <p className="text-xs leading-relaxed font-semibold text-blue-900/90">
+          Stay updated with your leave and OD records — all counts refresh in real‑time after each approval or new submission.
+          For any discrepancies, please contact your Mentor.
+        </p>
       </div>
     </motion.div>
   );

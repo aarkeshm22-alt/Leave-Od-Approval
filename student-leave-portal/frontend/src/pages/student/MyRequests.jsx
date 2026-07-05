@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, AlertCircle, FileText, Briefcase, RefreshCw, Upload, Clock, School, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, AlertCircle, FileText, Briefcase, RefreshCw, Upload, Clock, School, User, Eye, Download, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
 
-// No dark mode – pure light theme with Navy/Amber/Silver
 const MyRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +12,10 @@ const MyRequests = () => {
   const fileInputRef = useRef(null);
   const [activeOdId, setActiveOdId] = useState(null);
   const navigate = useNavigate();
+
+  // ----- Certificate Modal State -----
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [certificateData, setCertificateData] = useState(null);
 
   const fetchAllStudentLogs = async () => {
     const token = localStorage.getItem('token');
@@ -72,6 +75,29 @@ const MyRequests = () => {
     fetchAllStudentLogs();
   }, []);
 
+  // ----- Certificate Modal Handlers -----
+  const openCertificateModal = (base64Data) => {
+    if (!base64Data) return;
+    setCertificateData(base64Data);
+    setShowCertificateModal(true);
+  };
+
+  const closeCertificateModal = () => {
+    setShowCertificateModal(false);
+    setCertificateData(null);
+  };
+
+  const downloadCertificate = () => {
+    if (!certificateData) return;
+    const link = document.createElement('a');
+    link.href = certificateData;
+    link.download = `OD_Certificate_${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ----- Upload Handlers -----
   const handleUploadClick = (odId) => {
     setActiveOdId(odId);
     if (fileInputRef.current) {
@@ -106,8 +132,14 @@ const MyRequests = () => {
       const resData = await response.json();
 
       if (response.ok) {
+        setRequests(prev =>
+          prev.map(req =>
+            req._id === activeOdId
+              ? { ...req, certificate: resData.data?.certificate || resData.certificate || file }
+              : req
+          )
+        );
         alert("Proof document attached successfully!");
-        fetchAllStudentLogs();
       } else {
         setErrorMsg(resData.message || 'File upload execution rejected by server.');
       }
@@ -126,12 +158,13 @@ const MyRequests = () => {
 
   if (loading) {
     return (
-     <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
         <div className="relative w-10 h-10">
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
-        <p className="text-xs font-mono tracking-widest uppercase text-gray-600 text-center">Loading your request…</p>
+        <p className="text-xs font-mono tracking-widest uppercase text-gray-600 text-center">Loading your { ' ' } 
+        <span className="font-bold text-indigo-600">Requests</span>…</p>
       </div>
     );
   }
@@ -170,6 +203,7 @@ const MyRequests = () => {
             const durationType = row.duration || 'Full Day';
             const sessionDetail = row.halfDaySession || '';
             const isApproved = row.status === 'Approved';
+            const certificate = row.certificate || row.document;
 
             return (
               <div key={row._id} className="border border-gray-300 rounded-2xl p-4 shadow-sm space-y-3.5 relative overflow-hidden bg-white">
@@ -227,7 +261,16 @@ const MyRequests = () => {
 
                 {isOD && (
                   <div className="pt-2 border-t border-gray-200 flex items-center justify-end">
-                    {isApproved ? (
+                    {certificate ? (
+                      <button
+                        type="button"
+                        onClick={() => openCertificateModal(certificate)}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"
+                      >
+                        <Eye size={12} />
+                        <span>View Certificate</span>
+                      </button>
+                    ) : isApproved ? (
                       <button
                         type="button"
                         disabled={uploadingId !== null}
@@ -243,7 +286,7 @@ const MyRequests = () => {
                       </button>
                     ) : (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-center block w-full py-1.5 rounded-lg text-gray-400 bg-gray-50 border border-gray-200">
-                        Upload Attached (Locked)
+                        Upload Locked
                       </span>
                     )}
                   </div>
@@ -279,6 +322,7 @@ const MyRequests = () => {
                   const durationType = row.duration || 'Full Day';
                   const sessionDetail = row.halfDaySession || '';
                   const isApproved = row.status === 'Approved';
+                  const certificate = row.certificate || row.document;
 
                   return (
                     <tr key={row._id} className="hover:bg-gray-50/50 transition-colors">
@@ -318,7 +362,16 @@ const MyRequests = () => {
                       </td>
                       {isOD && (
                         <td className="p-4 pr-6 text-right whitespace-nowrap">
-                          {isApproved ? (
+                          {certificate ? (
+                            <button
+                              type="button"
+                              onClick={() => openCertificateModal(certificate)}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                          ) : isApproved ? (
                             <button
                               type="button"
                               disabled={uploadingId !== null}
@@ -351,58 +404,119 @@ const MyRequests = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-8 p-1 sm:p-3 md:p-6 max-w-7xl mx-auto antialiased bg-[#F8FAFC] text-gray-900"
-    >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-blue-900 flex items-center gap-2">
-            <span className="text-amber-500">✦</span> Absence Audit Registry Logs
-          </h2>
-          <p className="text-xs font-medium text-gray-500">
-            Track and monitor your personal leave requests and technical on-duty institutional profiles.
-          </p>
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-8 p-1 sm:p-3 md:p-6 max-w-7xl mx-auto antialiased bg-[#F8FAFC] text-gray-900"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
+          <div className="space-y-1">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-blue-900 flex items-center gap-2">
+              <span className="text-amber-500">✦</span> Leave & OD Request Logs
+            </h2>
+            <p className="text-xs font-medium text-gray-500">
+              Keep track of your Leave and On-Duty applications and their approval status.
+            </p>
+          </div>
+          <button
+            onClick={fetchAllStudentLogs}
+            className="inline-flex items-center justify-center gap-1.5 self-stretch sm:self-center text-xs font-bold px-4 py-2 sm:py-1.5 rounded-xl transition-all shadow-sm active:scale-[0.98] text-gray-600 hover:text-blue-900 bg-white hover:bg-gray-50 border border-gray-300"
+          >
+            <RefreshCw size={12} />
+            <span>Refresh</span>
+          </button>
         </div>
-        <button
-          onClick={fetchAllStudentLogs}
-          className="inline-flex items-center justify-center gap-1.5 self-stretch sm:self-center text-xs font-bold px-4 py-2 sm:py-1.5 rounded-xl transition-all shadow-sm active:scale-[0.98] text-gray-600 hover:text-blue-900 bg-white hover:bg-gray-50 border border-gray-300"
-        >
-          <RefreshCw size={12} />
-          <span>Sync Records</span>
-        </button>
-      </div>
 
-      {errorMsg && (
-        <div className="p-4 text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm bg-rose-50 border border-rose-200 text-rose-800">
-          <AlertCircle size={14} className="shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+        {errorMsg && (
+          <div className="p-4 text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-      {/* Leave Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <FileText size={16} className="text-blue-900" />
-          <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-800">
-            Leave Allocation History
-          </h3>
+        {/* Leave Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <FileText size={16} className="text-blue-900" />
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-800">
+              Leave Application History
+            </h3>
+          </div>
+          {renderTable(leaveRequests, "Leave Application", FileText, false)}
         </div>
-        {renderTable(leaveRequests, "Leave Application", FileText, false)}
-      </div>
 
-      {/* OD Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Briefcase size={16} className="text-amber-500" />
-          <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-800">
-            On-Duty (OD) Verification History
-          </h3>
+        {/* OD Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Briefcase size={16} className="text-amber-500" />
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-800">
+              On-Duty (OD) Application History
+            </h3>
+          </div>
+          {renderTable(odRequests, "On-Duty (OD)", Briefcase, true)}
         </div>
-        {renderTable(odRequests, "On-Duty (OD)", Briefcase, true)}
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {/* ----- CERTIFICATE MODAL ----- */}
+      <AnimatePresence>
+        {showCertificateModal && certificateData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+            onClick={closeCertificateModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                  <Eye size={18} className="text-amber-500" />
+                  Certificate
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={downloadCertificate}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-blue-900 hover:bg-amber-500 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                  >
+                    <Download size={14} />
+                    Download
+                  </button>
+                  <button
+                    onClick={closeCertificateModal}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Image Container */}
+              <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
+                <img
+                  src={certificateData}
+                  alt="OD Certificate"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
+                Certificate for On-Duty request.
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

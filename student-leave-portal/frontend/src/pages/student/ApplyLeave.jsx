@@ -161,7 +161,7 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
-        <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-blue-900">Leave</span> form…</p>
+        <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-indigo-600">Leave</span> form…</p>
       </div>
     );
   }

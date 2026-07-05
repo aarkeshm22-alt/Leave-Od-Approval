@@ -156,7 +156,8 @@ const PendingRequests = () => {
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-indigo-700 border-t-transparent animate-spin" />
         </div>
         <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
-          Loading Your Mentes Pending Requests...
+          Loading Your { ' ' } 
+          <span className="text-amber-500">Mentees'</span> Pending Requests...
         </p>
       </div>
     );
@@ -166,15 +167,15 @@ const PendingRequests = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Leave & OD Verification Desk</h2>
-          <p className="text-xs text-slate-500 mt-1">Review active student leave applications and on-duty rosters awaiting verification.</p>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Leave & OD Requests Approval Desk</h2>
+          <p className="text-xs text-slate-500 mt-1">Manage your mentees' Leave and On-Duty requests by approving or rejecting pending applications.</p>
         </div>
         <button 
           onClick={fetchPendingRequests}
           className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
         >
           <RefreshCw size={12} />
-          <span>Refresh Desk</span>
+          <span>Refresh</span>
         </button>
       </div>
 
@@ -212,8 +213,7 @@ const PendingRequests = () => {
                   </span>
                 </div>
                 
-                <p className="text-xs text-slate-600 font-medium line-clamp-2 max-w-2xl">
-                  {req.reason || req.explanation}
+                <p className="text-xs text-slate-600 font-medium line-clamp-2 max-w-2xl"> Reason: {req.reason || req.explanation}
                 </p>
 
                 {typeLabel === 'On-Duty' && req.collegeName && (
@@ -224,7 +224,7 @@ const PendingRequests = () => {
                 )}
 
                 <p className="text-[11px] text-slate-400 font-medium">
-                  Duration Window: {new Date(req.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} to {new Date(req.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  Duration: {new Date(req.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} to {new Date(req.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               </div>
 
@@ -249,7 +249,7 @@ const PendingRequests = () => {
         {selected && (
           <div className="space-y-5 text-slate-900">
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2.5">
-              <p className="text-slate-600"><strong className="text-slate-900">Applicant Name:</strong> {selected.student?.firstName || selected.student?.name} {selected.student?.lastName || ''}</p>
+              <p className="text-slate-600"><strong className="text-slate-900">Name:</strong> {selected.student?.firstName || selected.student?.name} {selected.student?.lastName || ''}</p>
               <p className="text-slate-600"><strong className="text-slate-900">Type:</strong> {selected.mappedType}</p>
               
               {selected.mappedType === 'On-Duty' && (

@@ -20,6 +20,12 @@ const StudentList = () => {
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
     setIsDrawerOpen(true);
+    // 🔍 DEBUG LOG – check the student object for certificate
+    console.log('📌 Selected Student:', student);
+    console.log('📌 Certificate field:', student.certificate);
+    console.log('📌 Document field:', student.document);
+    console.log('📌 student.certificate:', student.student?.certificate);
+    console.log('📌 student.document:', student.student?.document);
   };
 
   // Filter states
@@ -35,9 +41,21 @@ const StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  // Check for certificate/document
+  // ===== IMPROVED CERTIFICATE DETECTION =====
+  const getStudentCertificate = (st) => {
+    // Try multiple possible locations – return the first non-empty value
+    return st.certificate ||
+           st.document ||
+           st.student?.certificate ||
+           st.student?.document ||
+           st._doc?.certificate ||
+           st._doc?.document ||
+           null;
+  };
+
   const hasCertificate = (st) => {
-    return !!(st.certificate || st.document || st.student?.certificate || st.student?.document);
+    const cert = getStudentCertificate(st);
+    return !!(cert && cert.length > 0);
   };
 
   // ----- Fetch data -----
@@ -60,6 +78,8 @@ const StudentList = () => {
           const extractedStudents = data.data || data.students || (Array.isArray(data) ? data : []);
           if (extractedStudents.length > 0) {
             console.log('Sample student:', extractedStudents[0]);
+            // 🔍 Check if certificate exists in first student
+            console.log('Certificate in first student:', extractedStudents[0].certificate);
           }
           setStudents(extractedStudents);
         } else {
@@ -75,7 +95,7 @@ const StudentList = () => {
     fetchAssignedStudents();
   }, []);
 
-  // ----- Filter logic -----
+  // ----- Filter logic (unchanged) -----
   const filteredStudents = students.filter(st => {
     const name = getFullName(st).toLowerCase();
     const reg = (st.registerNo || st.register || st.student?.registerNo || '').toLowerCase();
@@ -96,7 +116,7 @@ const StudentList = () => {
   // Get unique student types for filter dropdown
   const studentTypes = ['ALL', ...new Set(students.map(st => st.studentType || st.student?.studentType || 'Regular Track'))];
 
-  // ===== EXPORT FUNCTIONS (Year & Section removed) =====
+  // ===== EXPORT FUNCTIONS (unchanged) =====
   const handleExportReport = (format) => {
     if (filteredStudents.length === 0) {
       alert("No students match your current filter criteria.");
@@ -105,7 +125,6 @@ const StudentList = () => {
 
     setIsExporting(true);
     try {
-      // Prepare rows WITHOUT Year and Section
       const formattedRows = filteredStudents.map(st => ({
         "Register No": st.registerNo || st.register || st.student?.registerNo || 'N/A',
         "Student Name": getFullName(st),
@@ -138,7 +157,6 @@ const StudentList = () => {
         doc.setTextColor(203, 213, 225);
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Students: ${filteredStudents.length}`, 14, 18);
 
-        // PDF table WITHOUT Year and Sec
         const tableHeaders = [
           ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Cert"]
         ];
@@ -228,7 +246,7 @@ const StudentList = () => {
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-indigo-700 border-t-transparent animate-spin" />
         </div>
         <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
-          Loading Your Assigned Student List...
+          Loading Your Assigned <span className="text-amber-500">Student</span> List...
         </p>
       </div>
     );
@@ -243,10 +261,10 @@ const StudentList = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-2">
             <Users className="text-amber-500 shrink-0" size={24} />
-            Student List
+            Assigned Student
           </h2>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
-            Real-time tracking profiles, verification tallies, and active registration arrays under your immediate custody.
+            View the profiles of students assigned to you and monitor their Leave and On-Duty activities from one place.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -254,7 +272,7 @@ const StudentList = () => {
             type="button"
             onClick={() => handleExportReport('excel')}
             disabled={isExporting || filteredStudents.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileSpreadsheet size={14} />
             Excel
@@ -263,7 +281,7 @@ const StudentList = () => {
             type="button"
             onClick={() => handleExportReport('pdf')}
             disabled={isExporting || filteredStudents.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-900 hover:bg-indigo-800 text-white border border-indigo-900 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileText size={14} />
             PDF
@@ -464,7 +482,7 @@ const StudentList = () => {
         </div>
       )}
 
-      {/* ===== PROFILE DRAWER (Year & Section removed) ===== */}
+      {/* ===== PROFILE DRAWER ===== */}
       <AnimatePresence>
         {isDrawerOpen && selectedStudent && (
           <>
@@ -515,8 +533,6 @@ const StudentList = () => {
                     <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md truncate max-w-[180px] text-right">{selectedStudent.registerNo || selectedStudent.register || 'N/A'}</span>
                   </div>
 
-                  {/* Year & Section removed from here */}
-
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><ShieldCheck size={14} /> Student Type</span>
                     <span className="font-bold text-gray-800 truncate text-right">{selectedStudent.studentType || selectedStudent.student?.studentType || 'Regular Track'}</span>
@@ -537,21 +553,27 @@ const StudentList = () => {
                     <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || selectedStudent.student?.secondmentorName || 'Assigned to Self'}</span>
                   </div>
 
-                  {/* Certificate display */}
-                  {(selectedStudent.certificate || selectedStudent.document || selectedStudent.student?.certificate || selectedStudent.student?.document) && (
-                    <div className="bg-white border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs shadow-sm">
-                      <span className="text-amber-600 font-bold flex items-center gap-1.5 shrink-0">
-                        <Eye size={14} /> Uploaded OD Proof
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleViewDocument(selectedStudent.certificate || selectedStudent.document || selectedStudent.student?.certificate || selectedStudent.student?.document)}
-                        className="text-[11px] font-black tracking-tight bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                      >
-                        View Certificate
-                      </button>
-                    </div>
-                  )}
+                  {/* ===== CERTIFICATE DISPLAY – IMPROVED ===== */}
+                  {(() => {
+                    const cert = getStudentCertificate(selectedStudent);
+                    if (cert) {
+                      return (
+                        <div className="bg-white border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs shadow-sm">
+                          <span className="text-amber-600 font-bold flex items-center gap-1.5 shrink-0">
+                            <Eye size={14} /> Uploaded OD Proof
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(cert)}
+                            className="text-[11px] font-black tracking-tight bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
+                          >
+                            View Certificate
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 {/* Analytics summary – Navy card with amber accents */}

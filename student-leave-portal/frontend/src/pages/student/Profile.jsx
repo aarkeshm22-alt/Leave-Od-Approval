@@ -46,7 +46,7 @@ const Profile = () => {
         </div>
         <p className="text-sm font-medium text-gray-600 text-center uppercase">
           Loading Your { ' '} 
-          <span className="font-bold text-amber-600">Profile</span> Details...
+          <span className="font-bold text-indigo-600">Profile</span> Details...
         </p>
       </div>
     );

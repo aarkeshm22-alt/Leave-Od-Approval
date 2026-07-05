@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, UserCheck,
@@ -7,8 +8,9 @@ import {
 import InputField from '../../components/common/InputField';
 import Button from '../../components/common/Button';
 
-// No dark mode – pure light theme with Navy/Amber/Silver
 const ApplyOD = () => {
+  const navigate = useNavigate();
+
   // Profile state
   const [profile, setProfile] = useState({ name: '', registerNo: '', studentType: '', mentor: '', mobile: '' });
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -27,15 +29,13 @@ const ApplyOD = () => {
   });
 
   // UI state
+  const [formLocked, setFormLocked] = useState(false);
+  const [uploadEnabled, setUploadEnabled] = useState(false); // kept for consistency, but redirect will happen
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [fileError, setFileError] = useState('');
-  const [isApplicationApproved, setIsApplicationApproved] = useState(false);
-
-  // Not used further but kept for consistency
   const [currentOdId, setCurrentOdId] = useState(null);
-  const [applicationStatus, setApplicationStatus] = useState('Pending');
 
   // Fetch user profile
   useEffect(() => {
@@ -73,6 +73,7 @@ const ApplyOD = () => {
 
   // Handlers
   const handleDateChange = (field, value) => {
+    if (formLocked) return;
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
       if (prev.duration === 'Half Day' && field === 'fromDate') {
@@ -83,6 +84,7 @@ const ApplyOD = () => {
   };
 
   const handleDurationChange = (durationValue) => {
+    if (formLocked) return;
     setFormData((prev) => ({
       ...prev,
       duration: durationValue,
@@ -92,6 +94,7 @@ const ApplyOD = () => {
   };
 
   const validateAndSetImage = (file) => {
+    if (!uploadEnabled) return;
     setFileError('');
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -139,35 +142,31 @@ const ApplyOD = () => {
       const resData = await response.json();
 
       if (response.ok) {
-        setMessage({
-          type: "success",
-          text: `Your On-Duty (${formData.duration}) request has been submitted successfully.\n\nRequest Status: Pending`
-        });
         const backendId = resData?.data?._id || resData?.data?.id;
-        if (backendId) setCurrentOdId(backendId);
-        setApplicationStatus('Partially Approved');
-        setIsApplicationApproved(true);
+        if (backendId) {
+          setCurrentOdId(backendId);
+        }
 
-        // Reset form fields (keep type and duration, clear others)
-        setFormData({
-          type: 'On-Duty',
-          duration: 'Full Day',
-          halfDaySession: '',
-          fromDate: '',
-          toDate: '',
-          collegeName: '',
-          collegeLocation: '',
-          reason: '',
-          document: null
+        // ✅ Lock form (optional, but good for UX if they return)
+        setFormLocked(true);
+
+        // Show success message briefly, then redirect
+        setMessage({
+          type: 'success',
+          text: `✅ Your On-Duty (${formData.duration}) request has been submitted successfully! Redirecting to My Requests...`
         });
-        setFileError('');
+
+        // ✅ Redirect to My Requests after a short delay (so user sees the success message)
+        setTimeout(() => {
+          navigate('/student/my-requests');
+        }, 1500);
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission initialization failed.' });
+        setSubmitting(false);
       }
     } catch (err) {
       console.error("Frontend UI execution breakdown tracer:", err);
       setMessage({ type: 'error', text: 'Could not establish connection to clearance endpoint node.' });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -179,7 +178,7 @@ const ApplyOD = () => {
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
-         <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-amber-600">On-Duty</span> form…</p>
+        <p className="text-sm font-medium text-gray-600 uppercase">Loading your <span className="font-bold text-indigo-600">On-Duty</span> form…</p>
       </div>
     );
   }
@@ -190,7 +189,7 @@ const ApplyOD = () => {
       animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8"
     >
-      {/* Header with Navy → Amber gradient */}
+      {/* Header */}
       <div className="relative mb-6 sm:mb-8">
         <div className="absolute left-0 top-0 h-1 w-16 sm:w-20 bg-gradient-to-r from-blue-900 via-amber-500 to-amber-400 rounded-full" />
         <h2 className="text-2xl sm:text-3xl font-extrabold text-blue-900 mt-2 flex items-center gap-2 sm:gap-3">
@@ -202,7 +201,7 @@ const ApplyOD = () => {
           <span className="font-semibold text-blue-900 underline decoration-amber-500 underline-offset-2">
             {formData.type}
           </span>{' '}
-          request through this form. Please ensure all details are correct before submission.
+          request through this form. After submission, you'll be redirected to your <strong>My Requests</strong> page.
         </p>
       </div>
 
@@ -221,7 +220,7 @@ const ApplyOD = () => {
         </motion.div>
       )}
 
-      {/* Main Card – Silver bordered */}
+      {/* Main Card */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -230,7 +229,7 @@ const ApplyOD = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
 
-          {/* Profile Section – Silver background */}
+          {/* Profile Section – unchanged */}
           <div>
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
               <User className="w-4 h-4 text-amber-500" /> Your Details
@@ -291,7 +290,7 @@ const ApplyOD = () => {
                     <button
                       key={option}
                       type="button"
-                      disabled={isApplicationApproved}
+                      disabled={formLocked}
                       onClick={() => handleDurationChange(option)}
                       className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                         formData.duration === option
@@ -314,7 +313,7 @@ const ApplyOD = () => {
                     <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500" size={16} />
                     <select
                       required
-                      disabled={isApplicationApproved}
+                      disabled={formLocked}
                       value={formData.halfDaySession}
                       onChange={(e) => setFormData({ ...formData, halfDaySession: e.target.value })}
                       className="w-full bg-white border border-gray-300 rounded-xl py-3 pl-11 pr-4 text-sm text-blue-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all appearance-none font-medium disabled:bg-gray-100 disabled:text-gray-400"
@@ -341,7 +340,7 @@ const ApplyOD = () => {
                 value={formData.fromDate}
                 onChange={(e) => handleDateChange('fromDate', e.target.value)}
                 required
-                disabled={isApplicationApproved}
+                disabled={formLocked}
                 className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
               {formData.duration === 'Full Day' && (
@@ -352,7 +351,7 @@ const ApplyOD = () => {
                   value={formData.toDate}
                   onChange={(e) => handleDateChange('toDate', e.target.value)}
                   required
-                  disabled={isApplicationApproved}
+                  disabled={formLocked}
                   className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               )}
@@ -369,7 +368,7 @@ const ApplyOD = () => {
               value={formData.collegeName}
               onChange={(e) => setFormData({ ...formData, collegeName: e.target.value })}
               required
-              disabled={isApplicationApproved}
+              disabled={formLocked}
               className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
             <InputField
@@ -380,7 +379,7 @@ const ApplyOD = () => {
               value={formData.collegeLocation}
               onChange={(e) => setFormData({ ...formData, collegeLocation: e.target.value })}
               required
-              disabled={isApplicationApproved}
+              disabled={formLocked}
               className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
           </div>
@@ -398,7 +397,7 @@ const ApplyOD = () => {
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 placeholder="eg. Participating in the Grand Finale of Inter-University Smart Hackathon 2026..."
-                disabled={isApplicationApproved}
+                disabled={formLocked}
                 className="w-full bg-white border border-gray-300 rounded-2xl py-3 pl-12 pr-4 text-sm text-blue-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
@@ -406,119 +405,31 @@ const ApplyOD = () => {
 
           <hr className="border-gray-300" />
 
-          {/* File Upload Section with lock/unlock */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-2">
-                <Upload className="w-4 h-4 text-amber-500" />
-                Attestation Proof (Image only, max 300KB)
-              </label>
-              <div className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                isApplicationApproved
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-gray-100 text-gray-400 border-gray-300'
-              }`}>
-                {isApplicationApproved ? (
-                  <>
-                    <Unlock size={11} className="text-emerald-600" />
-                    <span>Upload Unlocked</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock size={11} className="text-gray-400" />
-                    <span>Locked</span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Drag and drop zone */}
-            <div
-              onDragOver={(e) => { if (isApplicationApproved) { e.preventDefault(); setDragActive(true); } }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={(e) => {
-                if (!isApplicationApproved) return;
-                e.preventDefault();
-                setDragActive(false);
-                if (e.dataTransfer.files[0]) validateAndSetImage(e.dataTransfer.files[0]);
-              }}
-              className={`border-2 border-dashed rounded-2xl p-6 lg:p-10 text-center transition-all relative ${
-                !isApplicationApproved
-                  ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed pointer-events-none'
-                  : dragActive
-                    ? 'border-amber-500 bg-amber-50 cursor-pointer shadow-inner'
-                    : 'border-gray-300 bg-gray-50/50 hover:bg-gray-50 cursor-pointer group'
-              }`}
-            >
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                disabled={!isApplicationApproved}
-                className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
-              />
-              <Upload className={`mx-auto mb-2 transition-colors ${
-                !isApplicationApproved
-                  ? 'text-gray-300'
-                  : 'text-gray-400 group-hover:text-amber-500'
-              }`} size={26} />
-              <p className={`text-xs font-semibold px-2 ${
-                !isApplicationApproved ? 'text-gray-400' : 'text-gray-600'
-              }`}>
-                {formData.document ? `Selected: ${formData.document.name}` : 'Drop your event image proof here or click to browse'}
-              </p>
-              <p className="text-[10px] mt-1 text-gray-400">
-                JPEG, PNG, or WebP · Max 300 KB
-              </p>
-            </div>
-
-            {/* File error message */}
-            <AnimatePresence mode="wait">
-              {fileError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="flex items-center gap-2 p-3 text-xs font-semibold rounded-xl bg-rose-50 border border-rose-200 text-rose-800"
-                >
-                  <FileX size={14} className="shrink-0 text-rose-600" />
-                  <span>{fileError}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Workflow Info – Amber background */}
+          {/* Workflow Info – updated copy */}
           <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
             <div>
               <p className="text-xs font-bold text-blue-900 uppercase tracking-wide">Dynamic Submission Routing</p>
               <p className="text-sm text-blue-900 font-medium leading-relaxed">
-                Fill in the details and click <span className="font-bold underline decoration-amber-500">Submit</span>. After successful submission, the form locks and the image upload unlocks for attaching proof.
+                Fill in the details and click <span className="font-bold underline decoration-amber-500">Submit</span>.
+                After successful submission, you will be redirected to your <strong>My Requests</strong> page to track the status.
               </p>
             </div>
           </div>
 
-          {/* Submit / Unlock status */}
-          {!isApplicationApproved ? (
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3.5 sm:py-4 bg-blue-900 hover:bg-amber-500 text-white font-bold rounded-2xl shadow-md shadow-blue-900/20 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
-            >
-              {submitting ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                <Send size={16} className="-translate-y-px" />
-              )}
-              <span>{submitting ? 'Processing…' : `Submit ${formData.duration} OD Details`}</span>
-            </Button>
-          ) : (
-            <div className="p-4 rounded-2xl text-center text-sm font-semibold flex items-center justify-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800">
-              <ImageIcon size={16} className="animate-pulse text-emerald-600" />
-              <span>Application submitted! Use the unlocked upload area above to attach proof.</span>
-            </div>
-          )}
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            disabled={submitting || formLocked}
+            className="w-full py-3.5 sm:py-4 bg-blue-900 hover:bg-amber-500 text-white font-bold rounded-2xl shadow-md shadow-blue-900/20 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <Send size={16} className="-translate-y-px" />
+            )}
+            <span>{submitting ? 'Processing…' : `Submit ${formData.duration} OD Details`}</span>
+          </Button>
         </form>
       </motion.div>
     </motion.div>

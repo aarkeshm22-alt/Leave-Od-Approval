@@ -47,7 +47,7 @@ const MentorProfile = () => {
       <div className="flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px] md:min-h-[700px] text-gray-400 font-sans px-4">
         <p className="text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse flex items-center gap-2">
           Loading Your {' '} 
-          <span className="font-bold text-amber-600">Profile</span> Details <Loader className="inline-block animate-spin" size={18} />
+          <span className="font-bold text-amber-600">Profile</span> Details <Loader className="inline-block text-blue-700 animate-spin" size={18} />
         </p>
       </div>
     );

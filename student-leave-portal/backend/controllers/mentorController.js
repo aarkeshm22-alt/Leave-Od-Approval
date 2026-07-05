@@ -24,11 +24,11 @@ export const getMyStudents = async (req, res) => {
       return res.status(400).json({ message: 'Mentor identity is incomplete.' });
     }
 
-    // 2. Find students under this mentor
+    // 2. Find students under this mentor (only firstmentorName)
     const students = await User.find({
       role: 'Student',
       firstmentorName: structuredMentorName
-    }).select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName  department');
+    }).select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName department');
 
     // 3. Enrich each student
     const updatedStudentArray = await Promise.all(
@@ -65,13 +65,22 @@ export const getMyStudents = async (req, res) => {
           { $group: { _id: null, totalDays: { $sum: "$days" } } }
         ]);
 
-        // --- Latest certificate (field is `certificate` in the OD schema) ---
+        // --- ✅ FIX: Get certificate from either 'certificate' or 'document' field ---
         const latestODWithCert = await OnDuty.findOne({
-  student: student._id,
-  certificate: { $exists: true, $ne: null, $ne: "" }
-})
-.sort({ createdAt: -1, fromDate: -1 })
-.select('certificate');
+          student: student._id,
+          $or: [
+            { certificate: { $exists: true, $ne: null, $ne: "" } },
+            { document: { $exists: true, $ne: null, $ne: "" } }
+          ]
+        })
+        .sort({ createdAt: -1, fromDate: -1 })
+        .select('certificate document');
+
+        // Determine which field has the certificate
+        let certificate = null;
+        if (latestODWithCert) {
+          certificate = latestODWithCert.certificate || latestODWithCert.document || null;
+        }
 
         // --- Recent Leaves (last 5) ---
         const recentLeaves = await Leave.find({ student: student._id })
@@ -87,10 +96,11 @@ export const getMyStudents = async (req, res) => {
           .select('fromDate toDate status duration halfDaySession createdAt')
           .lean();
 
-        // 🔍 Debug logging (remove after confirming)
+        // 🔍 Debug logging
         console.log(`📌 Student: ${student.registerNo || student._id}`);
         console.log(`   ✅ Leaves found: ${recentLeaves.length}`);
         console.log(`   ✅ ODs found: ${recentODs.length}`);
+        console.log(`   ✅ Certificate found: ${certificate ? 'Yes' : 'No'}`);
 
         const studentObject = student.toObject();
 
@@ -98,7 +108,7 @@ export const getMyStudents = async (req, res) => {
           ...studentObject,
           leaveCount: leaveAgg[0]?.totalDays || 0,
           odCount: odAgg[0]?.totalDays || 0,
-          certificate: latestODWithCert ? latestODWithCert.certificate : null,  // ✅ fixed field name
+          certificate, // ✅ now returns the found certificate (from either field)
           leaves: recentLeaves,
           ods: recentODs
         };
