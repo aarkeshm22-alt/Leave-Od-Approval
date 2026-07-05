@@ -69,7 +69,7 @@ export const applyOnDuty = async (req, res) => {
 export const getStudentODHistory = async (req, res) => {
   try {
     const history = await OnDuty.find({ student: req.user.id })
-      .populate('student', 'registerNo firstName lastName name');
+      .populate('student', 'registerNo firstName lastName name certificate');
 
     res.status(200).json({
       success: true,
@@ -81,9 +81,6 @@ export const getStudentODHistory = async (req, res) => {
   }
 };
 
-// =========================================================================
-// FETCH MENTOR'S PENDING QUEUE (Dynamic Name Concat Mapping Enabled)
-// =========================================================================
 // =========================================================================
 // FETCH MENTOR OD REQUESTS (Pending + Actioned)
 // =========================================================================

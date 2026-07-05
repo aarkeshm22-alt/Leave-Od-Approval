@@ -1,6 +1,6 @@
-import User from '../models/User.js'; // Adjust paths as per your project setup
+import User from '../models/User.js';
 import Leave from '../models/Leave.js';
-import OnDuty from '../models/OnDuty.js'; // 🌟 Added import for your separate OnDuty model
+import OnDuty from '../models/OnDuty.js';
 import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
@@ -24,7 +24,7 @@ export const getMyStudents = async (req, res) => {
       return res.status(400).json({ message: 'Mentor identity is incomplete.' });
     }
 
-    // 2. Find students under this mentor (only firstmentorName)
+    // 2. Find students under this mentor
     const students = await User.find({
       role: 'Student',
       firstmentorName: structuredMentorName
@@ -33,6 +33,8 @@ export const getMyStudents = async (req, res) => {
     // 3. Enrich each student
     const updatedStudentArray = await Promise.all(
       students.map(async (student) => {
+        console.log(`\n📌 Processing student: ${student.registerNo || student._id}`);
+
         // --- Approved Leave Count ---
         const leaveAgg = await Leave.aggregate([
           { $match: { student: student._id, type: 'Leave', status: 'Approved' } },
@@ -65,8 +67,13 @@ export const getMyStudents = async (req, res) => {
           { $group: { _id: null, totalDays: { $sum: "$days" } } }
         ]);
 
-        // --- ✅ FIX: Get certificate from either 'certificate' or 'document' field ---
-        const latestODWithCert = await OnDuty.findOne({
+        // ================================================================
+        // 🔍 IMPROVED CERTIFICATE FETCHING WITH DEBUG LOGS
+        // ================================================================
+        console.log(`🔍 Looking for certificate for student: ${student._id}`);
+
+        // Query 1: Try to find OD with 'certificate' field
+        let latestODWithCert = await OnDuty.findOne({
           student: student._id,
           $or: [
             { certificate: { $exists: true, $ne: null, $ne: "" } },
@@ -74,13 +81,59 @@ export const getMyStudents = async (req, res) => {
           ]
         })
         .sort({ createdAt: -1, fromDate: -1 })
-        .select('certificate document');
+        .select('certificate document')
+        .lean();
 
-        // Determine which field has the certificate
+        // Debug: log what we found
+        if (latestODWithCert) {
+          console.log(`✅ Found OD with certificate/document:`);
+          console.log(`   - certificate: ${latestODWithCert.certificate ? 'Yes (length: ' + latestODWithCert.certificate.length + ')' : 'No'}`);
+          console.log(`   - document: ${latestODWithCert.document ? 'Yes (length: ' + latestODWithCert.document.length + ')' : 'No'}`);
+        } else {
+          console.log(`❌ No OD with certificate/document found for this student.`);
+        }
+
+        // Extract certificate from either field
         let certificate = null;
         if (latestODWithCert) {
           certificate = latestODWithCert.certificate || latestODWithCert.document || null;
         }
+
+        // 🚨 SECOND ATTEMPT: If still null, try a direct query without $or
+        if (!certificate) {
+          console.log(`🔄 Trying fallback query without $or...`);
+          const fallbackOD = await OnDuty.findOne({
+            student: student._id,
+            certificate: { $exists: true, $ne: null, $ne: "" }
+          })
+          .sort({ createdAt: -1, fromDate: -1 })
+          .select('certificate')
+          .lean();
+
+          if (fallbackOD && fallbackOD.certificate) {
+            console.log(`✅ Fallback found certificate!`);
+            certificate = fallbackOD.certificate;
+          }
+        }
+
+        // 🚨 THIRD ATTEMPT: Check if there's an OD with 'document' field only
+        if (!certificate) {
+          console.log(`🔄 Trying third fallback for 'document' field only...`);
+          const docFallback = await OnDuty.findOne({
+            student: student._id,
+            document: { $exists: true, $ne: null, $ne: "" }
+          })
+          .sort({ createdAt: -1, fromDate: -1 })
+          .select('document')
+          .lean();
+
+          if (docFallback && docFallback.document) {
+            console.log(`✅ Third fallback found document!`);
+            certificate = docFallback.document;
+          }
+        }
+
+        console.log(`📄 Final certificate status: ${certificate ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
 
         // --- Recent Leaves (last 5) ---
         const recentLeaves = await Leave.find({ student: student._id })
@@ -96,19 +149,13 @@ export const getMyStudents = async (req, res) => {
           .select('fromDate toDate status duration halfDaySession createdAt')
           .lean();
 
-        // 🔍 Debug logging
-        console.log(`📌 Student: ${student.registerNo || student._id}`);
-        console.log(`   ✅ Leaves found: ${recentLeaves.length}`);
-        console.log(`   ✅ ODs found: ${recentODs.length}`);
-        console.log(`   ✅ Certificate found: ${certificate ? 'Yes' : 'No'}`);
-
         const studentObject = student.toObject();
 
         return {
           ...studentObject,
           leaveCount: leaveAgg[0]?.totalDays || 0,
           odCount: odAgg[0]?.totalDays || 0,
-          certificate, // ✅ now returns the found certificate (from either field)
+          certificate: certificate, // ✅ now properly set
           leaves: recentLeaves,
           ods: recentODs
         };
@@ -129,7 +176,6 @@ export const getMyStudents = async (req, res) => {
     });
   }
 };
-
 
 export const getMentorsWithStudents = async (req, res) => {
   try {
