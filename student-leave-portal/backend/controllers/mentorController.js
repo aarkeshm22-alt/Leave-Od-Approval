@@ -30,7 +30,7 @@ export const getMyStudents = async (req, res) => {
       firstmentorName: structuredMentorName
     }).select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName department');
 
-    // 3. Enrich each student
+    // 3. Enrich each student – fetch ALL leaves and ODs (no limit)
     const updatedStudentArray = await Promise.all(
       students.map(async (student) => {
         console.log(`\n📌 Processing student: ${student.registerNo || student._id}`);
@@ -68,86 +68,42 @@ export const getMyStudents = async (req, res) => {
         ]);
 
         // ================================================================
-        // 🔍 IMPROVED CERTIFICATE FETCHING WITH DEBUG LOGS
+        // 🔍 CERTIFICATE DETECTION – scan ALL ODs for the student
         // ================================================================
         console.log(`🔍 Looking for certificate for student: ${student._id}`);
 
-        // Query 1: Try to find OD with 'certificate' field
-        let latestODWithCert = await OnDuty.findOne({
-          student: student._id,
-          $or: [
-            { certificate: { $exists: true, $ne: null, $ne: "" } },
-            { document: { $exists: true, $ne: null, $ne: "" } }
-          ]
-        })
-        .sort({ createdAt: -1, fromDate: -1 })
-        .select('certificate document')
-        .lean();
-
-        // Debug: log what we found
-        if (latestODWithCert) {
-          console.log(`✅ Found OD with certificate/document:`);
-          console.log(`   - certificate: ${latestODWithCert.certificate ? 'Yes (length: ' + latestODWithCert.certificate.length + ')' : 'No'}`);
-          console.log(`   - document: ${latestODWithCert.document ? 'Yes (length: ' + latestODWithCert.document.length + ')' : 'No'}`);
-        } else {
-          console.log(`❌ No OD with certificate/document found for this student.`);
-        }
-
-        // Extract certificate from either field
-        let certificate = null;
-        if (latestODWithCert) {
-          certificate = latestODWithCert.certificate || latestODWithCert.document || null;
-        }
-
-        // 🚨 SECOND ATTEMPT: If still null, try a direct query without $or
-        if (!certificate) {
-          console.log(`🔄 Trying fallback query without $or...`);
-          const fallbackOD = await OnDuty.findOne({
-            student: student._id,
-            certificate: { $exists: true, $ne: null, $ne: "" }
-          })
-          .sort({ createdAt: -1, fromDate: -1 })
+        const allODs = await OnDuty.find({ student: student._id })
+          .sort({ createdAt: -1 })
           .select('certificate')
           .lean();
 
-          if (fallbackOD && fallbackOD.certificate) {
-            console.log(`✅ Fallback found certificate!`);
-            certificate = fallbackOD.certificate;
+        let certificate = null;
+        for (const od of allODs) {
+          if (od.certificate && od.certificate.length > 0) {
+            certificate = od.certificate;
+            console.log(`   ✅ Found certificate in OD with ID: ${od._id}`);
+            break;
           }
         }
 
-        // 🚨 THIRD ATTEMPT: Check if there's an OD with 'document' field only
         if (!certificate) {
-          console.log(`🔄 Trying third fallback for 'document' field only...`);
-          const docFallback = await OnDuty.findOne({
-            student: student._id,
-            document: { $exists: true, $ne: null, $ne: "" }
-          })
-          .sort({ createdAt: -1, fromDate: -1 })
-          .select('document')
-          .lean();
-
-          if (docFallback && docFallback.document) {
-            console.log(`✅ Third fallback found document!`);
-            certificate = docFallback.document;
-          }
+          console.log(`   ❌ No certificate found in any OD.`);
         }
 
-        console.log(`📄 Final certificate status: ${certificate ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
-
-        // --- Recent Leaves (last 5) ---
-        const recentLeaves = await Leave.find({ student: student._id })
+        // ================================================================
+        // 📋 FETCH ALL LEAVES & ODs – NO LIMIT
+        // ================================================================
+        const allLeaves = await Leave.find({ student: student._id })
           .sort({ createdAt: -1 })
-          .limit(5)
           .select('fromDate toDate status duration halfDaySession createdAt')
           .lean();
 
-        // --- Recent ODs (last 5) ---
-        const recentODs = await OnDuty.find({ student: student._id })
+        const allODsForList = await OnDuty.find({ student: student._id })
           .sort({ createdAt: -1 })
-          .limit(5)
           .select('fromDate toDate status duration halfDaySession createdAt')
           .lean();
+
+        console.log(`   📋 Total leaves: ${allLeaves.length}, ODs: ${allODsForList.length}`);
 
         const studentObject = student.toObject();
 
@@ -155,9 +111,9 @@ export const getMyStudents = async (req, res) => {
           ...studentObject,
           leaveCount: leaveAgg[0]?.totalDays || 0,
           odCount: odAgg[0]?.totalDays || 0,
-          certificate: certificate, // ✅ now properly set
-          leaves: recentLeaves,
-          ods: recentODs
+          certificate: certificate,
+          leaves: allLeaves,       // ✅ ALL leaves (no limit)
+          ods: allODsForList       // ✅ ALL ODs (no limit)
         };
       })
     );
