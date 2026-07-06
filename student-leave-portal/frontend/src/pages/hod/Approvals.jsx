@@ -253,12 +253,12 @@ const Approvals = () => {
       };
 
       if (docCategory === 'On-Duty') {
-        await axios.patch(`http://localhost:5000/api/od/${targetId}/action`, {
+        await axios.patch(`https://leave-od-approval.onrender.com/api/od/${targetId}/action`, {
           action: actionType === 'approve' ? 'APPROVE' : 'REJECT',
           remarks: actionType === 'approve' ? 'Final Clearance Appended' : 'Rejected'
         }, configHeaders);
       } else {
-        await axios.patch(`http://localhost:5000/api/leaves/${targetId}/hod-approve`, { action: actionType }, configHeaders);
+        await axios.patch(`https://leave-od-approval.onrender.com/api/leaves/${targetId}/hod-approve`, { action: actionType }, configHeaders);
       }
 
       const finalDbStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
@@ -283,7 +283,7 @@ const Approvals = () => {
 
       if (leaveIds.length > 0) {
         networkRequestsPool.push(
-          axios.post('http://localhost:5000/api/leaves/bulk-status-update', { ids: leaveIds, status: finalDbStatus }, {
+          axios.post('https://leave-od-approval.onrender.com/api/leaves/bulk-status-update', { ids: leaveIds, status: finalDbStatus }, {
             headers: { 'Authorization': `Bearer ${cleanToken}` }
           })
         );
@@ -292,7 +292,7 @@ const Approvals = () => {
       if (odIds.length > 0) {
         odIds.forEach(id => {
           networkRequestsPool.push(
-            axios.patch(`http://localhost:5000/api/od/${id}/action`, {
+            axios.patch(`https://leave-od-approval.onrender.com/api/od/${id}/action`, {
               action: actionType === 'approve' ? 'APPROVE' : 'REJECT',
               remarks: actionType === 'approve' ? 'Bulk Approved' : 'Bulk Rejected'
             }, { headers: { 'Authorization': `Bearer ${cleanToken}` } })
