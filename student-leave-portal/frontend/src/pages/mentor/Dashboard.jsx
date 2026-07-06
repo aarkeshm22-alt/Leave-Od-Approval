@@ -22,19 +22,14 @@ const MentorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Chart data – including all three statuses (we'll filter zeros for pie)
   const [statusData, setStatusData] = useState([
     { name: 'Pending', value: 0 },
     { name: 'Approved', value: 0 },
     { name: 'Rejected', value: 0 }
   ]);
 
-  // Pie chart data – filter out zero values to avoid overlapping labels
-  const pieData = statusData.filter(entry => entry.value > 0);
+  const COLORS = ['#F59E0B', '#10B981', '#EF4444'];
 
-  const COLORS = ['#F59E0B', '#10B981', '#EF4444']; // amber, emerald, red
-
-  // Date/time formatting
   const now = new Date();
   const formattedDate = now.toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -140,7 +135,6 @@ const MentorDashboard = () => {
         </div>
       </div>
 
-      {/* Error Alert */}
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2 shadow-3xs">
           <AlertCircle size={14} className="shrink-0" />
@@ -176,15 +170,15 @@ const MentorDashboard = () => {
         />
       </div>
 
-      {/* Charts Row – Bar & Pie */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bar Chart – Status Distribution */}
+        {/* Bar Chart */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
           <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
             <TrendingUp size={16} className="text-amber-500" />
             Request Status Breakdown
           </h3>
-          <div className="w-full h-[220px]">
+          <div className="w-full" style={{ height: '240px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
@@ -204,14 +198,14 @@ const MentorDashboard = () => {
           </div>
         </div>
 
-        {/* Pie Chart – Approval Split (zero values filtered) */}
+        {/* Pie Chart */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
           <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
             <BarChart2 size={16} className="text-indigo-500" />
             Overall Approval Split
           </h3>
-          <div className="w-full h-[220px]">
-            {pieData.length === 0 ? (
+          <div className="w-full" style={{ height: '240px' }}>
+            {statusData.filter(d => d.value > 0).length === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400 font-medium">
                 No data available to display
               </div>
@@ -219,7 +213,7 @@ const MentorDashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={statusData.filter(d => d.value > 0)}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -231,7 +225,7 @@ const MentorDashboard = () => {
                     }
                     labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
                   >
-                    {pieData.map((entry, index) => (
+                    {statusData.filter(d => d.value > 0).map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={COLORS[statusData.findIndex(d => d.name === entry.name)]} 

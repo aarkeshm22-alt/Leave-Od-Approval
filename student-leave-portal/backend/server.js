@@ -9,6 +9,7 @@ import { protect } from './middleware/authMiddleware.js';
 import User from './models/User.js'; 
 import mentorRoutes from './routes/mentorRoutes.js'; 
 import odRoutes from './routes/odRoutes.js'; 
+import ca2Routes from './routes/ca2Routes.js';
 
 dotenv.config(); 
 
@@ -42,8 +43,7 @@ app.use('/api', authRoutes);
 app.use('/api/leaves', leaveRoutes); 
 app.use('/api/od', odRoutes); 
 app.use('/api/mentor', mentorRoutes); 
-
-
+app.use('/api/ca2', ca2Routes);
 
 // Pull deployment target gateway port dynamically 
 const PORT = process.env.PORT || 5000;

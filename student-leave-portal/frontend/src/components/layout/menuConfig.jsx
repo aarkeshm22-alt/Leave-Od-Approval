@@ -1,4 +1,4 @@
-// src/config/menuConfig.js (or wherever your menu arrays reside)
+// src/config/menuConfig.js
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -49,7 +49,7 @@ export const mentorMenu = [
     title: "Pending Requests",
     icon: CheckSquare,
     path: "/mentor/pending-requests",
-  }
+  },
 ];
 
 export const hodMenu = [
@@ -72,5 +72,19 @@ export const hodMenu = [
     title: "Pending Approvals",
     icon: CheckSquare,
     path: "/hod/approvals",
+  },
+];
+
+// 🆕 CA2 (Class Advisor 2) Menu – view-only, no approvals
+export const ca2Menu = [
+  {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/ca2/dashboard",
+  },
+  {
+    title: "My Students",
+    icon: GraduationCap,
+    path: "/ca2/students",
   }
-]; 
+];

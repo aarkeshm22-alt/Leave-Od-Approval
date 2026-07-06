@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { X } from 'lucide-react';
-import { studentMenu, mentorMenu, hodMenu } from '../layout/menuConfig';
+import { studentMenu, mentorMenu, hodMenu, ca2Menu} from '../layout/menuConfig';
 
 // 🚀 ACCEPT GLOBAL STATE PROPS: Controlled directly by DashboardLayout
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -12,7 +12,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const menusByRole = {
     student: studentMenu,
     mentor: mentorMenu,
-    hod: hodMenu
+    hod: hodMenu,
+    ca2: ca2Menu, // Assuming you have a ca2Menu defined in menuConfig.jsx
   };
 
   const currentMenuItems = menusByRole[currentRole] || [];

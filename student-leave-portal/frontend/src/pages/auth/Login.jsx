@@ -330,60 +330,72 @@ const Login = () => {
     setFormData((prev) => ({ ...prev, role: targetRole.toLowerCase() }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsVerifying(true);
-    setErrorMsg('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsVerifying(true);
+  setErrorMsg('');
 
-    const backendCapitalizedRole =
-      formData.role === 'hod'
-        ? 'HOD'
-        : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
+  const backendCapitalizedRole =
+    formData.role === 'hod'
+      ? 'HOD'
+      : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-          role: backendCapitalizedRole,
-        }),
-      });
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: formData.email.trim(),
+        password: formData.password,
+        role: backendCapitalizedRole,
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid institutional credentials.');
-      }
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-
-      const normalizedUser = {
-        ...(data.user || data),
-        role: (data.user?.role || data.role || formData.role).toLowerCase(),
-      };
-
-      login(normalizedUser);
-      navigate(`/${normalizedUser.role}/dashboard`);
-    } catch (err) {
-      console.error('Authentication Loop Exception:', err);
-      setErrorMsg(err.message || 'Network failure connecting to authorization servers.');
-      setIsVerifying(false);
+    if (!response.ok) {
+      throw new Error(data.message || 'Invalid institutional credentials.');
     }
-  };
 
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+    }
+
+    // ── Build normalized user object ──
+    const userData = data.user || data;
+    let role = (userData.role || formData.role).toLowerCase();
+    const category = userData.category || null;
+
+    // ✅ If mentor and category is CA2 → change role to 'ca2'
+    if (role === 'mentor' && category === 'CA2') {
+      role = 'ca2';
+    }
+
+    const normalizedUser = {
+      ...userData,
+      role,
+      category,
+    };
+
+    login(normalizedUser);
+
+    // ── Redirect to the appropriate dashboard ──
+    navigate(`/${role}/dashboard`);
+  } catch (err) {
+    console.error('Authentication Loop Exception:', err);
+    setErrorMsg(err.message || 'Network failure connecting to authorization servers.');
+    setIsVerifying(false);
+  }
+};
+
+  // ── Role display mapping ──
   const displayRoleMap = { student: 'Student', mentor: 'Mentor', hod: 'HOD' };
   const roleIcons = { hod: Building2, mentor: UserCheck, student: User };
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
-      {/* ── Living Sky Background ── */}
       <SkyBackground />
 
-      {/* ── Loader Overlay ── */}
       <AnimatePresence>
         {isVerifying && (
           <div className="fixed inset-0 z-50">
@@ -392,7 +404,6 @@ const Login = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Glassmorphism Login Card ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

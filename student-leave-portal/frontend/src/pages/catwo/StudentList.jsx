@@ -1,3 +1,4 @@
+// src/pages/ca2/StudentList.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,7 +10,7 @@ import { utils, writeFile } from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const StudentList = () => {
+const CA2StudentList = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -17,15 +18,13 @@ const StudentList = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // 🆕 Certificate Modal States
+  // Certificate Modal
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
   const [certificateInfo, setCertificateInfo] = useState(null);
 
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
     setIsDrawerOpen(true);
-    console.log('📌 Selected Student:', student);
-    console.log('📌 Certificate field:', student.certificate);
   };
 
   // Filter states
@@ -41,15 +40,8 @@ const StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  // Certificate detection
   const getStudentCertificate = (st) => {
-    return st.certificate ||
-           st.document ||
-           st.student?.certificate ||
-           st.student?.document ||
-           st._doc?.certificate ||
-           st._doc?.document ||
-           null;
+    return st.certificate || st.document || st.student?.certificate || st.student?.document || null;
   };
 
   const hasCertificate = (st) => {
@@ -57,50 +49,46 @@ const StudentList = () => {
     return !!(cert && cert.length > 0);
   };
 
-  // ----- Fetch data -----
+  // Fetch assigned students (where secondmentorName matches CA2)
   useEffect(() => {
-    const fetchAssignedStudents = async () => {
+    const fetchStudents = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
-        setErrorMsg('Authentication trace missing. Log in again.');
+        setErrorMsg('Authentication missing. Log in again.');
         setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch('https://leave-od-approval.onrender.com/api/mentor/my-students', {
+        const response = await fetch('https://leave-od-approval.onrender.com/api/ca2/my-students', {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
         if (response.ok) {
-          const extractedStudents = data.data || data.students || (Array.isArray(data) ? data : []);
-          if (extractedStudents.length > 0) {
-            console.log('Sample student:', extractedStudents[0]);
-            console.log('Certificate in first student:', extractedStudents[0].certificate);
-          }
-          setStudents(extractedStudents);
+          const extracted = data.data || data.students || [];
+          setStudents(extracted);
         } else {
-          setErrorMsg(data.message || 'Failed to sync with structural student database.');
+          setErrorMsg(data.message || 'Failed to fetch students.');
         }
       } catch (err) {
-        console.error("Mentor Registry Sync Exception:", err);
-        setErrorMsg('Network error failing server handshakes.');
+        console.error(err);
+        setErrorMsg('Network error.');
       } finally {
         setLoading(false);
       }
     };
-    fetchAssignedStudents();
+    fetchStudents();
   }, []);
 
-  // ----- Filter logic -----
+  // Filter logic (same as mentor)
   const filteredStudents = students.filter(st => {
     const name = getFullName(st).toLowerCase();
-    const reg = (st.registerNo || st.register || st.student?.registerNo || '').toLowerCase();
+    const reg = (st.registerNo || st.register || '').toLowerCase();
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch = name.includes(query) || reg.includes(query);
 
-    const matchesType = filterType === 'ALL' || (st.studentType || st.student?.studentType || 'Regular Track') === filterType;
+    const matchesType = filterType === 'ALL' || (st.studentType || 'Regular Track') === filterType;
     const leaveCount = getLeaveCount(st);
     const odCount = getODCount(st);
     const matchesLeaveMin = filterLeaveMin === '' || leaveCount >= parseInt(filterLeaveMin);
@@ -111,9 +99,9 @@ const StudentList = () => {
     return matchesSearch && matchesType && matchesLeaveMin && matchesLeaveMax && matchesODMin && matchesODMax;
   });
 
-  const studentTypes = ['ALL', ...new Set(students.map(st => st.studentType || st.student?.studentType || 'Regular Track'))];
+  const studentTypes = ['ALL', ...new Set(students.map(st => st.studentType || 'Regular Track'))];
 
-  // ===== EXPORT FUNCTIONS =====
+  // Export functions (identical to mentor's)
   const handleExportReport = (format) => {
     if (filteredStudents.length === 0) {
       alert("No students match your current filter criteria.");
@@ -123,15 +111,15 @@ const StudentList = () => {
     setIsExporting(true);
     try {
       const formattedRows = filteredStudents.map(st => ({
-        "Register No": st.registerNo || st.register || st.student?.registerNo || 'N/A',
+        "Register No": st.registerNo || st.register || 'N/A',
         "Student Name": getFullName(st),
-        "Student Type": st.studentType || st.student?.studentType || 'Regular Track',
-        "CA1 Mentor": st.firstmentorName || st.student?.firstmentorName || 'Unassigned',
-        "CA2 Mentor": st.secondmentorName || st.student?.secondmentorName || 'Unassigned',
+        "Student Type": st.studentType || 'Regular Track',
+        "CA1 Mentor": st.firstmentorName || 'Unassigned',
+        "CA2 Mentor": st.secondmentorName || 'Unassigned',
         "Leave Count": getLeaveCount(st),
         "OD Count": getODCount(st),
-        "Email": st.email || st.student?.email || 'N/A',
-        "Mobile": st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
+        "Email": st.email || 'N/A',
+        "Mobile": st.mobileNo || st.mobile || 'N/A',
         "Certificate": hasCertificate(st) ? 'Yes' : 'No'
       }));
 
@@ -139,34 +127,31 @@ const StudentList = () => {
         const worksheet = utils.json_to_sheet(formattedRows);
         const workbook = utils.book_new();
         utils.book_append_sheet(workbook, worksheet, "Students");
-        writeFile(workbook, `Mentor_Students_${new Date().toISOString().slice(0,10)}.xlsx`);
+        writeFile(workbook, `CA2_Students_${new Date().toISOString().slice(0,10)}.xlsx`);
       } else if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
         doc.setFillColor(26, 35, 50);
         doc.rect(0, 0, 297, 24, 'F');
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(15);
         doc.setTextColor(255, 255, 255);
-        doc.text("Mentor Student Registry Report", 14, 11);
+        doc.text("CA2 Student Registry Report", 14, 11);
         doc.setFont("Helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(203, 213, 225);
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Students: ${filteredStudents.length}`, 14, 18);
 
-        const tableHeaders = [
-          ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Cert"]
-        ];
+        const tableHeaders = [["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Cert"]];
         const tableBody = filteredStudents.map(st => [
-          st.registerNo || st.register || st.student?.registerNo || 'N/A',
+          st.registerNo || st.register || 'N/A',
           getFullName(st),
-          st.studentType || st.student?.studentType || 'Regular Track',
-          st.firstmentorName || st.student?.firstmentorName || 'Unassigned',
-          st.secondmentorName || st.student?.secondmentorName || 'Unassigned',
+          st.studentType || 'Regular Track',
+          st.firstmentorName || 'Unassigned',
+          st.secondmentorName || 'Unassigned',
           getLeaveCount(st).toString(),
           getODCount(st).toString(),
-          st.email || st.student?.email || 'N/A',
-          st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
+          st.email || 'N/A',
+          st.mobileNo || st.mobile || 'N/A',
           hasCertificate(st) ? 'Yes' : 'No'
         ]);
 
@@ -191,7 +176,7 @@ const StudentList = () => {
           },
           margin: { left: 10, right: 10 }
         });
-        doc.save(`Mentor_Students_${new Date().toISOString().slice(0,10)}.pdf`);
+        doc.save(`CA2_Students_${new Date().toISOString().slice(0,10)}.pdf`);
       }
     } catch (err) {
       console.error("Export error:", err);
@@ -210,35 +195,23 @@ const StudentList = () => {
     setFilterODMax('');
   };
 
-  // ============================================================
-  // 🆕 CERTIFICATE MODAL HANDLERS
-  // ============================================================
+  // Certificate Modal handlers
   const openCertificateModal = () => {
     if (!selectedStudent) return;
     const cert = getStudentCertificate(selectedStudent);
     if (!cert) return;
 
-    // Find the OD that has this certificate
     const odWithCert = selectedStudent.ods?.find(
       (od) => od.certificate === cert || od.document === cert
     );
-
     setCertificateInfo({
       base64: cert,
       reason: odWithCert?.reason || 'N/A',
       fromDate: odWithCert?.fromDate
-        ? new Date(odWithCert.fromDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          })
+        ? new Date(odWithCert.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         : 'N/A',
       toDate: odWithCert?.toDate
-        ? new Date(odWithCert.toDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          })
+        ? new Date(odWithCert.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         : 'N/A',
     });
     setCertificateModalOpen(true);
@@ -259,7 +232,6 @@ const StudentList = () => {
     setCertificateInfo(null);
   };
 
-  // ----- Loading State -----
   if (loading) {
     return (
       <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
@@ -274,19 +246,17 @@ const StudentList = () => {
     );
   }
 
-  // ----- Render -----
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-1 sm:p-4 md:p-6 max-w-7xl mx-auto text-gray-800 antialiased">
-
-      {/* Header + Export */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-gray-200 pb-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-2">
             <Users className="text-amber-500 shrink-0" size={24} />
-            Assigned Student
+            CA2 – Assigned Students
           </h2>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
-            View the profiles of students assigned to you and monitor their Leave and On-Duty activities from one place.
+            View profiles of students where you are the second mentor (CA2). No approval actions – only view and export.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -324,7 +294,6 @@ const StudentList = () => {
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition"
             />
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filterType}
@@ -335,7 +304,6 @@ const StudentList = () => {
                 <option key={type} value={type}>{type === 'ALL' ? 'All Types' : type}</option>
               ))}
             </select>
-
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <span>Leave:</span>
               <input
@@ -354,7 +322,6 @@ const StudentList = () => {
                 className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
             </div>
-
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <span>OD:</span>
               <input
@@ -373,7 +340,6 @@ const StudentList = () => {
                 className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
             </div>
-
             <button
               onClick={clearFilters}
               className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-indigo-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
@@ -382,7 +348,6 @@ const StudentList = () => {
             </button>
           </div>
         </div>
-
         <div className="flex justify-between text-xs text-gray-400 border-t border-gray-100 pt-2">
           <span>{filteredStudents.length} students shown</span>
           <span>{students.length} total</span>
@@ -398,7 +363,7 @@ const StudentList = () => {
 
       {students.length === 0 ? (
         <div className="bg-white border border-gray-300 rounded-2xl p-8 sm:p-12 text-center text-xs sm:text-sm font-semibold text-gray-500">
-          No students are assigned to your mentor profile reference ID yet.
+          No students are assigned to your CA2 profile yet.
         </div>
       ) : filteredStudents.length === 0 ? (
         <div className="bg-white border border-gray-300 rounded-2xl p-8 text-center text-xs font-medium text-gray-400">
@@ -406,8 +371,7 @@ const StudentList = () => {
         </div>
       ) : (
         <div className="space-y-4">
-
-          {/* ===== MOBILE CARDS ===== */}
+          {/* MOBILE CARDS */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {filteredStudents.map((st, index) => {
               const fullName = getFullName(st);
@@ -426,7 +390,6 @@ const StudentList = () => {
                       </div>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-2 text-center pt-1">
                     <div className="p-2.5 bg-amber-50/50 border border-amber-200/50 rounded-xl">
                       <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wider block">Leave Count</span>
@@ -437,7 +400,6 @@ const StudentList = () => {
                       <span className="text-xs font-black text-blue-700 block mt-0.5">{odDays} {odDays === 1 ? 'day' : 'days'}</span>
                     </div>
                   </div>
-
                   <button
                     onClick={() => openProfileDrawer(st)}
                     className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-indigo-900 hover:bg-amber-500 text-white font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
@@ -450,7 +412,7 @@ const StudentList = () => {
             })}
           </div>
 
-          {/* ===== DESKTOP / TABLET TABLE ===== */}
+          {/* DESKTOP TABLE */}
           <div className="hidden md:block bg-white border border-gray-300 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs divide-y divide-gray-200">
@@ -500,11 +462,10 @@ const StudentList = () => {
               </table>
             </div>
           </div>
-
         </div>
       )}
 
-      {/* ===== PROFILE DRAWER ===== */}
+      {/* Profile Drawer – same as mentor but read-only (no actions) */}
       <AnimatePresence>
         {isDrawerOpen && selectedStudent && (
           <>
@@ -548,34 +509,29 @@ const StudentList = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">Database Registry Keypairs</h5>
-
+                  <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">Student Details</h5>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Hash size={14} /> Register Number</span>
                     <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md truncate max-w-[180px] text-right">{selectedStudent.registerNo || selectedStudent.register || 'N/A'}</span>
                   </div>
-
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><ShieldCheck size={14} /> Student Type</span>
-                    <span className="font-bold text-gray-800 truncate text-right">{selectedStudent.studentType || selectedStudent.student?.studentType || 'Regular Track'}</span>
+                    <span className="font-bold text-gray-800 truncate text-right">{selectedStudent.studentType || 'Regular Track'}</span>
                   </div>
-
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Phone size={14} /> Mobile Number</span>
-                    <span className="font-mono font-bold text-gray-800 truncate text-right">{selectedStudent.mobileNo || selectedStudent.mobile || selectedStudent.student?.mobileNo || 'N/A'}</span>
+                    <span className="font-mono font-bold text-gray-800 truncate text-right">{selectedStudent.mobileNo || selectedStudent.mobile || 'N/A'}</span>
                   </div>
-
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User size={14} /> Class Advisor 1</span>
-                    <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.firstmentorName || selectedStudent.student?.firstmentorName || 'Assigned to Self'}</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User size={14} /> CA1 Mentor</span>
+                    <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.firstmentorName || 'Unassigned'}</span>
                   </div>
-
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> Class Advisor 2</span>
-                    <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || selectedStudent.student?.secondmentorName || 'Assigned to Self'}</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> CA2 Mentor</span>
+                    <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || 'Unassigned'}</span>
                   </div>
 
-                  {/* Certificate display – now opens modal with details */}
+                  {/* Certificate */}
                   {(() => {
                     const cert = getStudentCertificate(selectedStudent);
                     if (cert) {
@@ -600,7 +556,7 @@ const StudentList = () => {
 
                 {/* Analytics summary */}
                 <div className="p-4 bg-indigo-900 text-white rounded-2xl space-y-3 shadow-md">
-                  <h5 className="text-[9px] sm:text-[10px] font-bold text-amber-300 uppercase tracking-widest flex items-center gap-1"><Calendar size={12} /> Leave & OD Analytics Summary</h5>
+                  <h5 className="text-[9px] sm:text-[10px] font-bold text-amber-300 uppercase tracking-widest flex items-center gap-1"><Calendar size={12} /> Leave & OD Summary</h5>
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div className="p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10">
                       <p className="text-xl sm:text-2xl font-black text-amber-400">
@@ -673,9 +629,7 @@ const StudentList = () => {
         )}
       </AnimatePresence>
 
-      {/* ================================================================ */}
-      {/* 🆕 CERTIFICATE MODAL WITH REASON & DATE */}
-      {/* ================================================================ */}
+      {/* Certificate Modal */}
       <AnimatePresence>
         {certificateModalOpen && certificateInfo && (
           <motion.div
@@ -693,7 +647,6 @@ const StudentList = () => {
               className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header – now shows reason and date */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div>
                   <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
@@ -720,8 +673,6 @@ const StudentList = () => {
                   </button>
                 </div>
               </div>
-
-              {/* Image Container */}
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
                   src={certificateInfo.base64}
@@ -729,8 +680,6 @@ const StudentList = () => {
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
                 />
               </div>
-
-              {/* Footer */}
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
                 Certificate for On-Duty request – valid only as per institutional guidelines.
               </div>
@@ -742,4 +691,4 @@ const StudentList = () => {
   );
 };
 
-export default StudentList;
+export default CA2StudentList;

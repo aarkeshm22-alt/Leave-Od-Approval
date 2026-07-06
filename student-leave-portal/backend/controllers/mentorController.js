@@ -95,12 +95,12 @@ export const getMyStudents = async (req, res) => {
         // ================================================================
         const allLeaves = await Leave.find({ student: student._id })
           .sort({ createdAt: -1 })
-          .select('fromDate toDate status duration halfDaySession createdAt')
+          .select('fromDate toDate status duration reason halfDaySession createdAt')
           .lean();
 
         const allODsForList = await OnDuty.find({ student: student._id })
           .sort({ createdAt: -1 })
-          .select('fromDate toDate status duration halfDaySession createdAt')
+          .select('fromDate toDate status duration reason halfDaySession createdAt')
           .lean();
 
         console.log(`   📋 Total leaves: ${allLeaves.length}, ODs: ${allODsForList.length}`);

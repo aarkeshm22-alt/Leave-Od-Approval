@@ -14,15 +14,33 @@ const Topbar = ({ onMenuToggle }) => {
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
     : user?.name || "Verified Identity";
 
-  // First letter of first name + first letter of last name (or fallback)
-   const userInitials = profileName
+  // User initials
+  const userInitials = profileName
     ? profileName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : profileName.slice(0, 2).toUpperCase();
 
   const userRole = user?.role || "HOD";
+  const userCategory = user?.category || null;
 
+  // Determine display role
+  let displayRole = userRole;
+  if (userRole === 'ca2') {
+    displayRole = 'CA2';
+  } else if (userRole === 'mentor' && userCategory === 'CA2') {
+    displayRole = 'CA2';
+  } else if (userRole === 'mentor' && userCategory === 'CA1') {
+    displayRole = 'CA1';
+  } else {
+    displayRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+  }
+
+  // Determine profile route
   const getProfileRoute = () => {
     const roleKey = userRole.toLowerCase().trim();
+    // If role is 'ca2' or (mentor with CA2 category) → go to CA2 profile
+    if (roleKey === 'ca2' || (roleKey === 'mentor' && userCategory === 'CA2')) {
+      return '/ca2/profile';
+    }
     if (roleKey === 'mentor') return '/mentor/profile';
     if (roleKey === 'student') return '/student/profile';
     return '/hod/profile';
@@ -82,7 +100,7 @@ const Topbar = ({ onMenuToggle }) => {
                 {profileName}
               </p>
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-500 block">
-                {userRole}
+                {displayRole}
               </span>
             </div>
           </button>

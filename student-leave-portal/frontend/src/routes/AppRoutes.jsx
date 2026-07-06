@@ -31,6 +31,11 @@ import StudentOD from '../pages/student/ApplyOD';
 import StudentRequests from '../pages/student/MyRequests';
 import StudentProfile from '../pages/student/Profile';
 
+// 🆕 CA2 Panel views (Class Advisor 2 – view‑only)
+import CA2Dashboard from '../pages/catwo/Dashboard';
+import CA2Students from '../pages/catwo/StudentList';
+import CA2Profile from '../pages/catwo/Profile';
+
 // Loader Guard UI component
 import Loader from '../components/common/Loader';
 
@@ -83,6 +88,15 @@ const AppRoutes = () => {
         <Route path="students" element={<HodStudents />} />
         <Route path="reports" element={<HodReports />} />
         <Route path="profile" element={<HodProfile />} />
+      </Route>
+
+      {/* 🆕 CA2 Controlled Route Clusters */}
+      <Route path="/ca2" element={
+        <RoleGuard allowedRoles={['ca2']}><DashboardLayout /></RoleGuard>
+      }>
+        <Route path="dashboard" element={<CA2Dashboard />} />
+        <Route path="students" element={<CA2Students />} />
+        <Route path="profile" element={<CA2Profile />} />
       </Route>
 
       {/* Fallback Root Catch */}
