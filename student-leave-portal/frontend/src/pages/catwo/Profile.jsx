@@ -135,7 +135,7 @@ const CA2Profile = () => {
           {/* 5. Department – Navy Badge */}
           <div className="py-3 sm:py-3.5 md:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
             <span className="text-gray-500 font-bold flex items-center gap-2 text-[11px] sm:text-xs">
-              <Building2 size={14} className="text-amber-500 shrink-0" /> Faculty Department
+              <Building2 size={14} className="text-amber-400 shrink-0" /> Faculty Department
             </span>
             <span className="font-mono font-bold bg-blue-50 border border-blue-200 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-lg text-blue-700 text-[10px] sm:text-xs w-fit sm:ml-auto shadow-sm">
               {activeUser?.deptCode || activeUser?.department || 'DEPT_CORE'}
