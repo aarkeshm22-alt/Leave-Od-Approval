@@ -119,15 +119,15 @@ const PendingRequests = () => {
         };
 
         response = await axios.patch(
-          `/api/od/${id}/action`, 
+          `https://leave-od-approval.onrender.com/api/od/${id}/action`, 
           payloadBody, 
           configHeaders
         );
       } else {
         // 📝 LEAVE PATHWAY: Legacy split endpoints system routing fallback
         const endpoint = approvalState === 'approve' 
-          ? `/api/leaves/${id}/mentor-approve` 
-          : `/api/leaves/${id}/mentor-reject`;
+          ? `https://leave-od-approval.onrender.com/api/leaves/${id}/mentor-approve` 
+          : `https://leave-od-approval.onrender.com/api/leaves/${id}/mentor-reject`;
 
         response = await axios.patch(
           endpoint, 
