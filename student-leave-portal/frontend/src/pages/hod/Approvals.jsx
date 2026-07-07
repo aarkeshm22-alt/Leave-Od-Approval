@@ -20,6 +20,9 @@ const Approvals = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
+  // 🆕 Notification state
+  const [notification, setNotification] = useState(null);
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -27,6 +30,12 @@ const Approvals = () => {
   const [filterMentor, setFilterMentor] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+
+  // 🆕 Helper to show notifications
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   const normalizeYear = (year) => {
     if (!year || year === 'N/A') return 'N/A';
@@ -192,7 +201,7 @@ const Approvals = () => {
 
   const handleExportReport = (format) => {
     if (activeDisplayItems.length === 0) {
-      alert("No data records match filters inside the viewport.");
+      showNotification('No data records match filters inside the viewport.', 'error');
       return;
     }
 
@@ -219,6 +228,7 @@ const Approvals = () => {
         const workbook = utils.book_new();
         utils.book_append_sheet(workbook, worksheet, "Compliance Report");
         writeFile(workbook, `Compliance_Audit_Log_${activeTab}_${Date.now()}.xlsx`);
+        showNotification('Excel report downloaded successfully.', 'success');
       } else if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -314,16 +324,16 @@ const Approvals = () => {
         }
 
         doc.save(`Compliance_Report_${Date.now()}.pdf`);
+        showNotification('PDF report downloaded successfully.', 'success');
       }
     } catch (err) {
       console.error("Local client binary compilation runtime error:", err);
-      alert("Failed compiling report metrics data map properties.");
+      showNotification('Failed compiling report metrics data map properties.', 'error');
     } finally {
       setIsExporting(false);
     }
   };
 
-  // ✅ FIXED: Separate endpoints for approve and reject on Leaves
   const handleSingleAction = async (targetId, actionType, docCategory) => {
     try {
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
@@ -335,20 +345,17 @@ const Approvals = () => {
       let response;
 
       if (docCategory === 'On-Duty') {
-        // OD uses unified action endpoint
         response = await axios.patch(`${BASE_URL}/api/od/${targetId}/action`, {
           action: actionType === 'approve' ? 'APPROVE' : 'REJECT',
           remarks: actionType === 'approve' ? 'Final Clearance Appended' : 'Rejected'
         }, configHeaders);
       } else {
-        // Leave uses separate endpoints
         if (actionType === 'approve') {
           response = await axios.patch(`${BASE_URL}/api/leaves/${targetId}/hod-approve`, 
             { remarks: 'Approved by HOD' }, 
             configHeaders
           );
         } else {
-          // ✅ REJECT: use dedicated reject endpoint
           response = await axios.patch(`${BASE_URL}/api/leaves/${targetId}/hod-reject`, 
             { remarks: 'Rejected by HOD' }, 
             configHeaders
@@ -359,14 +366,14 @@ const Approvals = () => {
       const finalDbStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
       setItems(prev => prev.map(item => item.id === targetId ? { ...item, status: finalDbStatus } : item));
       setSelectedIds(prev => prev.filter(id => id !== targetId));
+      showNotification(`Request ${actionType === 'approve' ? 'approved' : 'rejected'} successfully.`, 'success');
     } catch (err) {
       console.error("Action error:", err);
-      alert(err.response?.data?.message || 'Action failed. Please try again.');
+      showNotification(err.response?.data?.message || 'Action failed. Please try again.', 'error');
       throw err;
     }
   };
 
-  // ✅ FIXED: Bulk action with separate endpoints for Leaves
   const handleBulkAction = async (actionType) => {
     if (selectedIds.length === 0) return;
     setBulkProcessing(true);
@@ -388,7 +395,6 @@ const Approvals = () => {
             remarks: actionType === 'approve' ? 'Bulk Approved' : 'Bulk Rejected'
           }, configHeaders);
         } else {
-          // Leave: separate endpoints
           if (actionType === 'approve') {
             await axios.patch(`${BASE_URL}/api/leaves/${id}/hod-approve`, 
               { remarks: 'Bulk Approved by HOD' }, 
@@ -414,10 +420,10 @@ const Approvals = () => {
         )
       );
       setSelectedIds([]);
-      alert(`Successfully ${actionType === 'approve' ? 'approved' : 'rejected'} ${selectedIds.length} request(s).`);
+      showNotification(`Successfully ${actionType === 'approve' ? 'approved' : 'rejected'} ${selectedIds.length} request(s).`, 'success');
     } catch (err) {
       console.error("Bulk process error:", err);
-      alert(`Bulk action failed: ${err.response?.data?.message || err.message}`);
+      showNotification(`Bulk action failed: ${err.response?.data?.message || err.message}`, 'error');
     } finally {
       setBulkProcessing(false);
     }
@@ -449,6 +455,37 @@ const Approvals = () => {
 
   return (
     <div className="space-y-6 font-sans pb-12 antialiased text-slate-800">
+
+      {/* 🆕 Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-4 right-4 z-50 max-w-sm w-full p-4 rounded-xl shadow-xl border ${
+              notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+              notification.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+              'bg-blue-50 border-blue-200 text-blue-800'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-lg">
+                {notification.type === 'success' && '✅'}
+                {notification.type === 'error' && '❌'}
+                {notification.type === 'info' && 'ℹ️'}
+              </span>
+              <p className="text-sm font-medium flex-1">{notification.message}</p>
+              <button
+                onClick={() => setNotification(null)}
+                className="shrink-0 text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -654,7 +691,6 @@ const Approvals = () => {
                 <div className="lg:col-span-1 flex flex-row items-center pt-2.5 lg:pt-0 border-t border-slate-100 lg:border-none mt-1 lg:mt-0">
                   {row.status === 'Partially Approved' || row.status === 'Approved By Mentor' || row.status === 'Pending' ? (
                     <div className="flex items-center gap-1 ml-auto">
-                      {/* ✅ Reject button – red with tap animation */}
                       <motion.button
                         type="button"
                         whileTap={{ scale: 0.85 }}
@@ -663,7 +699,6 @@ const Approvals = () => {
                       >
                         <X size={12} />
                       </motion.button>
-                      {/* ✅ Approve button – green with tap animation */}
                       <motion.button
                         type="button"
                         whileTap={{ scale: 0.85 }}

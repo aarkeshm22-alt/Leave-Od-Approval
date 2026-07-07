@@ -167,8 +167,8 @@ const HodDashboard = () => {
   const administrativeMetrics = [
     { 
       title: "Total Registered Students", 
-      value: `${studentsCount} Units`, 
-      description: "All departments", 
+      value: `${studentsCount} Students`, 
+      description: "CSE department", 
       icon: Landmark, 
       color: "text-indigo-800 bg-indigo-50 border-indigo-200" 
     },
@@ -180,7 +180,7 @@ const HodDashboard = () => {
       color: "text-amber-600 bg-amber-50 border-amber-200" 
     },
     { 
-      title: "Awaiting Sign-Off", 
+      title: "Pending Requests", 
       value: `${metrics.pendingCount} Pending`, 
       description: "Requires HOD approval", 
       icon: Activity, 
@@ -274,8 +274,8 @@ const HodDashboard = () => {
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-3xs lg:col-span-2">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Statistical Metrics Tally</h3>
-              <p className="text-[11px] text-slate-400">Ratio distributions of OD counters vs Leaves</p>
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Analytical Board</h3>
+              <p className="text-[11px] text-slate-400">Ratio of OD vs Leave Counts</p>
             </div>
             
             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
@@ -289,7 +289,7 @@ const HodDashboard = () => {
                 onClick={() => setChartType('pie')}
                 className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${chartType === 'pie' ? 'bg-white text-indigo-900 shadow-3xs' : 'text-slate-500'}`}
               >
-                Donut
+                Pie
               </button>
             </div>
           </div>
