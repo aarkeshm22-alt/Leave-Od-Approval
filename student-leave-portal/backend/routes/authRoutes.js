@@ -212,6 +212,20 @@ router.route('/users/profile')
     }
   });
 
+// In userRoutes.js
+router.delete('/users/me', protect, async (req, res) => {
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.user.id);
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    res.status(200).json({ success: true, message: 'Account permanently deleted.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete account.', error: error.message });
+  }
+});
+
 // Core Authentication entry points
 router.post('/auth/register', registerUser);
 router.post('/auth/login', loginUser);

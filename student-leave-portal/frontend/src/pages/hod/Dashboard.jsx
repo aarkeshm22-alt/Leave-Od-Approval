@@ -5,89 +5,157 @@ import {
   Activity, 
   CheckCircle2, 
   AlertCircle,
-  BarChart3,
-  PieChart,
-  CornerDownRight
+  CornerDownRight,
+  Loader2,
+  Users
 } from 'lucide-react';
+import axios from 'axios';
+import { useAuth } from '../../hooks/useAuth';
 
-// Datasets matching your system records images to prevent empty screens
-const REAL_STUDENTS_FALLBACK = [
-  { regNo: "73152213001", studentName: "Aarkesh M", email: "aarkeshcse@ksrce.ac.in", branch: "YR IV-A" },
-  { regNo: "73152213008", studentName: "Agalya T", email: "agalya@ksrce.ac.in", branch: "YR IV-A" }
-];
+const BASE_URL = 'https://leave-od-approval.onrender.com';
 
-const REAL_REQUESTS_FALLBACK = [
-  { regNo: "73152213008", studentName: "Agalya T", type: "ON-DUTY", reason: "Paper Presentation", status: "HOD Approved", date: "14/06/2026" },
-  { regNo: "73152213001", studentName: "Aarkesh M", type: "ON-DUTY", reason: "Paper Presentation", status: "HOD Approved", date: "14/06/2026" },
-  { regNo: "73152213001", studentName: "Aarkesh M", type: "LEAVE", reason: "Temple function", status: "HOD Approved", date: "14/06/2026" }
-];
-
-const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) => {
+const HodDashboard = () => {
+  const { user, loading: authLoading } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [chartType, setChartType] = useState('bar'); 
+  const [chartType, setChartType] = useState('bar');
   const [loggedInUser, setLoggedInUser] = useState("HOD Admin");
+  
+  // Real data states
+  const [studentsCount, setStudentsCount] = useState(0);
+  const [facultyCount, setFacultyCount] = useState(0);
+  const [metrics, setMetrics] = useState({
+    approvedCount: 0,
+    pendingCount: 0,
+    odCount: 0,
+    leaveCount: 0,
+    odPercentage: 0,
+    leavePercentage: 0,
+  });
+  const [recentApprovals, setRecentApprovals] = useState([]);
 
-  // Safely capture data arrays
-  const studentsData = initialStudents.length > 0 ? initialStudents : REAL_STUDENTS_FALLBACK;
-  const requestsData = initialRequests.length > 0 ? initialRequests : REAL_REQUESTS_FALLBACK;
+  // Set logged-in user from auth context
+  useEffect(() => {
+    if (user) {
+      const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'HOD Admin';
+      setLoggedInUser(name);
+    }
+  }, [user]);
 
+  // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Detect logged-in user details from props or auth context/localStorage
+  // Fetch real data
   useEffect(() => {
-  if (username) {
-    setLoggedInUser(username);
-  } else {
-    const storedUser = localStorage.getItem('user') || localStorage.getItem('username');
-    if (storedUser) {
+    const fetchDashboardData = async () => {
       try {
-        const parsed = JSON.parse(storedUser);
-        
-        // Extract and combine first and last name properties exclusively
-        if (parsed.firstName || parsed.lastName) {
-          const combinedName = `${parsed.firstName || ''} ${parsed.lastName || ''}`.trim();
-          setLoggedInUser(combinedName);
-        } else {
-          setLoggedInUser(parsed.username || parsed.name || 'HOD Admin');
+        setLoading(true);
+        setErrorMsg('');
+
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        if (!token) {
+          setErrorMsg('Authentication missing. Please log in again.');
+          setLoading(false);
+          return;
         }
-      } catch {
-        // Fallback if local storage string isn't JSON formatted
-        setLoggedInUser(storedUser.replace(/"/g, '').trim());
+
+        const cleanToken = token.replace(/"/g, '').trim();
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`,
+            'Content-Type': 'application/json'
+          }
+        };
+
+        // 1. Fetch all students and mentors (using the correct HOD-filtered endpoint)
+        const [studentsRes, mentorsRes] = await Promise.all([
+          axios.get(`${BASE_URL}/api/users/students-by-mentor`, config),
+          axios.get(`${BASE_URL}/api/users/mentors-by-hod`, config) // ✅ UPDATED endpoint
+        ]);
+
+        const studentsList = studentsRes.data?.data || [];
+        setStudentsCount(studentsList.length);
+
+        // ✅ Now mentorsRes.data.data contains the correct list filtered by HOD
+        const mentorsList = mentorsRes.data?.data || [];
+        setFacultyCount(mentorsList.length);
+
+        // 2. Fetch pending and actioned requests for counts
+        const [leavesPending, leavesActioned, odPending, odActioned] = await Promise.all([
+          axios.get(`${BASE_URL}/api/leaves/hod/pending?tab=PENDING`, config),
+          axios.get(`${BASE_URL}/api/leaves/hod/pending?tab=ACTIONED`, config),
+          axios.get(`${BASE_URL}/api/od/hod/pending?tab=PENDING`, config),
+          axios.get(`${BASE_URL}/api/od/hod/pending?tab=ACTIONED`, config)
+        ]).catch(() => ({ data: { data: [] } }));
+
+        const getData = (res) => res?.data?.data || [];
+
+        const leavesPendingList = getData(leavesPending);
+        const leavesActionedList = getData(leavesActioned);
+        const odPendingList = getData(odPending);
+        const odActionedList = getData(odActioned);
+
+        // Counts
+        const totalPending = leavesPendingList.length + odPendingList.length;
+        const totalApproved = leavesActionedList.filter(i => i.status === 'Approved').length + 
+                              odActionedList.filter(i => i.status === 'Approved').length;
+
+        const odCount = odPendingList.length + odActionedList.filter(i => i.status === 'Approved').length;
+        const leaveCount = leavesPendingList.length + leavesActionedList.filter(i => i.status === 'Approved').length;
+
+        const total = odCount + leaveCount;
+        const odPercentage = total > 0 ? Math.round((odCount / total) * 100) : 0;
+        const leavePercentage = total > 0 ? Math.round((leaveCount / total) * 100) : 0;
+
+        setMetrics({
+          approvedCount: totalApproved,
+          pendingCount: totalPending,
+          odCount,
+          leaveCount,
+          odPercentage,
+          leavePercentage,
+        });
+
+        // 3. Recent approvals (latest 5 from actioned lists)
+        const allActioned = [...leavesActionedList, ...odActionedList]
+          .filter(i => i.status === 'Approved')
+          .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+          .slice(0, 5)
+          .map(item => {
+            const student = item.student || {};
+            const studentName = item.studentName || student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown';
+            const regNo = item.registerNo || student.registerNo || 'N/A';
+            const type = item.type || item.mappedType || (item.class === 'Leave' ? 'Leave' : 'On-Duty');
+            const reason = item.reason || 'No reason';
+            const status = item.status || 'Approved';
+
+            return {
+              regNo,
+              studentName,
+              type,
+              reason,
+              status,
+            };
+          });
+
+        setRecentApprovals(allActioned);
+
+      } catch (error) {
+        console.error('Failed to fetch HOD dashboard data:', error);
+        setErrorMsg('Could not load dashboard data. Please refresh.');
+      } finally {
+        setLoading(false);
       }
-    }
-  }
-}, [username]);
-
-  // Compute metrics upfront using memoization to prevent rendering flickering/glitches
-  const metrics = useMemo(() => {
-    const list = Array.isArray(requestsData) ? requestsData : [];
-    
-    const approvedRecords = list.filter(r => {
-      const status = (r.status || '').toLowerCase();
-      return status.includes('approved') || status.includes('completed') || status.includes('verified');
-    });
-
-    const odCount = list.filter(r => (r.type || '').toUpperCase().includes('OD') || (r.type || '').toUpperCase().includes('DUTY')).length;
-    const leaveCount = list.filter(r => (r.type || '').toUpperCase().includes('LEAVE')).length;
-    const pendingCount = list.filter(r => (r.status || '').toLowerCase().includes('pending')).length;
-
-    const totalAbsences = odCount + leaveCount;
-    const odPercentage = totalAbsences > 0 ? Math.round((odCount / totalAbsences) * 100) : 0;
-    const leavePercentage = totalAbsences > 0 ? Math.round((leaveCount / totalAbsences) * 100) : 0;
-
-    return {
-      approvedRecords,
-      completedCount: approvedRecords.length,
-      pendingCount,
-      odCount,
-      leaveCount,
-      odPercentage,
-      leavePercentage
     };
-  }, [requestsData]);
+
+    if (!authLoading) {
+      fetchDashboardData();
+    }
+  }, [authLoading]);
 
   const formattedDate = currentTime.toLocaleDateString('en-US', { 
     weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' 
@@ -97,20 +165,67 @@ const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) 
   });
 
   const administrativeMetrics = [
-    { title: "Total Registered Students", value: "4 Units", description: "CSE Core Branches", icon: Landmark, color: "text-slate-800 bg-slate-100 border-slate-200" },
-    { title: "Awaiting Sign-Off", value: `${metrics.pendingCount} Pending`, description: "Requires HOD signature", icon: Activity, color: "text-amber-600 bg-amber-50 border-amber-200" },
-    { title: "Total OD Count", value: `${metrics.odCount} Approved`, description: "On-Duty tracking metric", icon: CheckCircle2, color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { title: "Total Leave Count", value: `${metrics.leaveCount} Records`, description: "Absence logs tally", icon: CheckCircle2, color: "text-blue-700 bg-blue-50 border-blue-200" },
+    { 
+      title: "Total Registered Students", 
+      value: `${studentsCount} Units`, 
+      description: "All departments", 
+      icon: Landmark, 
+      color: "text-indigo-800 bg-indigo-50 border-indigo-200" 
+    },
+    { 
+      title: "Total Faculty Registered", 
+      value: `${facultyCount} Members`, 
+      description: "Mentors under your HOD", 
+      icon: Users, 
+      color: "text-amber-600 bg-amber-50 border-amber-200" 
+    },
+    { 
+      title: "Awaiting Sign-Off", 
+      value: `${metrics.pendingCount} Pending`, 
+      description: "Requires HOD approval", 
+      icon: Activity, 
+      color: "text-amber-600 bg-amber-50 border-amber-200" 
+    },
+    { 
+      title: "Approved Requests", 
+      value: `${metrics.approvedCount} Approved`, 
+      description: "Verified records", 
+      icon: CheckCircle2, 
+      color: "text-emerald-700 bg-emerald-50 border-emerald-200" 
+    },
   ];
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+        <div className="relative w-10 h-10">
+          <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
+          <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-indigo-700 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-xs font-bold text-gray-500 tracking-wider uppercase animate-pulse">
+          Loading Your <span className="text-amber-500">Dashboard</span>...
+        </p>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="p-6 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
+        <AlertCircle size={14} className="shrink-0" />
+        <span>{errorMsg}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 font-sans pb-12 transition-all duration-300">
       
       {/* Header Banner */}
-      <div className="p-6 bg-slate-950 rounded-2xl text-white relative border border-slate-900 shadow-sm">
+      <div className="p-6 bg-indigo-900 rounded-2xl text-white relative border border-indigo-800 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <span className="px-2 py-0.5 text-[9px] font-black bg-amber-400 text-slate-950 rounded uppercase tracking-wider">
+            <span className="px-2 py-0.5 text-[9px] font-black bg-amber-400 text-indigo-900 rounded uppercase tracking-wider">
               HOD Approval Portal
             </span>
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-white mt-1">
@@ -134,11 +249,11 @@ const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) 
         {administrativeMetrics.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={idx} className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col justify-between">
+            <div key={idx} className="bg-white border border-slate-200 rounded-xl p-4 shadow-3xs flex flex-col justify-between hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{card.title}</p>
-                  <h3 className="text-xl font-black text-slate-900 mt-0.5 tracking-tight">{card.value}</h3>
+                  <h3 className="text-xl font-black text-indigo-900 mt-0.5 tracking-tight">{card.value}</h3>
                 </div>
                 <div className={`p-2 rounded-lg border ${card.color} shrink-0`}>
                   <Icon size={14} />
@@ -159,46 +274,89 @@ const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) 
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-3xs lg:col-span-2">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-950">Statistical Metrics Tally</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Statistical Metrics Tally</h3>
               <p className="text-[11px] text-slate-400">Ratio distributions of OD counters vs Leaves</p>
             </div>
             
             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button 
                 onClick={() => setChartType('bar')}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${chartType === 'bar' ? 'bg-white text-slate-950 shadow-3xs' : 'text-slate-500'}`}
+                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${chartType === 'bar' ? 'bg-white text-indigo-900 shadow-3xs' : 'text-slate-500'}`}
               >
-                Bar Graph
+                Bar
               </button>
               <button 
                 onClick={() => setChartType('pie')}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${chartType === 'pie' ? 'bg-white text-slate-950 shadow-3xs' : 'text-slate-500'}`}
+                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${chartType === 'pie' ? 'bg-white text-indigo-900 shadow-3xs' : 'text-slate-500'}`}
               >
-                Pie View
+                Donut
               </button>
             </div>
           </div>
           
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-56 flex items-center justify-center">
             {chartType === 'bar' ? (
-              <div className="w-full h-full flex items-end gap-6 justify-center px-4 pt-4">
-                <div className="w-16 flex flex-col items-center gap-1.5 h-full justify-end">
-                  <div style={{ height: `${metrics.odPercentage}%` }} className="w-full bg-slate-950 rounded-t min-h-[4px] shadow-xs" />
-                  <span className="text-[10px] font-black text-slate-500">OD ({metrics.odPercentage}%)</span>
+              <div className="w-full h-full flex items-end justify-center gap-10 px-4">
+                <div className="flex flex-col items-center gap-2 w-24">
+                  <span className="text-sm font-bold text-slate-600">{metrics.odCount} OD</span>
+                  <div 
+                    style={{ 
+                      height: `${Math.max(metrics.odPercentage, 10)}%`,
+                      minHeight: '20px'
+                    }} 
+                    className="w-full bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg shadow-md transition-all duration-500"
+                  />
+                  <span className="text-[10px] font-black text-slate-500">On-Duty</span>
+                  <span className="text-xs font-bold text-indigo-600">{metrics.odPercentage}%</span>
                 </div>
-                <div className="w-16 flex flex-col items-center gap-1.5 h-full justify-end">
-                  <div style={{ height: `${metrics.leavePercentage}%` }} className="w-full bg-slate-300 rounded-t min-h-[4px] shadow-xs" />
-                  <span className="text-[10px] font-black text-slate-500">Leave ({metrics.leavePercentage}%)</span>
+                <div className="flex flex-col items-center gap-2 w-24">
+                  <span className="text-sm font-bold text-slate-600">{metrics.leaveCount} Leave</span>
+                  <div 
+                    style={{ 
+                      height: `${Math.max(metrics.leavePercentage, 10)}%`,
+                      minHeight: '20px'
+                    }} 
+                    className="w-full bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-lg shadow-md transition-all duration-500"
+                  />
+                  <span className="text-[10px] font-black text-slate-500">Leave</span>
+                  <span className="text-xs font-bold text-amber-500">{metrics.leavePercentage}%</span>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-full border-4 border-slate-950 flex items-center justify-center font-black text-xs">
-                  {metrics.odPercentage}% OD
+              <div className="flex items-center gap-8">
+                <div className="relative w-32 h-32">
+                  <svg viewBox="0 0 100 100" className="transform -rotate-90 w-32 h-32">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="12" />
+                    <circle 
+                      cx="50" cy="50" r="40" fill="none" 
+                      stroke="#4f46e5" 
+                      strokeWidth="12"
+                      strokeDasharray={`${metrics.odPercentage * 2.513} 251.3`}
+                      strokeLinecap="round"
+                    />
+                    <circle 
+                      cx="50" cy="50" r="40" fill="none" 
+                      stroke="#f59e0b" 
+                      strokeWidth="12"
+                      strokeDasharray={`${metrics.leavePercentage * 2.513} 251.3`}
+                      strokeDashoffset={`-${metrics.odPercentage * 2.513}`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center flex-col">
+                    <span className="text-lg font-black text-indigo-900">{metrics.odCount + metrics.leaveCount}</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Total</span>
+                  </div>
                 </div>
-                <div className="text-[11px] space-y-1 text-slate-600 font-bold">
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded bg-slate-950" /> On-Duty ({metrics.odCount})</div>
-                  <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded bg-slate-300" /> Leaves ({metrics.leaveCount})</div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-indigo-500"></span>
+                    <span className="font-bold text-slate-700">OD: {metrics.odCount} ({metrics.odPercentage}%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-amber-400"></span>
+                    <span className="font-bold text-slate-700">Leave: {metrics.leaveCount} ({metrics.leavePercentage}%)</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -209,7 +367,7 @@ const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) 
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-3xs">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-950">Verification History</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Verification History</h3>
               <p className="text-[11px] text-slate-400">Approved logs showing true values</p>
             </div>
             <div className="p-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md">
@@ -218,27 +376,31 @@ const HodDashboard = ({ initialStudents = [], initialRequests = [], username }) 
           </div>
 
           <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-            {metrics.approvedRecords.map((activity, index) => (
-              <div key={index} className="p-2.5 rounded-lg border border-emerald-100 bg-emerald-50/20 flex flex-col gap-1 text-xs">
-                <div className="flex justify-between font-black text-slate-900">
-                  <span className="truncate">{activity.studentName}</span>
-                  <span className="text-[9px] px-1.5 py-0.2 bg-white border border-emerald-200 text-emerald-700 rounded-sm font-sans uppercase font-bold">
-                    {activity.status}
-                  </span>
+            {recentApprovals.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-4">No approved records yet.</p>
+            ) : (
+              recentApprovals.map((activity, index) => (
+                <div key={index} className="p-2.5 rounded-lg border border-emerald-100 bg-emerald-50/20 flex flex-col gap-1 text-xs">
+                  <div className="flex justify-between font-black text-slate-900">
+                    <span className="truncate">{activity.studentName}</span>
+                    <span className="text-[9px] px-1.5 py-0.2 bg-white border border-emerald-200 text-emerald-700 rounded-sm font-sans uppercase font-bold">
+                      {activity.status}
+                    </span>
+                  </div>
+                  
+                  <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                    <CornerDownRight size={10} className="text-slate-300 shrink-0" />
+                    <span className="truncate">
+                      {activity.type} — <span className="italic font-medium text-slate-400">{activity.reason}</span>
+                    </span>
+                  </div>
+                  
+                  <div className="text-[9px] font-mono font-bold text-slate-400 mt-0.5">
+                    REG: {activity.regNo}
+                  </div>
                 </div>
-                
-                <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                  <CornerDownRight size={10} className="text-slate-300 shrink-0" />
-                  <span className="truncate">
-                    {activity.type} — <span className="italic font-medium text-slate-400">{activity.reason}</span>
-                  </span>
-                </div>
-                
-                <div className="text-[9px] font-mono font-bold text-slate-400 mt-0.5">
-                  REG: {activity.regNo}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

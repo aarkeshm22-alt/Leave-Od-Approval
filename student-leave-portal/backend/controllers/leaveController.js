@@ -260,3 +260,40 @@ export const mentorReject = async (req, res) => {
     res.status(500).json({ message: 'Error writing Level-1 operational rejection state.', error: error.message });
   }
 };
+
+export const hodReject = async (req, res) => {
+  try {
+    const leave = await Leave.findById(req.params.id);
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave application not found.' });
+    }
+
+    // Only allow rejection of Partially Approved requests
+    if (leave.status !== 'Partially Approved') {
+      return res.status(400).json({
+        message: 'HOD can only reject applications that are already Partially Approved by the mentor.'
+      });
+    }
+
+    leave.status = 'Rejected';
+    leave.hodReview = {
+      approvedBy: req.user.id,
+      reviewedAt: new Date(),
+      remarks: req.body.remarks || 'Rejected by HOD'
+    };
+
+    await leave.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Application rejected by HOD.',
+      data: leave
+    });
+  } catch (error) {
+    console.error('HOD reject error:', error);
+    res.status(500).json({
+      message: 'Error rejecting leave.',
+      error: error.message
+    });
+  }
+};

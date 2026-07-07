@@ -270,14 +270,7 @@ const StudentDashboard = () => {
               <Clock size={16} />
             </div>
           </div>
-          <div className="flex items-center gap-3 mt-3 text-xs font-bold">
-            <span className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-              <FileText size={12} /> Leave: {metrics.pendingLeaves}
-            </span>
-            <span className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
-              <Briefcase size={12} /> OD: {metrics.pendingOD}
-            </span>
-          </div>
+          
         </div>
 
         <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />

@@ -20,9 +20,15 @@ export const getHods = async (req, res) => {
 export const getAllMentors = async (req, res) => {
   try {
     const mentors = await User.find({ role: 'Mentor' }).select('_id firstName lastName department email mobileNo role category');
-    return res.status(200).json(mentors);
+    return res.status(200).json({
+      success: true,
+      data: mentors
+    });
   } catch (error) {
-    return res.status(500).json({ message: 'Server error pulling Mentor database records.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error pulling Mentor database records.'
+    });
   }
 };
 

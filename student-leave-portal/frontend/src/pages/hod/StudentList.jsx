@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, UserCheck, X, Loader, Mail, Phone, Calendar, Grid, Layers, FileText, Eye, Search, User, User2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { GraduationCap, UserCheck, X, Loader, Mail, Phone, Calendar, Grid, Layers, FileText, Eye, Search, User, User2, Download } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const StudentList = () => {
@@ -10,6 +10,10 @@ const StudentList = () => {
   const [activeSection, setActiveSection] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
+
+  // Certificate Modal States
+  const [certificateModalOpen, setCertificateModalOpen] = useState(false);
+  const [certificateData, setCertificateData] = useState(null);
 
   useEffect(() => {
     const fetchAllStudents = async () => {
@@ -50,6 +54,50 @@ const StudentList = () => {
     return yearValue.toString().trim().toUpperCase().replace('YEAR', '').trim();
   };
 
+  // ===== IMPROVED CERTIFICATE HELPERS =====
+  const getStudentCertificate = (st) => {
+    // Try multiple possible field names
+    const cert = st.certificate || st.document || st.student?.certificate || st.student?.document || null;
+    if (typeof cert === 'string') {
+      const trimmed = cert.trim();
+      if (trimmed.length === 0) return null;
+      // Check if it's a valid base64 image or at least a reasonable string
+      if (trimmed.startsWith('data:image/') || trimmed.length > 100) {
+        return trimmed;
+      }
+      return null;
+    }
+    return null;
+  };
+
+  const hasCertificate = (st) => {
+    return !!getStudentCertificate(st);
+  };
+
+  // Certificate Modal Handlers
+  const openCertificateModal = (student) => {
+    if (!student) return;
+    const cert = getStudentCertificate(student);
+    if (!cert) return;
+    setCertificateData(cert);
+    setCertificateModalOpen(true);
+  };
+
+  const downloadCertificate = () => {
+    if (!certificateData) return;
+    const link = document.createElement('a');
+    link.href = certificateData;
+    link.download = `OD_Certificate_${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const closeCertificateModal = () => {
+    setCertificateModalOpen(false);
+    setCertificateData(null);
+  };
+
   // Dynamic filter options
   const dynamicYearsArray = ['ALL', ...new Set(
     students.map(s => normalizeYear(s.year || s.yr)).filter(Boolean).sort()
@@ -74,45 +122,21 @@ const StudentList = () => {
     return matchesYear && matchesSection && matchesSearch;
   });
 
-  // View document in new tab
-  const handleViewDocument = (base64Data) => {
-    if (!base64Data) return;
-    const newTab = window.open();
-    if (newTab) {
-      newTab.document.body.style.margin = '0';
-      newTab.document.body.style.display = 'flex';
-      newTab.document.body.style.justifyContent = 'center';
-      newTab.document.body.style.alignItems = 'center';
-      newTab.document.body.style.backgroundColor = '#f1f5f9';
-      const img = newTab.document.createElement('img');
-      img.src = base64Data;
-      img.style.maxWidth = '95%';
-      img.style.maxHeight = '95vh';
-      img.style.objectFit = 'contain';
-      img.style.borderRadius = '8px';
-      img.style.boxShadow = '0 10px 40px rgba(0,0,0,0.4)';
-      newTab.document.body.appendChild(img);
-      newTab.document.title = "Student Certificate";
-    } else {
-      alert("Pop-up blocked! Please allow pop-ups.");
-    }
-  };
-
- if (loading) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[700px] sm:min-h-[700px] md:min-h-[650px] text-gray-400 font-sans px-4">
-      <div className="flex flex-col items-center gap-3">
-        <p className="text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse text-center">
-          Fetching the <span className='text-amber-600'>Student</span> Details
-        </p>
-        <div className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse">
-          <span>from Database...</span>
-          <Loader className="animate-spin" size={18} />
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[700px] sm:min-h-[700px] md:min-h-[650px] text-gray-400 font-sans px-4">
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse text-center">
+            Fetching the <span className='text-amber-600'>Student</span> Details
+          </p>
+          <div className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-gray-500 animate-pulse">
+            <span>from Database...</span>
+            <Loader className="animate-spin" size={18} />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6 font-sans pb-12 selection:bg-amber-100 relative px-4 sm:px-6 lg:px-8">
@@ -211,7 +235,6 @@ const StudentList = () => {
 
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm shadow-slate-100/50">
-        {/* Scrollable table wrapper with gradient overlay hint */}
         <div className="overflow-x-auto relative">
           <table className="w-full min-w-[680px] text-left text-xs border-collapse">
             <thead className="bg-amber-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
@@ -250,7 +273,6 @@ const StudentList = () => {
                         <span className="truncate max-w-[60px] sm:max-w-none">{row.firstmentorName || 'Unassigned'}</span>
                       </div>
                     </td>
-                    
                     <td className="p-3 sm:p-4 text-left w-28 sm:w-36">
                       <motion.button
                         type="button"
@@ -278,7 +300,7 @@ const StudentList = () => {
         )}
       </div>
 
-      {/* Profile Drawer - already responsive, but ensure padding */}
+      {/* ===== PROFILE DRAWER ===== */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end transition-opacity">
           <div className="w-full max-w-sm sm:max-w-md md:max-w-lg bg-slate-50 h-full shadow-2xl flex flex-col justify-between overflow-y-auto p-4 sm:p-6 font-sans">
@@ -312,14 +334,14 @@ const StudentList = () => {
                   <p className="text-xs font-medium text-slate-800 break-all">{selectedStudent.email || 'N/A'}</p>
                 </div>
               </div>
-               <div className="bg-white p-3 sm:p-4 border border-slate-200 rounded-xl flex items-center gap-3">
+              <div className="bg-white p-3 sm:p-4 border border-slate-200 rounded-xl flex items-center gap-3">
                 <User className="text-amber-500 shrink-0" size={16} />
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Class Advisor 1</p>
                   <p className="text-xs font-medium text-slate-800 break-all">{selectedStudent.firstmentorName || 'N/A'}</p>
                 </div>
               </div>
-               <div className="bg-white p-3 sm:p-4 border border-slate-200 rounded-xl flex items-center gap-3">
+              <div className="bg-white p-3 sm:p-4 border border-slate-200 rounded-xl flex items-center gap-3">
                 <User2 className="text-amber-500 shrink-0" size={16} />
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Class Advisor 2</p>
@@ -359,18 +381,18 @@ const StudentList = () => {
                 </div>
               </div>
 
-              {/* Document section */}
-              {selectedStudent.document && (
+              {/* ===== CERTIFICATE SECTION – ONLY IF VALID ===== */}
+              {hasCertificate(selectedStudent) && (
                 <div className="bg-amber-50/40 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-amber-600 shrink-0" />
-                    <span className="text-xs font-bold text-indigo-900">Certificate attached</span>
+                    <span className="text-xs font-bold text-indigo-900">On-Duty Certificate </span>
                   </div>
                   <button
-                    onClick={() => handleViewDocument(selectedStudent.document)}
+                    onClick={() => openCertificateModal(selectedStudent)}
                     className="text-[11px] font-black bg-indigo-900 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs w-full sm:w-auto text-center"
                   >
-                    View
+                    View Certificate
                   </button>
                 </div>
               )}
@@ -388,6 +410,60 @@ const StudentList = () => {
           </div>
         </div>
       )}
+
+      {/* ===== CERTIFICATE MODAL ===== */}
+      <AnimatePresence>
+        {certificateModalOpen && certificateData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4"
+            onClick={closeCertificateModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                  <Eye size={18} className="text-amber-500" />
+                  Uploaded Certificate 
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={downloadCertificate}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-900 hover:bg-amber-500 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                  >
+                    <Download size={14} />
+                    Download
+                  </button>
+                  <button
+                    onClick={closeCertificateModal}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
+                <img
+                  src={certificateData}
+                  alt="Certificate"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                />
+              </div>
+              <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
+                Certificate for On-Duty.
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

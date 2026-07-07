@@ -6,7 +6,6 @@ import Topbar from './Topbar';
 
 const DashboardLayout = () => {
   const location = useLocation();
-  // Drives mobile drawer sync seamlessly across Sidebar and Topbar
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -20,8 +19,8 @@ const DashboardLayout = () => {
         <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       </div>
 
-      {/* Main Workspace Frame */}
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      {/* Main Workspace Frame – added overflow-x-hidden to prevent horizontal scroll */}
+      <div className="flex-1 flex flex-col min-w-0 relative overflow-x-hidden">
         
         {/* Fixed Translucent Floating Header Navigation */}
         <motion.header
@@ -30,7 +29,6 @@ const DashboardLayout = () => {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="z-20 shrink-0 border-b border-slate-200/50 bg-white/80 backdrop-blur-md sticky top-0 shadow-xs shadow-slate-100/40"
         >
-          {/* Pass toggle down to top bar so hamburger icon can switch the layout drawer */}
           <Topbar onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} />
         </motion.header>
         
