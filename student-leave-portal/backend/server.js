@@ -10,6 +10,7 @@ import User from './models/User.js';
 import mentorRoutes from './routes/mentorRoutes.js'; 
 import odRoutes from './routes/odRoutes.js'; 
 import ca2Routes from './routes/ca2Routes.js';
+import chatRoutes from './routes/chatRoutes.js'; // Import the chat routes
 
 dotenv.config(); 
 
@@ -44,6 +45,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/od', odRoutes); 
 app.use('/api/mentor', mentorRoutes); 
 app.use('/api/ca2', ca2Routes);
+app.use('/api/chat', chatRoutes); // Mount the chat routes
 
 // Pull deployment target gateway port dynamically 
 const PORT = process.env.PORT || 5000;

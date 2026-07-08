@@ -5,6 +5,7 @@ import { Award, Calendar, Clock, CheckCircle2, PlusCircle, Info, Quote, X, Smile
 import axios from 'axios';
 import StatusCard from '../../components/cards/StatusCard';
 import eventBus from '../../utils/eventBus';
+import FloatingChatButton from '../../components/chat/FloatingChatButton';
 
 // ---------- Toast Component (unchanged) ----------
 const Toast = ({ message, emoji, onClose }) => (
@@ -79,7 +80,7 @@ const StudentDashboard = () => {
           setDailyQuote(parsed.quote);
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     const quote = getDailyQuote();
     setDailyQuote(quote);
@@ -187,121 +188,125 @@ const StudentDashboard = () => {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 min-h-screen font-sans antialiased bg-[#F8FAFC] text-gray-900"
-    >
-      {/* Toast container */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 items-end pointer-events-none">
-        <div className="pointer-events-auto">
-          <AnimatePresence>
-            {toasts.map((toast) => (
-              <Toast
-                key={toast.id}
-                message={toast.message}
-                emoji={toast.emoji}
-                onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between border-b border-gray-200 pb-6">
-        <div className="space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-blue-900 flex flex-wrap items-center gap-1.5">
-            <Sparkles className="text-amber-500 shrink-0" size={24} />
-            <span>Welcome,</span>
-            <span className="bg-gradient-to-r from-blue-900 via-blue-700 to-amber-500 bg-clip-text text-transparent break-words">
-              {metrics.name || 'Student'}
-            </span>
-            <span>!</span>
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-            <span className="px-2.5 py-1 rounded-lg shadow-sm font-bold bg-gray-100 border border-gray-200 text-gray-700">
-              {formattedDay}
-            </span>
-            <span className="text-gray-300 hidden sm:inline">•</span>
-            <span className="text-gray-600 font-medium">{formattedDate}</span>
-            <span className="text-gray-300 hidden sm:inline">•</span>
-            <span className="font-mono px-2.5 py-0.5 rounded-lg font-bold shadow-sm bg-gray-100 border border-gray-200 text-blue-900">
-              {formattedTime}
-            </span>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 min-h-screen font-sans antialiased bg-[#F8FAFC] text-gray-900"
+      >
+        {/* Toast container */}
+        <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 items-end pointer-events-none">
+          <div className="pointer-events-auto">
+            <AnimatePresence>
+              {toasts.map((toast) => (
+                <Toast
+                  key={toast.id}
+                  message={toast.message}
+                  emoji={toast.emoji}
+                  onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => navigate('/student/apply-leave')}
-            className="inline-flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5 hover:bg-amber-500 bg-blue-900 active:scale-98 w-full sm:w-auto"
-          >
-            <PlusCircle size={15} className="stroke-[2.5]" />
-            Apply Leave
-          </button>
-          <button
-            onClick={() => navigate('/student/apply-od')}
-            className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-98 w-full sm:w-auto"
-          >
-            <PlusCircle size={15} className="stroke-[2.5]" />
-            Apply On-Duty (OD)
-          </button>
-        </div>
-      </div>
-
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatusCard title="TOTAL LEAVES" value={`${metrics.totalLeaves} Days`} icon={Calendar} color="blue" />
-        <StatusCard title="TOTAL ON-DUTY (OD)" value={`${metrics.totalOD} Days`} icon={Award} color="amber" />
-
-        {/* CUSTOM PENDING CARD – shows split breakdown */}
-        <div className="p-5 bg-white border border-gray-300 rounded-2xl shadow-sm relative group hover:shadow-md transition-all flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Pending Requests</p>
-              <p className="text-xl font-black text-blue-900 mt-1">
-                {metrics.pendingApprovals}
-              </p>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-amber-300 group-hover:bg-amber-50 transition-colors">
-              <Clock size={16} />
+        {/* Header */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between border-b border-gray-200 pb-6">
+          <div className="space-y-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-blue-900 flex flex-wrap items-center gap-1.5">
+              <Sparkles className="text-amber-500 shrink-0" size={24} />
+              <span>Welcome,</span>
+              <span className="bg-gradient-to-r from-blue-900 via-blue-700 to-amber-500 bg-clip-text text-transparent break-words">
+                {metrics.name || 'Student'}
+              </span>
+              <span>!</span>
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="px-2.5 py-1 rounded-lg shadow-sm font-bold bg-gray-100 border border-gray-200 text-gray-700">
+                {formattedDay}
+              </span>
+              <span className="text-gray-300 hidden sm:inline">•</span>
+              <span className="text-gray-600 font-medium">{formattedDate}</span>
+              <span className="text-gray-300 hidden sm:inline">•</span>
+              <span className="font-mono px-2.5 py-0.5 rounded-lg font-bold shadow-sm bg-gray-100 border border-gray-200 text-blue-900">
+                {formattedTime}
+              </span>
             </div>
           </div>
-          
-        </div>
 
-        <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />
-      </div>
-
-      {/* Daily Quote */}
-      {dailyQuote && (
-        <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 shadow-sm">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <Quote className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 text-amber-500" />
-            <div>
-              <p className="text-base sm:text-lg md:text-xl font-semibold leading-relaxed text-gray-800">
-                “{dailyQuote.text}”
-              </p>
-              <p className="mt-2 text-xs sm:text-sm font-medium text-gray-500">
-                — {dailyQuote.author}
-              </p>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => navigate('/student/apply-leave')}
+              className="inline-flex items-center justify-center gap-2 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5 hover:bg-amber-500 bg-blue-900 active:scale-98 w-full sm:w-auto"
+            >
+              <PlusCircle size={15} className="stroke-[2.5]" />
+              Apply Leave
+            </button>
+            <button
+              onClick={() => navigate('/student/apply-od')}
+              className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs tracking-wide uppercase px-5 py-3 rounded-xl shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-98 w-full sm:w-auto"
+            >
+              <PlusCircle size={15} className="stroke-[2.5]" />
+              Apply On-Duty (OD)
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Info Banner */}
-      <div className="p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-amber-200/80 bg-amber-50/60">
-        <Info className="shrink-0 mt-0.5 text-blue-900/90" size={16} />
-        <p className="text-xs leading-relaxed font-semibold text-blue-900/90">
-          Stay updated with your leave and OD records — all counts refresh in real‑time after each approval or new submission.
-          For any discrepancies, please contact your Mentor.
-        </p>
-      </div>
-    </motion.div>
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          <StatusCard title="TOTAL LEAVES" value={`${metrics.totalLeaves} Days`} icon={Calendar} color="blue" />
+          <StatusCard title="TOTAL ON-DUTY (OD)" value={`${metrics.totalOD} Days`} icon={Award} color="amber" />
+
+          {/* CUSTOM PENDING CARD – shows split breakdown */}
+          <div className="p-5 bg-white border border-gray-300 rounded-2xl shadow-sm relative group hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Pending Requests</p>
+                <p className="text-xl font-black text-blue-900 mt-1">
+                  {metrics.pendingApprovals}
+                </p>
+              </div>
+              <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-amber-300 group-hover:bg-amber-50 transition-colors">
+                <Clock size={16} />
+              </div>
+            </div>
+
+          </div>
+
+          <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />
+        </div>
+
+        {/* Daily Quote */}
+        {dailyQuote && (
+          <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <Quote className="w-6 h-6 sm:w-8 sm:h-8 shrink-0 text-amber-500" />
+              <div>
+                <p className="text-base sm:text-lg md:text-xl font-semibold leading-relaxed text-gray-800">
+                  “{dailyQuote.text}”
+                </p>
+                <p className="mt-2 text-xs sm:text-sm font-medium text-gray-500">
+                  — {dailyQuote.author}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Banner */}
+        <div className="p-4 rounded-2xl flex items-start gap-3 shadow-sm border border-amber-200/80 bg-amber-50/60">
+          <Info className="shrink-0 mt-0.5 text-blue-900/90" size={16} />
+          <p className="text-xs leading-relaxed font-semibold text-blue-900/90">
+            Stay updated with your leave and OD records — all counts refresh in real‑time after each approval or new submission.
+            For any discrepancies, please contact your Mentor.
+          </p>
+        </div>
+      </motion.div>
+
+      <FloatingChatButton />
+    </>
   );
 };
 

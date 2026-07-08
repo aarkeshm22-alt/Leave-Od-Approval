@@ -9,6 +9,7 @@ import {
   CheckSquare,
   BarChart3,
   UserCircle,
+  MessageCircle,
 } from "lucide-react";
 
 export const studentMenu = [
@@ -72,6 +73,11 @@ export const hodMenu = [
     title: "Pending Approvals",
     icon: CheckSquare,
     path: "/hod/approvals",
+  },
+  {
+    title: "Chat Management", // ✅ Add this
+    icon: MessageCircle,
+    path: "/hod/chat",
   },
 ];
 

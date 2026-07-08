@@ -17,6 +17,7 @@ import HodMentors from '../pages/hod/MentorList';
 import HodStudents from '../pages/hod/StudentList';
 import HodReports from '../pages/hod/Reports';
 import HodProfile from '../pages/hod/Profile';
+import HODChatManagement from '../pages/hod/ChatManagement';
 
 // Mentor Panel views
 import MentorDashboard from '../pages/mentor/Dashboard';
@@ -88,6 +89,7 @@ const AppRoutes = () => {
         <Route path="students" element={<HodStudents />} />
         <Route path="reports" element={<HodReports />} />
         <Route path="profile" element={<HodProfile />} />
+        <Route path="chat" element={<HODChatManagement />} />
       </Route>
 
       {/* 🆕 CA2 Controlled Route Clusters */}
