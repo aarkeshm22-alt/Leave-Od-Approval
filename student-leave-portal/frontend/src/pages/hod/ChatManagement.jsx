@@ -391,7 +391,7 @@ const HODChatManagement = () => {
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-purple-600 to-pink-600">
-                Chamber of Secrets
+                View Student Messages
               </h1>
               <p className="text-sm font-medium text-purple-500/70 flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

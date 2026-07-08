@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Minimize2, Eye, Sparkles, Wand2, Bell, Sun, Moon, Star, CheckCircle } from 'lucide-react';
+import { MessageCircle, X, Send, Minimize2, Eye, Sparkles, Wand2, Bell, Sun, Moon, Star, CheckCircle, Zap } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { studentChatAPI } from '../../services/chatService';
 import toast from 'react-hot-toast';
@@ -570,7 +570,7 @@ const FloatingChatButton = () => {
             <p className={`text-[10px] mt-1.5 text-center transition-colors duration-300 ${
               darkMode ? 'text-yellow-400/40' : 'text-sky-500/60'
             }`} style={{ fontFamily: "'Times New Roman', serif" }}>
-              ⚡ Your owl is anonymous. Only your year is visible.
+              <Zap />Your owl is anonymous. Only your year is visible.
             </p>
           </div>
         </div>
