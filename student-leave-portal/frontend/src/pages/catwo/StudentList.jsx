@@ -1,10 +1,9 @@
-// src/pages/ca2/StudentList.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, AlertCircle, Users, User, ShieldCheck, Phone, Hash, Calendar,
   X, Eye, User2, Clock, Search, Filter, Download, FileSpreadsheet, FileText,
-  RotateCcw, GraduationCap
+  RotateCcw, GraduationCap, Image
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -20,7 +19,7 @@ const CA2StudentList = () => {
 
   // Certificate Modal
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
-  const [certificateInfo, setCertificateInfo] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
 
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
@@ -40,16 +39,51 @@ const CA2StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  const getStudentCertificate = (st) => {
-    return st.certificate || st.document || st.student?.certificate || st.student?.document || null;
+  // ----- Extract ALL certificates from ODs -----
+  const getStudentCertificates = (st) => {
+    const certs = [];
+    const odsArray = st.ods || st.onDutyRequests || st.student?.ods || [];
+    if (Array.isArray(odsArray) && odsArray.length > 0) {
+      odsArray.forEach((od) => {
+        const cert = od.certificate || od.document;
+        if (cert && typeof cert === 'string' && cert.startsWith('data:image')) {
+          certs.push({
+            base64: cert,
+            reason: od.reason || 'N/A',
+            fromDate: od.fromDate
+              ? new Date(od.fromDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : 'N/A',
+            toDate: od.toDate
+              ? new Date(od.toDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : 'N/A',
+          });
+        }
+      });
+    }
+    // Fallback: legacy direct certificate
+    if (certs.length === 0) {
+      const directCert = st.certificate || st.document || st.student?.certificate;
+      if (directCert && typeof directCert === 'string' && directCert.startsWith('data:image')) {
+        certs.push({
+          base64: directCert,
+          reason: 'Student Certificate',
+          fromDate: 'N/A',
+          toDate: 'N/A',
+        });
+      }
+    }
+    return certs;
   };
 
-  const hasCertificate = (st) => {
-    const cert = getStudentCertificate(st);
-    return !!(cert && cert.length > 0);
-  };
-
-  // Fetch assigned students (where secondmentorName matches CA2)
+  // Fetch assigned students
   useEffect(() => {
     const fetchStudents = async () => {
       const token = localStorage.getItem('token');
@@ -67,7 +101,11 @@ const CA2StudentList = () => {
         const data = await response.json();
         if (response.ok) {
           const extracted = data.data || data.students || [];
-          setStudents(extracted);
+          const normalized = extracted.map(st => ({
+            ...st,
+            ods: st.ods || [],
+          }));
+          setStudents(normalized);
         } else {
           setErrorMsg(data.message || 'Failed to fetch students.');
         }
@@ -81,7 +119,7 @@ const CA2StudentList = () => {
     fetchStudents();
   }, []);
 
-  // Filter logic (same as mentor)
+  // Filter logic
   const filteredStudents = students.filter(st => {
     const name = getFullName(st).toLowerCase();
     const reg = (st.registerNo || st.register || '').toLowerCase();
@@ -101,7 +139,7 @@ const CA2StudentList = () => {
 
   const studentTypes = ['ALL', ...new Set(students.map(st => st.studentType || 'Regular Track'))];
 
-  // Export functions (identical to mentor's)
+  // Export functions
   const handleExportReport = (format) => {
     if (filteredStudents.length === 0) {
       alert("No students match your current filter criteria.");
@@ -120,7 +158,7 @@ const CA2StudentList = () => {
         "OD Count": getODCount(st),
         "Email": st.email || 'N/A',
         "Mobile": st.mobileNo || st.mobile || 'N/A',
-        "Certificate": hasCertificate(st) ? 'Yes' : 'No'
+        "Certificate Count": getStudentCertificates(st).length
       }));
 
       if (format === 'excel') {
@@ -141,7 +179,7 @@ const CA2StudentList = () => {
         doc.setTextColor(203, 213, 225);
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Students: ${filteredStudents.length}`, 14, 18);
 
-        const tableHeaders = [["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Cert"]];
+        const tableHeaders = [["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Certs"]];
         const tableBody = filteredStudents.map(st => [
           st.registerNo || st.register || 'N/A',
           getFullName(st),
@@ -152,7 +190,7 @@ const CA2StudentList = () => {
           getODCount(st).toString(),
           st.email || 'N/A',
           st.mobileNo || st.mobile || 'N/A',
-          hasCertificate(st) ? 'Yes' : 'No'
+          getStudentCertificates(st).length.toString()
         ]);
 
         autoTable(doc, {
@@ -196,40 +234,24 @@ const CA2StudentList = () => {
   };
 
   // Certificate Modal handlers
-  const openCertificateModal = () => {
-    if (!selectedStudent) return;
-    const cert = getStudentCertificate(selectedStudent);
-    if (!cert) return;
-
-    const odWithCert = selectedStudent.ods?.find(
-      (od) => od.certificate === cert || od.document === cert
-    );
-    setCertificateInfo({
-      base64: cert,
-      reason: odWithCert?.reason || 'N/A',
-      fromDate: odWithCert?.fromDate
-        ? new Date(odWithCert.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        : 'N/A',
-      toDate: odWithCert?.toDate
-        ? new Date(odWithCert.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        : 'N/A',
-    });
+  const openCertificateModal = (cert) => {
+    setSelectedCertificate(cert);
     setCertificateModalOpen(true);
-  };
-
-  const downloadCertificate = () => {
-    if (!certificateInfo?.base64) return;
-    const link = document.createElement('a');
-    link.href = certificateInfo.base64;
-    link.download = `OD_Certificate_${Date.now()}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const closeCertificateModal = () => {
     setCertificateModalOpen(false);
-    setCertificateInfo(null);
+    setSelectedCertificate(null);
+  };
+
+  const downloadCertificate = () => {
+    if (!selectedCertificate?.base64) return;
+    const link = document.createElement('a');
+    link.href = selectedCertificate.base64;
+    link.download = `OD_Certificate_${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -247,19 +269,23 @@ const CA2StudentList = () => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-1 sm:p-4 md:p-6 max-w-7xl mx-auto text-gray-800 antialiased">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-gray-200 pb-4">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-4 sm:space-y-6 p-2 sm:p-4 md:p-6 max-w-7xl mx-auto text-gray-800 antialiased"
+    >
+      {/* ===== HEADER ===== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-3 sm:pb-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-2">
-            <Users className="text-amber-500 shrink-0" size={24} />
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-2">
+            <Users className="text-amber-500 shrink-0" size={22} />
             CA2 – Assigned Students
           </h2>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
             View profiles of students where you are the second mentor (CA2). No approval actions – only view and export.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => handleExportReport('excel')}
@@ -281,10 +307,10 @@ const CA2StudentList = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3">
-          <div className="relative flex-1 min-w-[180px]">
+      {/* ===== FILTER BAR ===== */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+          <div className="relative w-full sm:flex-1 min-w-[140px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
             <input
               type="text"
@@ -294,16 +320,17 @@ const CA2StudentList = () => {
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none flex-1 sm:flex-none"
             >
               {studentTypes.map(type => (
                 <option key={type} value={type}>{type === 'ALL' ? 'All Types' : type}</option>
               ))}
             </select>
+
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <span>Leave:</span>
               <input
@@ -311,7 +338,7 @@ const CA2StudentList = () => {
                 placeholder="Min"
                 value={filterLeaveMin}
                 onChange={(e) => setFilterLeaveMin(e.target.value)}
-                className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                className="w-10 sm:w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
               <span>-</span>
               <input
@@ -319,9 +346,10 @@ const CA2StudentList = () => {
                 placeholder="Max"
                 value={filterLeaveMax}
                 onChange={(e) => setFilterLeaveMax(e.target.value)}
-                className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                className="w-10 sm:w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
             </div>
+
             <div className="flex items-center gap-1 text-xs text-gray-500">
               <span>OD:</span>
               <input
@@ -329,7 +357,7 @@ const CA2StudentList = () => {
                 placeholder="Min"
                 value={filterODMin}
                 onChange={(e) => setFilterODMin(e.target.value)}
-                className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                className="w-10 sm:w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
               <span>-</span>
               <input
@@ -337,9 +365,10 @@ const CA2StudentList = () => {
                 placeholder="Max"
                 value={filterODMax}
                 onChange={(e) => setFilterODMax(e.target.value)}
-                className="w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
+                className="w-10 sm:w-12 px-1 py-1 border border-gray-200 rounded text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
               />
             </div>
+
             <button
               onClick={clearFilters}
               className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-600 hover:text-indigo-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
@@ -371,32 +400,34 @@ const CA2StudentList = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* MOBILE CARDS */}
-          <div className="grid grid-cols-1 gap-4 md:hidden">
+          {/* ===== MOBILE CARDS ===== */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:hidden">
             {filteredStudents.map((st, index) => {
               const fullName = getFullName(st);
               const leaveDays = getLeaveCount(st);
               const odDays = getODCount(st);
               return (
-                <div key={st._id || index} className="bg-white border border-gray-300 rounded-2xl p-4 shadow-sm space-y-4 relative">
+                <div key={st._id || index} className="bg-white border border-gray-300 rounded-2xl p-4 shadow-sm space-y-3 relative">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-7 w-7 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center font-mono text-[10px] font-black text-gray-400 shrink-0">
                         {index + 1}
                       </div>
                       <div className="min-w-0">
-                        <span className="text-[10px] font-mono font-black text-indigo-900 tracking-wider block">{st.registerNo || st.register || 'N/A'}</span>
+                        <span className="text-[10px] font-mono font-black text-indigo-900 tracking-wider block truncate max-w-[80px] sm:max-w-[120px]">
+                          {st.registerNo || st.register || 'N/A'}
+                        </span>
                         <h4 className="text-sm font-bold text-gray-900 truncate">{fullName}</h4>
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-center pt-1">
+                  <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="p-2.5 bg-amber-50/50 border border-amber-200/50 rounded-xl">
-                      <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wider block">Leave Count</span>
+                      <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wider block">Leave</span>
                       <span className="text-xs font-black text-amber-700 block mt-0.5">{leaveDays} {leaveDays === 1 ? 'day' : 'days'}</span>
                     </div>
                     <div className="p-2.5 bg-blue-50/50 border border-blue-200/50 rounded-xl">
-                      <span className="text-[9px] text-blue-500 font-bold uppercase tracking-wider block">OD Count</span>
+                      <span className="text-[9px] text-blue-500 font-bold uppercase tracking-wider block">OD</span>
                       <span className="text-xs font-black text-blue-700 block mt-0.5">{odDays} {odDays === 1 ? 'day' : 'days'}</span>
                     </div>
                   </div>
@@ -405,25 +436,25 @@ const CA2StudentList = () => {
                     className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-indigo-900 hover:bg-amber-500 text-white font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
                   >
                     <Eye size={14} />
-                    <span>View Student Profile</span>
+                    <span>View Profile</span>
                   </button>
                 </div>
               );
             })}
           </div>
 
-          {/* DESKTOP TABLE */}
+          {/* ===== DESKTOP / TABLET TABLE ===== */}
           <div className="hidden md:block bg-white border border-gray-300 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs divide-y divide-gray-200">
+              <table className="w-full text-left text-xs divide-y divide-gray-200 min-w-[600px]">
                 <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-widest border-b border-gray-200">
                   <tr>
-                    <th className="p-4 pl-6 text-center w-12">S.No</th>
-                    <th className="p-4">Reg No</th>
-                    <th className="p-4">Student Name</th>
-                    <th className="p-4">Leave Count</th>
-                    <th className="p-4">OD Count</th>
-                    <th className="p-4 pr-6 text-right">Student Details</th>
+                    <th className="p-3 pl-4 text-center w-10">S.No</th>
+                    <th className="p-3">Reg No</th>
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Leave</th>
+                    <th className="p-3">OD</th>
+                    <th className="p-3 pr-4 text-right">Details</th>
                   </tr>
                 </thead>
                 <tbody className="text-gray-700 divide-y divide-gray-200 font-medium">
@@ -433,26 +464,26 @@ const CA2StudentList = () => {
                     const odDays = getODCount(st);
                     return (
                       <tr key={st._id || index} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-4 pl-6 text-center font-mono font-bold text-gray-400">{index + 1}</td>
-                        <td className="p-4 font-mono font-bold text-indigo-900">{st.registerNo || st.register || 'N/A'}</td>
-                        <td className="p-4 font-bold text-gray-900">{fullName}</td>
-                        <td className="p-4">
-                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-lg font-bold">
-                            {leaveDays} {leaveDays === 1 ? 'day' : 'days'}
+                        <td className="p-3 pl-4 text-center font-mono font-bold text-gray-400">{index + 1}</td>
+                        <td className="p-3 font-mono font-bold text-indigo-900 truncate max-w-[80px]">{st.registerNo || st.register || 'N/A'}</td>
+                        <td className="p-3 font-bold text-gray-900 truncate max-w-[120px]">{fullName}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-lg font-bold text-[10px]">
+                            {leaveDays}
                           </span>
                         </td>
-                        <td className="p-4">
-                          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg font-bold">
-                            {odDays} {odDays === 1 ? 'day' : 'days'}
+                        <td className="p-3">
+                          <span className="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-lg font-bold text-[10px]">
+                            {odDays}
                           </span>
                         </td>
-                        <td className="p-4 pr-6 text-right">
+                        <td className="p-3 pr-4 text-right">
                           <button
                             onClick={() => openProfileDrawer(st)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-900 hover:bg-amber-500 text-white rounded-xl transition-all shadow-sm group font-semibold cursor-pointer"
                           >
                             <Eye size={13} className="transition-transform group-hover:scale-110" />
-                            <span>View Profile</span>
+                            <span>View</span>
                           </button>
                         </td>
                       </tr>
@@ -465,7 +496,7 @@ const CA2StudentList = () => {
         </div>
       )}
 
-      {/* Profile Drawer – same as mentor but read-only (no actions) */}
+      {/* ===== PROFILE DRAWER ===== */}
       <AnimatePresence>
         {isDrawerOpen && selectedStudent && (
           <>
@@ -481,9 +512,9 @@ const CA2StudentList = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 27, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full sm:max-w-md bg-white border-l border-gray-300 shadow-2xl z-50 p-4 sm:p-6 flex flex-col space-y-5 sm:space-y-6 overflow-y-auto"
+              className="fixed right-0 top-0 bottom-0 w-full sm:max-w-md md:max-w-lg bg-white border-l border-gray-300 shadow-2xl z-50 p-4 sm:p-6 flex flex-col space-y-4 sm:space-y-6 overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+              <div className="flex items-center justify-between border-b border-gray-200 pb-3 sm:pb-4">
                 <div>
                   <h3 className="text-base sm:text-lg font-black text-indigo-900">Student Profile</h3>
                 </div>
@@ -511,52 +542,68 @@ const CA2StudentList = () => {
                 <div className="space-y-2.5">
                   <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">Student Details</h5>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Hash size={14} /> Register Number</span>
-                    <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md truncate max-w-[180px] text-right">{selectedStudent.registerNo || selectedStudent.register || 'N/A'}</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Hash size={14} /> Register</span>
+                    <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md truncate max-w-[180px] text-right">
+                      {selectedStudent.registerNo || selectedStudent.register || 'N/A'}
+                    </span>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><ShieldCheck size={14} /> Student Type</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><ShieldCheck size={14} /> Type</span>
                     <span className="font-bold text-gray-800 truncate text-right">{selectedStudent.studentType || 'Regular Track'}</span>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Phone size={14} /> Mobile Number</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Phone size={14} /> Mobile</span>
                     <span className="font-mono font-bold text-gray-800 truncate text-right">{selectedStudent.mobileNo || selectedStudent.mobile || 'N/A'}</span>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User size={14} /> CA1 Mentor</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User size={14} /> CA1</span>
                     <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.firstmentorName || 'Unassigned'}</span>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
-                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> CA2 Mentor</span>
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> CA2</span>
                     <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || 'Unassigned'}</span>
                   </div>
-
-                  {/* Certificate */}
-                  {(() => {
-                    const cert = getStudentCertificate(selectedStudent);
-                    if (cert) {
-                      return (
-                        <div className="bg-white border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs shadow-sm">
-                          <span className="text-amber-600 font-bold flex items-center gap-1.5 shrink-0">
-                            <Eye size={14} /> Uploaded OD Proof
-                          </span>
-                          <button
-                            type="button"
-                            onClick={openCertificateModal}
-                            className="text-[11px] font-black tracking-tight bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                          >
-                            View Certificate
-                          </button>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
                 </div>
 
-                {/* Analytics summary */}
+                {/* ===== CERTIFICATE GALLERY ===== */}
+                {(() => {
+                  const certs = getStudentCertificates(selectedStudent);
+                  if (certs.length === 0) return null;
+                  return (
+                    <div className="space-y-2">
+                      <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Image size={12} /> OD Certificates ({certs.length})
+                      </h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {certs.map((cert, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-indigo-900 truncate">{cert.reason}</p>
+                              <p className="text-[10px] text-gray-500">
+                                {cert.fromDate} {cert.fromDate !== 'N/A' && 'to'} {cert.toDate}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => openCertificateModal(cert)}
+                              className="shrink-0 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all shadow-sm"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ===== ANALYTICS ===== */}
                 <div className="p-4 bg-indigo-900 text-white rounded-2xl space-y-3 shadow-md">
-                  <h5 className="text-[9px] sm:text-[10px] font-bold text-amber-300 uppercase tracking-widest flex items-center gap-1"><Calendar size={12} /> Leave & OD Summary</h5>
+                  <h5 className="text-[9px] sm:text-[10px] font-bold text-amber-300 uppercase tracking-widest flex items-center gap-1">
+                    <Calendar size={12} /> Leave & OD Summary
+                  </h5>
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div className="p-2.5 sm:p-3 bg-white/5 rounded-xl border border-white/10">
                       <p className="text-xl sm:text-2xl font-black text-amber-400">
@@ -573,7 +620,7 @@ const CA2StudentList = () => {
                   </div>
                 </div>
 
-                {/* Recent Applications */}
+                {/* ===== RECENT APPLICATIONS ===== */}
                 <div className="space-y-2">
                   <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                     <Clock size={12} /> Recent Applications
@@ -581,7 +628,7 @@ const CA2StudentList = () => {
                   <div className="bg-white border border-gray-200 rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
                     {(!selectedStudent.leaves || selectedStudent.leaves.length === 0) &&
                      (!selectedStudent.ods || selectedStudent.ods.length === 0) && (
-                      <p className="text-xs text-gray-400 italic text-center py-2">No recent applications found.</p>
+                      <p className="text-xs text-gray-400 italic text-center py-2">No recent applications.</p>
                     )}
                     {selectedStudent.leaves?.map((item, idx) => (
                       <div key={`leave-${idx}`} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded-lg border border-gray-100">
@@ -629,9 +676,9 @@ const CA2StudentList = () => {
         )}
       </AnimatePresence>
 
-      {/* Certificate Modal */}
+      {/* ===== CERTIFICATE MODAL ===== */}
       <AnimatePresence>
-        {certificateModalOpen && certificateInfo && (
+        {certificateModalOpen && selectedCertificate && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -647,14 +694,14 @@ const CA2StudentList = () => {
               className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-gray-200 gap-3">
                 <div>
                   <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
-                    <Eye size={18} className="text-amber-500" />
-                    Certificate for: {certificateInfo.reason}
+                    <Image size={18} className="text-amber-500" />
+                    Certificate for: {selectedCertificate.reason}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {certificateInfo.fromDate} {certificateInfo.fromDate !== 'N/A' && 'to'} {certificateInfo.toDate}
+                    {selectedCertificate.fromDate} {selectedCertificate.fromDate !== 'N/A' && 'to'} {selectedCertificate.toDate}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -675,7 +722,7 @@ const CA2StudentList = () => {
               </div>
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
-                  src={certificateInfo.base64}
+                  src={selectedCertificate.base64}
                   alt="OD Certificate"
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
                 />
