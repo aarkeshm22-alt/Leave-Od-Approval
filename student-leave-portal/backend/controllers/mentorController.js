@@ -5,7 +5,6 @@ import mongoose from 'mongoose';
 
 export const getMyStudents = async (req, res) => {
   try {
-    // 1. Fetch mentor profile
     const mentorProfile = await User.findById(req.user.id);
     if (!mentorProfile) {
       return res.status(404).json({ message: 'Mentor profile not found.' });
@@ -24,13 +23,11 @@ export const getMyStudents = async (req, res) => {
       return res.status(400).json({ message: 'Mentor identity is incomplete.' });
     }
 
-    // 2. Find students under this mentor
     const students = await User.find({
       role: 'Student',
       firstmentorName: structuredMentorName
     }).select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName department');
 
-    // 3. Enrich each student – fetch ALL leaves and ODs (no limit)
     const updatedStudentArray = await Promise.all(
       students.map(async (student) => {
         console.log(`\n📌 Processing student: ${student.registerNo || student._id}`);
@@ -67,43 +64,26 @@ export const getMyStudents = async (req, res) => {
           { $group: { _id: null, totalDays: { $sum: "$days" } } }
         ]);
 
-        // ================================================================
-        // 🔍 CERTIFICATE DETECTION – scan ALL ODs for the student
-        // ================================================================
-        console.log(`🔍 Looking for certificate for student: ${student._id}`);
-
+        // --- Fetch ALL ODs (for certificates and recent applications) ---
         const allODs = await OnDuty.find({ student: student._id })
           .sort({ createdAt: -1 })
-          .select('certificate')
+          .select('certificate reason fromDate toDate status duration halfDaySession createdAt')
           .lean();
 
-        let certificate = null;
-        for (const od of allODs) {
-          if (od.certificate && od.certificate.length > 0) {
-            certificate = od.certificate;
-            console.log(`   ✅ Found certificate in OD with ID: ${od._id}`);
-            break;
-          }
-        }
-
-        if (!certificate) {
-          console.log(`   ❌ No certificate found in any OD.`);
-        }
-
-        // ================================================================
-        // 📋 FETCH ALL LEAVES & ODs – NO LIMIT
-        // ================================================================
+        // --- Fetch ALL Leaves (for recent applications) ---
         const allLeaves = await Leave.find({ student: student._id })
           .sort({ createdAt: -1 })
           .select('fromDate toDate status duration reason halfDaySession createdAt')
           .lean();
 
-        const allODsForList = await OnDuty.find({ student: student._id })
-          .sort({ createdAt: -1 })
-          .select('fromDate toDate status duration reason halfDaySession createdAt')
-          .lean();
-
-        console.log(`   📋 Total leaves: ${allLeaves.length}, ODs: ${allODsForList.length}`);
+        // --- Pick the first certificate as legacy fallback ---
+        let firstCertificate = null;
+        for (const od of allODs) {
+          if (od.certificate && od.certificate.length > 0) {
+            firstCertificate = od.certificate;
+            break;
+          }
+        }
 
         const studentObject = student.toObject();
 
@@ -111,9 +91,9 @@ export const getMyStudents = async (req, res) => {
           ...studentObject,
           leaveCount: leaveAgg[0]?.totalDays || 0,
           odCount: odAgg[0]?.totalDays || 0,
-          certificate: certificate,
-          leaves: allLeaves,       // ✅ ALL leaves (no limit)
-          ods: allODsForList       // ✅ ALL ODs (no limit)
+          certificate: firstCertificate,    // legacy – first OD’s certificate
+          ods: allODs,                     // ✅ FULL OD array with all certificates
+          leaves: allLeaves                // ✅ FULL leaves array
         };
       })
     );

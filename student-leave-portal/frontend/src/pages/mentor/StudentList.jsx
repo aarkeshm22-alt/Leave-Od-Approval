@@ -17,9 +17,9 @@ const StudentList = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // 🆕 Certificate Gallery States
+  // Certificate Modal States
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
-  const [selectedCertificate, setSelectedCertificate] = useState(null); // { base64, reason, fromDate, toDate }
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
 
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
@@ -39,11 +39,14 @@ const StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  // ----- Collect all certificates from ODs -----
+  // ----- Extract all certificates from ODs (supports both new `ods` array and legacy `certificate`) -----
   const getStudentCertificates = (st) => {
     const certs = [];
-    if (st.ods && Array.isArray(st.ods)) {
-      st.ods.forEach((od) => {
+
+    // 1. Check if we have the full `ods` array (new backend)
+    const odsArray = st.ods || st.onDutyRequests || st.student?.ods || [];
+    if (Array.isArray(odsArray) && odsArray.length > 0) {
+      odsArray.forEach((od) => {
         const cert = od.certificate || od.document;
         if (cert && typeof cert === 'string' && cert.startsWith('data:image')) {
           certs.push({
@@ -67,6 +70,20 @@ const StudentList = () => {
         }
       });
     }
+
+    // 2. Fallback: if no ODs but a direct `certificate` exists (legacy), add it as a single entry
+    if (certs.length === 0) {
+      const directCert = st.certificate || st.document || st.student?.certificate;
+      if (directCert && typeof directCert === 'string' && directCert.startsWith('data:image')) {
+        certs.push({
+          base64: directCert,
+          reason: 'Student Certificate',
+          fromDate: 'N/A',
+          toDate: 'N/A',
+        });
+      }
+    }
+
     return certs;
   };
 
@@ -88,7 +105,12 @@ const StudentList = () => {
         const data = await response.json();
         if (response.ok) {
           const extractedStudents = data.data || data.students || (Array.isArray(data) ? data : []);
-          setStudents(extractedStudents);
+          // Ensure each student has at least an empty `ods` array to avoid errors
+          const normalized = extractedStudents.map(st => ({
+            ...st,
+            ods: st.ods || [], // ensure array exists
+          }));
+          setStudents(normalized);
         } else {
           setErrorMsg(data.message || 'Failed to sync with structural student database.');
         }
@@ -220,7 +242,7 @@ const StudentList = () => {
   };
 
   // ============================================================
-  // 🆕 CERTIFICATE MODAL HANDLERS
+  // CERTIFICATE MODAL HANDLERS
   // ============================================================
   const openCertificateModal = (cert) => {
     setSelectedCertificate(cert);
@@ -559,7 +581,7 @@ const StudentList = () => {
                   </div>
                 </div>
 
-                {/* ========== 🆕 CERTIFICATE GALLERY ========== */}
+                {/* ========== CERTIFICATE GALLERY ========== */}
                 {(() => {
                   const certs = getStudentCertificates(selectedStudent);
                   if (certs.length === 0) return null;
@@ -669,7 +691,7 @@ const StudentList = () => {
       </AnimatePresence>
 
       {/* ================================================================ */}
-      {/* 🆕 CERTIFICATE MODAL (re-usable for any certificate) */}
+      {/* CERTIFICATE MODAL */}
       {/* ================================================================ */}
       <AnimatePresence>
         {certificateModalOpen && selectedCertificate && (
@@ -688,7 +710,6 @@ const StudentList = () => {
               className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div>
                   <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
@@ -715,17 +736,22 @@ const StudentList = () => {
                   </button>
                 </div>
               </div>
-
-              {/* Image Container */}
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
                   src={selectedCertificate.base64}
                   alt="OD Certificate"
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = `
+                      <div class="text-center text-sm text-gray-500">
+                        <p>⚠️ Failed to load certificate image.</p>
+                        <p class="text-xs text-gray-400 mt-2">The file may be corrupted or unavailable.</p>
+                      </div>
+                    `;
+                  }}
                 />
               </div>
-
-              {/* Footer */}
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
                 Certificate for On-Duty request – valid only as per institutional guidelines.
               </div>
