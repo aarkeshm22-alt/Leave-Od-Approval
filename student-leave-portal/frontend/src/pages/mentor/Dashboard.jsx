@@ -32,7 +32,6 @@ const MentorDashboard = () => {
     { name: 'Rejected', value: 0 }
   ]);
 
-  // Today's active counts
   const [todayActiveLeaves, setTodayActiveLeaves] = useState(0);
   const [todayActiveODs, setTodayActiveODs] = useState(0);
 
@@ -54,7 +53,6 @@ const MentorDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // 🔥 FIXED: UTC-based date comparison to avoid timezone issues
   const isActiveToday = (fromDate, toDate) => {
     if (!fromDate || !toDate) return false;
     const today = new Date();
@@ -87,14 +85,16 @@ const MentorDashboard = () => {
           }
         };
 
-        // 1. Fetch mentor profile (for summary stats)
+        // 1. Fetch mentor profile
         const { data } = await axios.get(`${BASE_URL}/api/users/profile`, config);
 
         if (data) {
           const assigned = data.assignedStudentsCount || data.studentsCount || 0;
           const pending = data.pendingCount || data.pendingVerificationCount || 0;
           const approved = data.approvedCount || data.processedCount || 0;
-          const rejected = data.rejectedCount || Math.max(0, assigned - pending - approved);
+
+          // ✅ FIXED: compute rejected from the other counts, ignore API's rejectedCount
+          const rejected = Math.max(0, assigned - pending - approved);
 
           const yieldValue = (approved + pending) > 0
             ? ((approved / (approved + pending)) * 100).toFixed(1)
@@ -115,7 +115,7 @@ const MentorDashboard = () => {
           ]);
         }
 
-        // 2. Fetch students to compute today's active absences
+        // 2. Fetch students for today's absences
         const studentsRes = await axios.get(`${BASE_URL}/api/mentor/my-students`, config);
         const students = studentsRes.data?.data || [];
 
@@ -123,7 +123,6 @@ const MentorDashboard = () => {
         let activeODs = 0;
 
         students.forEach(student => {
-          // Check leaves
           (student.leaves || []).forEach(leave => {
             if (leave.status === 'Approved' || leave.status === 'Partially Approved') {
               if (isActiveToday(leave.fromDate, leave.toDate)) {
@@ -131,7 +130,6 @@ const MentorDashboard = () => {
               }
             }
           });
-          // Check ODs
           (student.ods || []).forEach(od => {
             if (od.status === 'Approved' || od.status === 'Partially Approved') {
               if (isActiveToday(od.fromDate, od.toDate)) {
@@ -176,7 +174,7 @@ const MentorDashboard = () => {
       transition={{ duration: 0.3 }}
       className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6"
     >
-      {/* === HOD-STYLE HEADER === */}
+      {/* Header */}
       <div className="p-6 bg-indigo-900 rounded-2xl text-white relative border border-indigo-800 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
@@ -233,9 +231,8 @@ const MentorDashboard = () => {
         />
       </div>
 
-      {/* Charts & Today's Active Absences Grid Split */}
+      {/* Charts & Today's Absences */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Charts – span 2 columns */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Bar Chart */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
