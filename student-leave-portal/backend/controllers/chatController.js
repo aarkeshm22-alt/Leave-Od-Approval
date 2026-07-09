@@ -175,6 +175,7 @@ export const getHodMessages = async (req, res) => {
     const formattedMessages = messages.map(msg => ({
       _id: msg._id,
       studentYear: msg.studentYear,
+      studentSection: msg.studentSection,
       createdAt: msg.createdAt,
       updatedAt: msg.updatedAt,
       isRead: msg.isRead,
@@ -240,6 +241,7 @@ export const viewMessage = async (req, res) => {
         _id: message._id,
         message: message.message,
         studentYear: message.studentYear,
+        studentSection: message.studentSection,
         createdAt: message.createdAt,
         updatedAt: message.updatedAt,
         isRead: message.isRead
