@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'], // Premium modern typographic scale
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
     },
   },

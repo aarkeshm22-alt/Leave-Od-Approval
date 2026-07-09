@@ -259,7 +259,7 @@ export const viewMessage = async (req, res) => {
 export const getHodMessageById = async (req, res) => {
   try {
     const message = await Chat.findById(req.params.id)
-      .select('-student -__v -attachments -studentSection -studentDepartment');
+      .select('-student -__v -attachments -studentDepartment');
 
     if (!message) {
       return res.status(404).json({ 
@@ -275,6 +275,7 @@ export const getHodMessageById = async (req, res) => {
         _id: message._id,
         message: message.isRead ? message.message : null,
         studentYear: message.studentYear,
+        studentSection: message.studentSection,
         createdAt: message.createdAt,
         isRead: message.isRead
       }
@@ -302,6 +303,7 @@ export const getHodStats = async (req, res) => {
       {
         $group: {
           _id: '$studentYear',
+          section: { $first: '$studentSection' },
           count: { $sum: 1 }
         }
       },

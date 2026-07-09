@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Landmark, 
   ShieldCheck, 
   Activity, 
   CheckCircle2, 
   AlertCircle,
-  CornerDownRight,
   Loader2,
-  Users
+  Users,
+  Calendar,
+  ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../hooks/useAuth';
@@ -33,7 +35,9 @@ const HodDashboard = () => {
     odPercentage: 0,
     leavePercentage: 0,
   });
-  const [recentApprovals, setRecentApprovals] = useState([]);
+  // Today's active counts
+  const [todayActiveLeaves, setTodayActiveLeaves] = useState(0);
+  const [todayActiveODs, setTodayActiveODs] = useState(0);
 
   // Set logged-in user from auth context
   useEffect(() => {
@@ -48,6 +52,18 @@ const HodDashboard = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // 🔥 FIXED: UTC-based date comparison to avoid timezone issues
+  const isActiveToday = (fromDate, toDate) => {
+    if (!fromDate || !toDate) return false;
+    const today = new Date();
+    const todayMidnight = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    const from = new Date(fromDate);
+    const fromMidnight = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+    const to = new Date(toDate);
+    const toMidnight = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+    return fromMidnight.getTime() <= todayMidnight.getTime() && todayMidnight.getTime() <= toMidnight.getTime();
+  };
 
   // Fetch real data
   useEffect(() => {
@@ -71,20 +87,19 @@ const HodDashboard = () => {
           }
         };
 
-        // 1. Fetch all students and mentors (using the correct HOD-filtered endpoint)
+        // 1. Fetch all students and mentors
         const [studentsRes, mentorsRes] = await Promise.all([
           axios.get(`${BASE_URL}/api/users/students-by-mentor`, config),
-          axios.get(`${BASE_URL}/api/users/mentors-by-hod`, config) // ✅ UPDATED endpoint
+          axios.get(`${BASE_URL}/api/users/mentors-by-hod`, config)
         ]);
 
         const studentsList = studentsRes.data?.data || [];
         setStudentsCount(studentsList.length);
 
-        // ✅ Now mentorsRes.data.data contains the correct list filtered by HOD
         const mentorsList = mentorsRes.data?.data || [];
         setFacultyCount(mentorsList.length);
 
-        // 2. Fetch pending and actioned requests for counts
+        // 2. Fetch pending and actioned requests
         const [leavesPending, leavesActioned, odPending, odActioned] = await Promise.all([
           axios.get(`${BASE_URL}/api/leaves/hod/pending?tab=PENDING`, config),
           axios.get(`${BASE_URL}/api/leaves/hod/pending?tab=ACTIONED`, config),
@@ -99,7 +114,7 @@ const HodDashboard = () => {
         const odPendingList = getData(odPending);
         const odActionedList = getData(odActioned);
 
-        // Counts
+        // Overall counts
         const totalPending = leavesPendingList.length + odPendingList.length;
         const totalApproved = leavesActionedList.filter(i => i.status === 'Approved').length + 
                               odActionedList.filter(i => i.status === 'Approved').length;
@@ -120,29 +135,22 @@ const HodDashboard = () => {
           leavePercentage,
         });
 
-        // 3. Recent approvals (latest 5 from actioned lists)
-        const allActioned = [...leavesActionedList, ...odActionedList]
-          .filter(i => i.status === 'Approved')
-          .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
-          .slice(0, 5)
-          .map(item => {
-            const student = item.student || {};
-            const studentName = item.studentName || student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unknown';
-            const regNo = item.registerNo || student.registerNo || 'N/A';
-            const type = item.type || item.mappedType || (item.class === 'Leave' ? 'Leave' : 'On-Duty');
-            const reason = item.reason || 'No reason';
-            const status = item.status || 'Approved';
+        // 🔥 Today's active counts – include both Approved and Partially Approved
+        const allLeaves = [...leavesPendingList, ...leavesActionedList];
+        const allODs = [...odPendingList, ...odActionedList];
 
-            return {
-              regNo,
-              studentName,
-              type,
-              reason,
-              status,
-            };
-          });
+        // Filter only approved or partially approved (since Partially Approved means student is away)
+        const activeLeaves = allLeaves.filter(item => 
+          (item.status === 'Approved' || item.status === 'Partially Approved') && 
+          isActiveToday(item.fromDate, item.toDate)
+        );
+        const activeODs = allODs.filter(item => 
+          (item.status === 'Approved' || item.status === 'Partially Approved') && 
+          isActiveToday(item.fromDate, item.toDate)
+        );
 
-        setRecentApprovals(allActioned);
+        setTodayActiveLeaves(activeLeaves.length);
+        setTodayActiveODs(activeODs.length);
 
       } catch (error) {
         console.error('Failed to fetch HOD dashboard data:', error);
@@ -267,7 +275,7 @@ const HodDashboard = () => {
         })}
       </div>
 
-      {/* Graphs & Logs Grid Split */}
+      {/* Graphs & Today's Summary Grid Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Analytics Graph Card */}
@@ -363,50 +371,55 @@ const HodDashboard = () => {
           </div>
         </div>
 
-        {/* Verification History Logs */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-3xs">
+        {/* 🔗 Today's Active Absence Summary – clickable */}
+        <Link
+          to="/hod/today-absence"
+          className="bg-white border border-slate-200 rounded-xl p-5 shadow-3xs flex flex-col hover:shadow-md hover:border-indigo-300 transition-all duration-200 cursor-pointer group"
+        >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Verification History</h3>
-              <p className="text-[11px] text-slate-400">Approved logs showing true values</p>
+              <h3 className="text-xs font-black uppercase tracking-wider text-indigo-900">Today's Absences - ({new Date().toLocaleDateString()})</h3>
+              <p className="text-[11px] text-slate-400">Students not available today</p>
             </div>
-            <div className="p-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-md">
-              <ShieldCheck size={14} />
+            <div className="p-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-md">
+              <Calendar size={14} />
             </div>
           </div>
 
-          <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-            {recentApprovals.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-4">No approved records yet.</p>
-            ) : (
-              recentApprovals.map((activity, index) => (
-                <div key={index} className="p-2.5 rounded-lg border border-emerald-100 bg-emerald-50/20 flex flex-col gap-1 text-xs">
-                  <div className="flex justify-between font-black text-slate-900">
-                    <span className="truncate">{activity.studentName}</span>
-                    <span className="text-[9px] px-1.5 py-0.2 bg-white border border-emerald-200 text-emerald-700 rounded-sm font-sans uppercase font-bold">
-                      {activity.status}
-                    </span>
-                  </div>
-                  
-                  <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                    <CornerDownRight size={10} className="text-slate-300 shrink-0" />
-                    <span className="truncate">
-                      {activity.type} — <span className="italic font-medium text-slate-400">{activity.reason}</span>
-                    </span>
-                  </div>
-                  
-                  <div className="text-[9px] font-mono font-bold text-slate-400 mt-0.5">
-                    REG: {activity.regNo}
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            <div className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                <span className="text-xs font-bold text-slate-700">Leave</span>
+              </div>
+              <span className="text-xl font-black text-indigo-900">{todayActiveLeaves}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-amber-50/50 rounded-xl border border-amber-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                <span className="text-xs font-bold text-slate-700">On-Duty</span>
+              </div>
+              <span className="text-xl font-black text-amber-600">{todayActiveODs}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <span className="text-xs font-bold text-slate-700">Total Unavailable</span>
+              </div>
+              <span className="text-xl font-black text-emerald-700">{todayActiveLeaves + todayActiveODs}</span>
+            </div>
           </div>
-        </div>
+
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end text-xs font-bold text-indigo-600 group-hover:text-amber-500 transition-colors">
+            <span className="flex items-center gap-1">
+              View full report <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </span>
+          </div>
+        </Link>
 
       </div>
     </div>
   );
 };
-
+    
 export default HodDashboard;

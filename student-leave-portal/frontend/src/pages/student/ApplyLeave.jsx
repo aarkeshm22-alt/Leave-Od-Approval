@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Calendar,
@@ -18,6 +19,7 @@ import InputField from '../../components/common/InputField';
 import Button from '../../components/common/Button';
 
 const ApplyLeave = ({ forcedType = 'Leave' }) => {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({
     name: '',
     registerNo: '',
@@ -132,31 +134,21 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
       const resData = await response.json();
 
       if (response.ok) {
-        setMessage({
-          type: 'success',
-          text: `Your ${formData.type} (${formData.duration}) request has been submitted successfully.\n\nRequest Status: Pending`,
-        });
-        setFormData({
-          type: forcedType,
-          duration: 'Full Day',
-          halfDaySession: '',
-          fromDate: '',
-          toDate: '',
-          reason: '',
-        });
+        // ✅ Redirect to My Requests page after successful submission
+        navigate('/student/my-requests');
       } else {
         setMessage({ type: 'error', text: resData.message || 'Submission failed.' });
+        setSubmitting(false);
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Could not establish connection to authorization node.' });
-    } finally {
       setSubmitting(false);
     }
   };
 
   if (loadingProfile) {
     return (
-     <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
+      <div className="min-h-[85vh] w-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
         <div className="relative w-10 h-10">
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
@@ -188,7 +180,8 @@ const ApplyLeave = ({ forcedType = 'Leave' }) => {
           request through this form. Please ensure all details are correct before submission.
         </p>
       </div>
-      {/* Message Alert */}
+
+      {/* Message Alert – only shown on errors now, since success redirects instantly */}
       {message.text && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}

@@ -10,6 +10,7 @@ import {
   BarChart3,
   UserCircle,
   MessageCircle,
+  Calendar
 } from "lucide-react";
 
 export const studentMenu = [
@@ -51,6 +52,11 @@ export const mentorMenu = [
     icon: CheckSquare,
     path: "/mentor/pending-requests",
   },
+  {
+    title: "Today's Absence",
+    icon: Calendar,
+    path: "/mentor/today-absence",
+  },
 ];
 
 export const hodMenu = [
@@ -75,6 +81,11 @@ export const hodMenu = [
     path: "/hod/approvals",
   },
   {
+    title: "Today's Absence",
+    icon: Calendar,
+    path: "/hod/today-absence",
+  },
+  {
     title: "Chat Management", // ✅ Add this
     icon: MessageCircle,
     path: "/hod/chat",
@@ -92,5 +103,11 @@ export const ca2Menu = [
     title: "My Students",
     icon: GraduationCap,
     path: "/ca2/students",
-  }
+  },
+  {
+    title: "Today's Absence",
+    icon: Calendar, 
+    path: "/ca2/today-absence",
+  },
+  
 ];

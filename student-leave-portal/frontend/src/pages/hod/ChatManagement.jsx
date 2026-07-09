@@ -4,7 +4,16 @@ import {
   MessageCircle, Eye, Loader, BarChart3, 
   Filter, Search, Lock, Unlock, X,
   Calendar, Clock, User, Info, CheckCircle,
-  Key, Sparkles, Wand2, Star, Feather
+  Key, Sparkles, Wand2, Star, Feather,
+  Send, Mail, Shield, Award, BookOpen,
+  Users, GraduationCap, AlertCircle,
+  Check, ChevronRight, Zap, Moon, Sun,
+  Cloud, CloudRain, Snowflake, Wind,
+  Heart, Coffee, Music, Camera, Film,
+  Globe, MapPin, Compass, Navigation,
+  Gift, Crown, Flag, Bell, Volume2,
+  Home, Layers, Grid, List, Menu,
+  Hash // ✅ Added for Section
 } from 'lucide-react';
 import { hodChatAPI } from '../../services/chatService';
 import toast from 'react-hot-toast';
@@ -395,7 +404,7 @@ const HODChatManagement = () => {
               </h1>
               <p className="text-sm font-medium text-purple-500/70 flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Open · Tap to reveal · Click ℹ️ for details
+                Open · Tap to reveal · Click <Info size={12} className="inline" /> for details
               </p>
             </div>
           </div>
@@ -457,10 +466,10 @@ const HODChatManagement = () => {
             className="px-4 py-2 text-sm font-medium rounded-xl border border-purple-200/50 bg-white/80 text-purple-800 outline-none focus:ring-2 focus:ring-purple-300 transition-all"
           >
             <option value="all">All Years</option>
-            <option value="I">✦ I Year</option>
-            <option value="II">✦ II Year</option>
-            <option value="III">✦ III Year</option>
-            <option value="IV">✦ IV Year</option>
+            <option value="I"><Star size={10} className="inline mr-1" /> I Year</option>
+            <option value="II"><Star size={10} className="inline mr-1" /> II Year</option>
+            <option value="III"><Star size={10} className="inline mr-1" /> III Year</option>
+            <option value="IV"><Star size={10} className="inline mr-1" /> IV Year</option>
           </select>
 
           <button
@@ -529,7 +538,8 @@ const HODChatManagement = () => {
                     <div className="flex items-center justify-end mb-2">
                       <span className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full ${colors.badge} border ${colors.border} shadow-sm animate-reveal-badge`}>
                         <Star size={12} className="text-amber-500" />
-                        ✨ Revealed
+                        <Check size={10} className="text-amber-500" />
+                        Revealed
                       </span>
                     </div>
                   )}
@@ -551,7 +561,7 @@ const HODChatManagement = () => {
                         <span className="flex items-center gap-2 group-hover:gap-3 transition-all duration-300">
                           <Lock size={14} className="text-amber-400 group-hover:scale-110 transition-transform duration-300" />
                           <span className="group-hover:text-amber-600 transition-colors duration-300">
-                            ✦ Tap to reveal this message ✦
+                            <Star size={10} className="inline mr-1" /> Tap to reveal this message <Star size={10} className="inline ml-1" />
                           </span>
                           <Wand2 size={14} className="text-purple-400 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12" />
                         </span>
@@ -612,7 +622,8 @@ const HODChatManagement = () => {
                   : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50 shadow-sm hover:shadow-md hover:scale-105'
               }`}
             >
-              ← Previous
+              <ChevronRight size={14} className="inline mr-1 rotate-180" />
+              Previous
             </button>
             <span className="text-sm font-medium text-purple-600">
               Page {pagination.page} of {pagination.pages}
@@ -626,86 +637,105 @@ const HODChatManagement = () => {
                   : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50 shadow-sm hover:shadow-md hover:scale-105'
               }`}
             >
-              Next →
+              Next
+              <ChevronRight size={14} className="inline ml-1" />
             </button>
           </div>
         )}
 
-        {/* === INFO POPUP - Elegant === */}
-{showPopup && selectedMessage && (
-  <div 
-    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-fadeIn"
-    onClick={closePopup}
-  >
-    <div 
-      className="max-w-md w-full rounded-3xl shadow-2xl overflow-hidden bg-white/95 backdrop-blur-sm border border-purple-200/30"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="p-6 border-b border-purple-100/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-amber-400/30">
-              {getYearText(selectedMessage.studentYear)}
-            </div>
-            <div>
-              <h3 className="font-bold text-lg text-purple-800">✦ Message Details</h3>
-              <span className={`text-xs font-medium ${selectedMessage.isRead ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {selectedMessage.isRead ? '✓ Revealed' : '● Pending'}
-              </span>
+        {/* === INFO POPUP - With Section Added === */}
+        {showPopup && selectedMessage && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-fadeIn"
+            onClick={closePopup}
+          >
+            <div 
+              className="max-w-md w-full rounded-3xl shadow-2xl overflow-hidden bg-white/95 backdrop-blur-sm border border-purple-200/30"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-purple-100/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-amber-400/30">
+                      {getYearText(selectedMessage.studentYear)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-purple-800">
+                        <Star size={14} className="inline mr-1 text-amber-500" />
+                        Message Details
+                      </h3>
+                      <span className={`text-xs font-medium ${selectedMessage.isRead ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {selectedMessage.isRead ? (
+                          <><Check size={12} className="inline mr-1" /> Revealed</>
+                        ) : (
+                          <><Lock size={12} className="inline mr-1" /> Pending</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closePopup}
+                    className="p-2 rounded-xl hover:bg-purple-100 text-purple-400 transition-all duration-300"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* ✅ Year */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50">
+                  <User size={16} className="text-purple-400" />
+                  <span className="text-sm text-purple-700">
+                    Year: <strong>{getYearText(selectedMessage.studentYear)}</strong>
+                  </span>
+                </div>
+
+                {/* ✅ Section - NEW */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50">
+                  <Hash size={16} className="text-purple-400" />
+                  <span className="text-sm text-purple-700">
+                    Section: <strong>{selectedMessage.studentSection || 'N/A'}</strong>
+                  </span>
+                </div>
+
+                {/* Date & Time */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50">
+                  <Calendar size={16} className="text-purple-400" />
+                  <span className="text-sm text-purple-700">
+                    {formatDateFull(selectedMessage.createdAt)}
+                  </span>
+                </div>
+
+                {/* ✅ Message Content */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/30">
+                  <p className="text-xs font-medium text-amber-600 mb-1">
+                    <Mail size={12} className="inline mr-1" />
+                    Message:
+                  </p>
+                  <p className="text-base font-medium text-amber-900 break-words">
+                    {selectedMessage.message || 'No message content'}
+                  </p>
+                </div>
+
+                {/* View Status */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-purple-100/50">
+                  {selectedMessage.isRead ? (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                      <Eye size={14} />
+                      Revealed on {formatDate(selectedMessage.updatedAt || selectedMessage.createdAt)}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                      <Lock size={14} />
+                      Not yet revealed
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          <button
-            onClick={closePopup}
-            className="p-2 rounded-xl hover:bg-purple-100 text-purple-400 transition-all duration-300"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-4">
-        {/* Year */}
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50">
-          <User size={16} className="text-purple-400" />
-          <span className="text-sm text-purple-700">
-            Year: <strong>{getYearText(selectedMessage.studentYear)}</strong>
-          </span>
-        </div>
-
-        {/* Date & Time */}
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50">
-          <Calendar size={16} className="text-purple-400" />
-          <span className="text-sm text-purple-700">
-            {formatDateFull(selectedMessage.createdAt)}
-          </span>
-        </div>
-
-        {/* ✅ Message Content - FIXED */}
-        <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/30">
-          <p className="text-xs font-medium text-amber-600 mb-1">Message:</p>
-          <p className="text-base font-medium text-amber-900 break-words">
-            {selectedMessage.message || 'No message content'}
-          </p>
-        </div>
-
-        {/* View Status */}
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-purple-100/50">
-          {selectedMessage.isRead ? (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-              <Eye size={14} />
-              Revealed on {formatDate(selectedMessage.updatedAt || selectedMessage.createdAt)}
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
-              <Lock size={14} />
-              Not yet revealed
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+        )}
 
       </div>
     </div>

@@ -18,12 +18,14 @@ import HodStudents from '../pages/hod/StudentList';
 import HodReports from '../pages/hod/Reports';
 import HodProfile from '../pages/hod/Profile';
 import HODChatManagement from '../pages/hod/ChatManagement';
+import TodayAbsence from '../pages/hod/TodayAbsence';
 
 // Mentor Panel views
 import MentorDashboard from '../pages/mentor/Dashboard';
 import MentorPending from '../pages/mentor/PendingRequests';
 import MentorStudents from '../pages/mentor/StudentList';
 import MentorProfile from '../pages/mentor/Profile';
+import MentorTodayAbsence from '../pages/mentor/TodayAbsence';
 
 // Student Panel views
 import StudentDashboard from '../pages/student/Dashboard';
@@ -36,6 +38,7 @@ import StudentProfile from '../pages/student/Profile';
 import CA2Dashboard from '../pages/catwo/Dashboard';
 import CA2Students from '../pages/catwo/StudentList';
 import CA2Profile from '../pages/catwo/Profile';
+import CA2TodayAbsence from '../pages/catwo/TodayAbsence';
 
 // Loader Guard UI component
 import Loader from '../components/common/Loader';
@@ -77,6 +80,7 @@ const AppRoutes = () => {
         <Route path="pending-requests" element={<MentorPending />} />
         <Route path="students" element={<MentorStudents />} />
         <Route path="profile" element={<MentorProfile />} />
+        <Route path="today-absence" element={<MentorTodayAbsence />} />
       </Route>
 
       {/* HOD Controlled Route Clusters */}
@@ -88,8 +92,9 @@ const AppRoutes = () => {
         <Route path="mentors" element={<HodMentors />} />
         <Route path="students" element={<HodStudents />} />
         <Route path="reports" element={<HodReports />} />
-        <Route path="profile" element={<HodProfile />} />
+        <Route path="profile" element={<HodProfile />} /> 
         <Route path="chat" element={<HODChatManagement />} />
+        <Route path="today-absence" element={<TodayAbsence />} />
       </Route>
 
       {/* 🆕 CA2 Controlled Route Clusters */}
@@ -99,6 +104,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<CA2Dashboard />} />
         <Route path="students" element={<CA2Students />} />
         <Route path="profile" element={<CA2Profile />} />
+        <Route path="today-absence" element={<CA2TodayAbsence />} />
       </Route>
 
       {/* Fallback Root Catch */}

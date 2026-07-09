@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertCircle, FileText, Briefcase, RefreshCw, Upload, Clock, School, User, Eye, Download, X } from 'lucide-react';
+import { Loader2, AlertCircle, FileText, Briefcase, RefreshCw, Upload, Clock, School, User, Eye, Download, X, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
 
@@ -11,11 +11,17 @@ const MyRequests = () => {
   const [uploadingId, setUploadingId] = useState(null);
   const fileInputRef = useRef(null);
   const [activeOdId, setActiveOdId] = useState(null);
+  const [activeRegisterNo, setActiveRegisterNo] = useState('');
+  const [activeReason, setActiveReason] = useState('');
   const navigate = useNavigate();
 
-  // ----- Certificate Modal State -----
+  // ----- Certificate Modal State (View) -----
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [certificateData, setCertificateData] = useState(null);
+
+  // ----- Pre‑Upload Guide Modal State -----
+  const [showUploadGuide, setShowUploadGuide] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState({ odId: null, registerNo: '', reason: '' });
 
   const fetchAllStudentLogs = async () => {
     const token = localStorage.getItem('token');
@@ -75,7 +81,7 @@ const MyRequests = () => {
     fetchAllStudentLogs();
   }, []);
 
-  // ----- Certificate Modal Handlers -----
+  // ----- Certificate Modal Handlers (View) -----
   const openCertificateModal = (base64Data) => {
     if (!base64Data) return;
     setCertificateData(base64Data);
@@ -97,9 +103,22 @@ const MyRequests = () => {
     document.body.removeChild(link);
   };
 
-  // ----- Upload Handlers -----
-  const handleUploadClick = (odId) => {
-    setActiveOdId(odId);
+  // ----- Upload Handlers with Guidance Modal -----
+  const openUploadGuide = (odId, registerNo, reason) => {
+    setUploadTarget({ odId, registerNo, reason });
+    setShowUploadGuide(true);
+  };
+
+  const closeUploadGuide = () => {
+    setShowUploadGuide(false);
+    setUploadTarget({ odId: null, registerNo: '', reason: '' });
+  };
+
+  const handleContinueUpload = () => {
+    setShowUploadGuide(false);
+    setActiveOdId(uploadTarget.odId);
+    setActiveRegisterNo(uploadTarget.registerNo || 'student');
+    setActiveReason(uploadTarget.reason || 'event');
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -109,15 +128,28 @@ const MyRequests = () => {
     const file = e.target.files[0];
     if (!file || !activeOdId) return;
 
-    if (file.size > 300 * 1024) {
-      alert("Image size is higher than the 300 KB backend limit.");
+    // Validate type
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Unsupported file format. Please upload an image (PNG, JPEG, WebP).');
       e.target.value = null;
       return;
     }
 
+    // Validate size
+    if (file.size > 300 * 1024) {
+      setErrorMsg('Image size exceeds 300 KB limit. Please compress your image.');
+      e.target.value = null;
+      return;
+    }
+
+    // Rename file: registerNo_EventName.ext
+    const ext = file.name.split('.').pop();
+    const newFileName = `${activeRegisterNo}_${activeReason.replace(/\s+/g, '_')}.${ext}`;
+    const renamedFile = new File([file], newFileName, { type: file.type });
+
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    formData.append('certificate', file);
+    formData.append('certificate', renamedFile);
 
     try {
       setUploadingId(activeOdId);
@@ -135,7 +167,7 @@ const MyRequests = () => {
         setRequests(prev =>
           prev.map(req =>
             req._id === activeOdId
-              ? { ...req, certificate: resData.data?.certificate || resData.certificate || file }
+              ? { ...req, certificate: resData.data?.certificate || resData.certificate || renamedFile }
               : req
           )
         );
@@ -149,6 +181,8 @@ const MyRequests = () => {
     } finally {
       setUploadingId(null);
       setActiveOdId(null);
+      setActiveRegisterNo('');
+      setActiveReason('');
       e.target.value = null;
     }
   };
@@ -163,8 +197,7 @@ const MyRequests = () => {
           <div className="w-10 h-10 rounded-full border-2 border-gray-200" />
           <div className="absolute top-0 left-0 w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         </div>
-        <p className="text-xs font-mono tracking-widest uppercase text-gray-600 text-center">Loading your { ' ' } 
-        <span className="font-bold text-indigo-600">Requests</span>…</p>
+        <p className="text-xs font-mono tracking-widest uppercase text-gray-600 text-center">Loading your <span className="font-bold text-indigo-600">Requests</span>…</p>
       </div>
     );
   }
@@ -274,7 +307,7 @@ const MyRequests = () => {
                       <button
                         type="button"
                         disabled={uploadingId !== null}
-                        onClick={() => handleUploadClick(row._id)}
+                        onClick={() => openUploadGuide(row._id, studentRegNo, row.reason)}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
                       >
                         {uploadingId === row._id ? (
@@ -375,7 +408,7 @@ const MyRequests = () => {
                             <button
                               type="button"
                               disabled={uploadingId !== null}
-                              onClick={() => handleUploadClick(row._id)}
+                              onClick={() => openUploadGuide(row._id, studentRegNo, row.reason)}
                               className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
                             >
                               {uploadingId === row._id ? (
@@ -458,7 +491,7 @@ const MyRequests = () => {
         </div>
       </motion.div>
 
-      {/* ----- CERTIFICATE MODAL ----- */}
+      {/* ----- CERTIFICATE VIEW MODAL ----- */}
       <AnimatePresence>
         {showCertificateModal && certificateData && (
           <motion.div
@@ -476,7 +509,6 @@ const MyRequests = () => {
               className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
                   <Eye size={18} className="text-amber-500" />
@@ -498,8 +530,6 @@ const MyRequests = () => {
                   </button>
                 </div>
               </div>
-
-              {/* Image Container */}
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
                   src={certificateData}
@@ -507,10 +537,74 @@ const MyRequests = () => {
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
                 />
               </div>
-
-              {/* Footer */}
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
                 Certificate for On-Duty request.
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ----- PRE-UPLOAD GUIDANCE MODAL ----- */}
+      <AnimatePresence>
+        {showUploadGuide && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+            onClick={closeUploadGuide}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-200 p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 shrink-0">
+                  <Info size={18} className="text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Certificate Upload Guide</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Please ensure your certificate meets these requirements:</p>
+                </div>
+              </div>
+
+              <ul className="space-y-2 text-xs text-gray-700 mb-6">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span><strong>File size:</strong> Maximum 300 KB</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span><strong>File type:</strong> Image only (PNG, JPEG, WebP)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span><strong>Naming format:</strong> <code className="bg-gray-100 px-1 py-0.5 rounded text-blue-800 font-mono">RegisterNo_EventName</code></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 font-bold">✓</span>
+                  <span><strong>Example:</strong> <code className="bg-gray-100 px-1 py-0.5 rounded text-blue-800 font-mono">73152213001_Hackathon.jpg</code></span>
+                </li>
+              </ul>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={closeUploadGuide}
+                  className="flex-1 px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleContinueUpload}
+                  className="flex-1 px-4 py-2 text-xs font-bold bg-blue-900 hover:bg-amber-500 text-white rounded-lg transition-colors shadow-sm"
+                >
+                  Continue
+                </button>
               </div>
             </motion.div>
           </motion.div>

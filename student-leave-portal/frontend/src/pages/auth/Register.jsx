@@ -101,20 +101,20 @@ const SkyBackground = () => {
 
   // ── Clouds ──
   const clouds = useMemo(
-      () => [
-        { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
-        { id: 2, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
-        { id: 3, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
-        { id: 4, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
-        { id: 5, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
-        { id: 6, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
-        { id: 7, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
-        { id: 8, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
-        { id: 9, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
-        { id: 10, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
-      ],
-      []
-    );
+    () => [
+      { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
+      { id: 2, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
+      { id: 3, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
+      { id: 4, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
+      { id: 5, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
+      { id: 6, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
+      { id: 7, size: 80, top: 28, duration: 28, delay: 6, opacity: 0.9 },
+      { id: 8, size: 50, top: 45, duration: 18, delay: 12, opacity: 0.9 },
+      { id: 9, size: 70, top: 60, duration: 24, delay: 3, opacity: 0.9 },
+      { id: 10, size: 55, top: 75, duration: 30, delay: 9, opacity: 0.4 },
+    ],
+    []
+  );
 
   // ── Birds ──
   const birds = useMemo(
@@ -167,7 +167,7 @@ const SkyBackground = () => {
       ref={containerRef}
       className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
     >
-      {/* ── Fixed Sun / Moon (responsive: left on mobile, right on desktop) ── */}
+      {/* ── Fixed Sun / Moon ── */}
       <div className="absolute top-2 left-2 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
         {showSun && (
           <motion.div
@@ -210,7 +210,7 @@ const SkyBackground = () => {
         </motion.div>
       ))}
 
-      {/* ── Flying Birds (visible during day/sunrise/sunset) ── */}
+      {/* ── Flying Birds ── */}
       {skyState !== 'night' &&
         birds.map((bird) => (
           <FlyingBird
@@ -224,7 +224,7 @@ const SkyBackground = () => {
           />
         ))}
 
-      {/* ── Stars (night only) ── */}
+      {/* ── Stars ── */}
       {skyState === 'night' &&
         stars.map((star) => (
           <motion.div
@@ -334,7 +334,6 @@ const Register = () => {
   const [hodsList, setHodsList] = useState([]);
   const [mentorsList, setMentorsList] = useState([]);
 
-  // Integrated state parameters matching dual-mentor fields and mentor category
   const [formData, setFormData] = useState({
     registerNo: '',
     firstName: '',
@@ -346,35 +345,38 @@ const Register = () => {
     year: '',
     section: '',
     studentType: '',
-    selectedHodId: '', // Populates 'hodName' for Mentors
-    firstmentorName: '', // Populates Class Advisor 1 (CA1) for Students
-    secondmentorName: '', // Populates Class Advisor 2 (CA2) for Students
-    category: '', // Populates Mentor Category ('CA1' or 'CA2') for Mentors
+    selectedHodId: '',
+    firstmentorName: '',
+    secondmentorName: '',
+    category: '',
     password: '',
     confirmPassword: '',
   });
 
   const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
-  // Fetch directory values cleanly
+  // Fetch directory values – fixed to handle nested `data` property
   useEffect(() => {
     const fetchReferences = async () => {
       try {
         const hodsRes = await fetch(`${BACKEND_URL}/api/users/hods`);
         if (hodsRes.ok) {
           const hodsData = await hodsRes.json();
-          setHodsList(Array.isArray(hodsData) ? hodsData : []);
+          // Extract array from possible { data: [...] } wrapper
+          const hodsArray = hodsData?.data || hodsData;
+          setHodsList(Array.isArray(hodsArray) ? hodsArray : []);
         }
       } catch (err) {
         console.error('Connection failure syncing HOD directory:', err);
       }
 
       try {
-        // Fetches all active mentors with their embedded category context
         const mentorsRes = await fetch(`${BACKEND_URL}/api/users/mentors`);
         if (mentorsRes.ok) {
           const mentorsData = await mentorsRes.json();
-          setMentorsList(Array.isArray(mentorsData) ? mentorsData : []);
+          // Extract array from possible { data: [...] } wrapper
+          const mentorsArray = mentorsData?.data || mentorsData;
+          setMentorsList(Array.isArray(mentorsArray) ? mentorsArray : []);
         }
       } catch (err) {
         console.error('Connection failure syncing Mentor directory:', err);
@@ -392,7 +394,6 @@ const Register = () => {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
 
-    // 🛡️ Pre-flight validation blocks
     if (!formData.email.toLowerCase().endsWith('@ksrce.ac.in')) {
       setErrorMsg('Error: Unauthorized domain. Institutional email address must end with @ksrce.ac.in');
       return;
@@ -427,7 +428,6 @@ const Register = () => {
       return;
     }
 
-    // Dynamic role validation rules
     if (selectedRole === 'Mentor' && !formData.category) {
       setErrorMsg('Error: Mentor Category (CA1 or CA2) selection is mandatory.');
       return;
@@ -436,7 +436,6 @@ const Register = () => {
     setIsLoading(true);
     setErrorMsg('');
 
-    // 📦 Perfectly structured data payload to dispatch to backend pipeline
     const payload = {
       role: selectedRole,
       firstName: formData.firstName,
@@ -451,17 +450,16 @@ const Register = () => {
         year: formData.year,
         section: formData.section,
         studentType: formData.studentType,
-        firstmentorName: formData.firstmentorName,   // Class Advisor 1
-        secondmentorName: formData.secondmentorName, // Class Advisor 2
+        firstmentorName: formData.firstmentorName,
+        secondmentorName: formData.secondmentorName,
       }),
       ...(selectedRole === 'Mentor' && {
         hodName: formData.selectedHodId,
-        category: String(formData.category).trim(), // Guarantees clean state string parsing
+        category: String(formData.category).trim(),
       }),
     };
 
     try {
-      // ⚠️ Note: Swapped to /api/users/register based on your working router base configuration path
       const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -489,10 +487,8 @@ const Register = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center px-4 py-8 overflow-hidden">
-      {/* ── Living Sky Background ── */}
       <SkyBackground />
 
-      {/* ── Glassmorphism Registration Card ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -590,7 +586,6 @@ const Register = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Gender */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
                 <Smile size={12} className="text-slate-500" />
@@ -603,22 +598,13 @@ const Register = () => {
                 disabled={isLoading}
                 className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
               >
-                <option value="" disabled hidden>
-                  Select Gender
-                </option>
-                <option value="Male" className="bg-white text-slate-800">
-                  Male
-                </option>
-                <option value="Female" className="bg-white text-slate-800">
-                  Female
-                </option>
-                <option value="Other" className="bg-white text-slate-800">
-                  Other
-                </option>
+                <option value="" disabled hidden>Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
               </select>
             </div>
 
-            {/* Department */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
                 <Layers size={12} className="text-slate-500" />
@@ -631,12 +617,8 @@ const Register = () => {
                 disabled={isLoading}
                 className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
               >
-                <option value="" disabled hidden>
-                  Select Department
-                </option>
-                <option value="Computer Science and Engineering" className="bg-white text-slate-800">
-                  Computer Science and Engineering
-                </option>
+                <option value="" disabled hidden>Select Department</option>
+                <option value="Computer Science and Engineering">Computer Science and Engineering</option>
               </select>
             </div>
           </div>
@@ -675,8 +657,7 @@ const Register = () => {
               className="space-y-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-4"
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Account Type:{' '}
-                <span className="text-indigo-600 dark:text-indigo-300 font-extrabold">
+                Account Type: <span className="text-indigo-600 dark:text-indigo-300 font-extrabold">
                   {tierMeta[selectedRole].text}
                 </span>
               </div>
@@ -690,13 +671,12 @@ const Register = () => {
                     placeholder="e.g., 73152213001"
                     value={formData.registerNo}
                     onChange={(e) => handleInputChange('registerNo', e.target.value)}
-                    required={selectedRole === 'Student'}
+                    required
                     disabled={isLoading}
                     className="bg-white/40 backdrop-blur-sm border-white/30 text-slate-800 placeholder:text-slate-500 focus-within:border-indigo-400/70 transition-all rounded-xl px-4 py-3"
                   />
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Academic Year */}
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
                         <Sparkles size={11} className="text-slate-500" />
@@ -705,29 +685,18 @@ const Register = () => {
                       <select
                         value={formData.year}
                         onChange={(e) => handleInputChange('year', e.target.value)}
-                        required={selectedRole === 'Student'}
+                        required
                         disabled={isLoading}
                         className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
                       >
-                        <option value="" disabled hidden>
-                          Choose Year
-                        </option>
-                        <option value="I Year" className="bg-white text-slate-800">
-                          I Year
-                        </option>
-                        <option value="II Year" className="bg-white text-slate-800">
-                          II Year
-                        </option>
-                        <option value="III Year" className="bg-white text-slate-800">
-                          III Year
-                        </option>
-                        <option value="IV Year" className="bg-white text-slate-800">
-                          IV Year
-                        </option>
+                        <option value="" disabled hidden>Choose Year</option>
+                        <option value="I Year">I Year</option>
+                        <option value="II Year">II Year</option>
+                        <option value="III Year">III Year</option>
+                        <option value="IV Year">IV Year</option>
                       </select>
                     </div>
 
-                    {/* Section */}
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
                         <Building2 size={11} className="text-slate-500" />
@@ -736,30 +705,19 @@ const Register = () => {
                       <select
                         value={formData.section}
                         onChange={(e) => handleInputChange('section', e.target.value)}
-                        required={selectedRole === 'Student'}
+                        required
                         disabled={isLoading}
                         className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
                       >
-                        <option value="" disabled hidden>
-                          Choose Section
-                        </option>
-                        <option value="Section A" className="bg-white text-slate-800">
-                          A
-                        </option>
-                        <option value="Section B" className="bg-white text-slate-800">
-                          B
-                        </option>
-                        <option value="Section C" className="bg-white text-slate-800">
-                          C
-                        </option>
-                        <option value="Section D" className="bg-white text-slate-800">
-                          D
-                        </option>
+                        <option value="" disabled hidden>Choose Section</option>
+                        <option value="Section A">A</option>
+                        <option value="Section B">B</option>
+                        <option value="Section C">C</option>
+                        <option value="Section D">D</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* Student Type */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
                       <Home size={11} className="text-slate-500" />
@@ -768,19 +726,13 @@ const Register = () => {
                     <select
                       value={formData.studentType}
                       onChange={(e) => handleInputChange('studentType', e.target.value)}
-                      required={selectedRole === 'Student'}
+                      required
                       disabled={isLoading}
                       className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
                     >
-                      <option value="" disabled hidden>
-                        Choose Type
-                      </option>
-                      <option value="Day Scholar" className="bg-white text-slate-800">
-                        Day Scholar
-                      </option>
-                      <option value="Hosteller" className="bg-white text-slate-800">
-                        Hosteller
-                      </option>
+                      <option value="" disabled hidden>Choose Type</option>
+                      <option value="Day Scholar">Day Scholar</option>
+                      <option value="Hosteller">Hosteller</option>
                     </select>
                   </div>
 
@@ -793,30 +745,24 @@ const Register = () => {
                     <select
                       value={formData.firstmentorName || ""}
                       onChange={(e) => handleInputChange('firstmentorName', e.target.value)}
-                      required={selectedRole === 'Student'}
+                      required
                       disabled={isLoading}
                       className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
-                      <option value="" disabled hidden>
-                        Choose Your CA1 Advisor
-                      </option>
+                      <option value="" disabled hidden>Choose Your CA1 Advisor</option>
                       {mentorsList.filter(m => m.category === 'CA1').length > 0 ? (
                         mentorsList
                           .filter(mentor => mentor.category === 'CA1')
                           .map((mentor) => {
                             const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
                             return (
-                              <option
-                                key={mentor._id || mentor.id}
-                                value={mentorFullName}
-                                className="bg-white text-slate-900"
-                              >
+                              <option key={mentor._id || mentor.id} value={mentorFullName}>
                                 {mentorFullName}
                               </option>
                             );
                           })
                       ) : (
-                        <option value="" disabled className="bg-white text-slate-400">
+                        <option value="" disabled className="text-slate-400">
                           No registered CA1 mentors available
                         </option>
                       )}
@@ -832,30 +778,24 @@ const Register = () => {
                     <select
                       value={formData.secondmentorName || ""}
                       onChange={(e) => handleInputChange('secondmentorName', e.target.value)}
-                      required={selectedRole === 'Student'}
+                      required
                       disabled={isLoading}
                       className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
-                      <option value="" disabled hidden>
-                        Choose Your CA2 Advisor
-                      </option>
+                      <option value="" disabled hidden>Choose Your CA2 Advisor</option>
                       {mentorsList.filter(m => m.category === 'CA2').length > 0 ? (
                         mentorsList
                           .filter(mentor => mentor.category === 'CA2')
                           .map((mentor) => {
                             const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
                             return (
-                              <option
-                                key={mentor._id || mentor.id}
-                                value={mentorFullName}
-                                className="bg-white text-slate-900"
-                              >
+                              <option key={mentor._id || mentor.id} value={mentorFullName}>
                                 {mentorFullName}
                               </option>
                             );
                           })
                       ) : (
-                        <option value="" disabled className="bg-white text-slate-400">
+                        <option value="" disabled className="text-slate-400">
                           No registered CA2 mentors available
                         </option>
                       )}
@@ -867,7 +807,6 @@ const Register = () => {
               {/* MENTOR EXTRA FIELDS */}
               {selectedRole === 'Mentor' && (
                 <div className="space-y-4">
-                  {/* Select Department HOD */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
                       <Users size={11} className="text-slate-600" />
@@ -876,29 +815,28 @@ const Register = () => {
                     <select
                       value={formData.selectedHodId}
                       onChange={(e) => handleInputChange('selectedHodId', e.target.value)}
-                      required={selectedRole === 'Mentor'}
+                      required
                       disabled={isLoading}
                       className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
-                      <option value="" disabled hidden>
-                        Choose Your Head of Department
-                      </option>
-                      {hodsList.map((hod) => {
-                        const hodFullName = `Dr. ${hod.firstName || ''} ${hod.lastName || ''}`.trim();
-                        return (
-                          <option
-                            key={hod._id || hod.id}
-                            value={hodFullName}
-                            className="bg-white text-slate-900"
-                          >
-                            {hodFullName}
-                          </option>
-                        );
-                      })}
+                      <option value="" disabled hidden>Choose Your Head of Department</option>
+                      {hodsList.length > 0 ? (
+                        hodsList.map((hod) => {
+                          const hodFullName = `Dr. ${hod.firstName || ''} ${hod.lastName || ''}`.trim();
+                          return (
+                            <option key={hod._id || hod.id} value={hodFullName}>
+                              {hodFullName}
+                            </option>
+                          );
+                        })
+                      ) : (
+                        <option value="" disabled className="text-slate-400">
+                          No HODs available
+                        </option>
+                      )}
                     </select>
                   </div>
 
-                  {/* Mentor Category Selection (CA1 or CA2) */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
                       <ShieldCheck size={11} className="text-slate-600" />
@@ -907,15 +845,13 @@ const Register = () => {
                     <select
                       value={formData.category || ""}
                       onChange={(e) => handleInputChange('category', e.target.value)}
-                      required={selectedRole === 'Mentor'}
+                      required
                       disabled={isLoading}
                       className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
                     >
-                      <option value="" disabled hidden>
-                        Select Category
-                      </option>
-                      <option value="CA1" className="bg-white text-slate-900">CA1</option>
-                      <option value="CA2" className="bg-white text-slate-900">CA2</option>
+                      <option value="" disabled hidden>Select Category</option>
+                      <option value="CA1">CA1</option>
+                      <option value="CA2">CA2</option>
                     </select>
                   </div>
                 </div>

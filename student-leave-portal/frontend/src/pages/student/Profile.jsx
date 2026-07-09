@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { User, Shield, Key, Building2, Mail, PhoneCall } from 'lucide-react';
+import { User, Shield, Key, Building2, Mail, PhoneCall, Home, HomeIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
@@ -135,6 +135,18 @@ const Profile = () => {
               <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Mobile</p>
               <p className="text-xs font-mono font-bold text-blue-900 mt-0.5">
                 {activeUser?.mobile || activeUser?.mobileNo || 'N/A'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+            <div className="p-2 bg-white rounded-lg border border-gray-200 text-amber-500 shadow-sm">
+              <HomeIcon size={18} className="stroke-[2.5]" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Student Type</p>
+              <p className="text-xs font-mono font-bold text-blue-900 mt-0.5">
+                {activeUser?.studentType || 'N/A'}
               </p>
             </div>
           </div>

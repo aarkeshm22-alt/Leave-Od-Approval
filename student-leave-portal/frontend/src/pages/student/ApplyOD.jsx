@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Calendar, FileText, Send, AlertTriangle, User, ShieldCheck, UserCheck,
-  Loader2, Hash, MapPin, School, Upload, ImageIcon, Phone, FileX, Lock, Unlock, Clock
+  Loader2, Hash, MapPin, School, Phone, Clock
 } from 'lucide-react';
 import InputField from '../../components/common/InputField';
 import Button from '../../components/common/Button';
@@ -25,17 +25,10 @@ const ApplyOD = () => {
     collegeName: '',
     collegeLocation: '',
     reason: '',
-    document: null
   });
 
-  // UI state
-  const [formLocked, setFormLocked] = useState(false);
-  const [uploadEnabled, setUploadEnabled] = useState(false); // kept for consistency, but redirect will happen
-  const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [fileError, setFileError] = useState('');
-  const [currentOdId, setCurrentOdId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Fetch user profile
   useEffect(() => {
@@ -43,7 +36,7 @@ const ApplyOD = () => {
       const token = localStorage.getItem('token');
       if (!token || token === 'undefined' || token === 'null') {
         setLoadingProfile(false);
-        setMessage({ type: 'error', text: 'Authentication token missing. Please log in again.' });
+        setErrorMsg('Authentication token missing. Please log in again.');
         return;
       }
       try {
@@ -60,10 +53,10 @@ const ApplyOD = () => {
             mobile: data.mobile || 'Not Provided'
           });
         } else {
-          setMessage({ type: 'error', text: data.message || 'Failed to retrieve profile details.' });
+          setErrorMsg(data.message || 'Failed to retrieve profile details.');
         }
       } catch (err) {
-        setMessage({ type: 'error', text: 'Network connection issue. Please try again.' });
+        setErrorMsg('Network connection issue. Please try again.');
       } finally {
         setLoadingProfile(false);
       }
@@ -73,7 +66,7 @@ const ApplyOD = () => {
 
   // Handlers
   const handleDateChange = (field, value) => {
-    if (formLocked) return;
+    if (submitting) return;
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
       if (prev.duration === 'Half Day' && field === 'fromDate') {
@@ -84,7 +77,7 @@ const ApplyOD = () => {
   };
 
   const handleDurationChange = (durationValue) => {
-    if (formLocked) return;
+    if (submitting) return;
     setFormData((prev) => ({
       ...prev,
       duration: durationValue,
@@ -93,34 +86,11 @@ const ApplyOD = () => {
     }));
   };
 
-  const validateAndSetImage = (file) => {
-    if (!uploadEnabled) return;
-    setFileError('');
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setFileError('Unsupported file format. Please upload an image file (PNG, JPEG, WebP) only.');
-      setFormData(prev => ({ ...prev, document: null }));
-      return;
-    }
-    const maxByteLimit = 300 * 1024;
-    if (file.size > maxByteLimit) {
-      setFileError(`Image size is higher than the 300 KB limit (Detected: ${(file.size / 1024).toFixed(1)} KB)`);
-      setFormData(prev => ({ ...prev, document: null }));
-      return;
-    }
-    setFormData(prev => ({ ...prev, document: file }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    validateAndSetImage(file);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     setSubmitting(true);
-    setMessage({ type: '', text: '' });
+    setErrorMsg('');
 
     try {
       const payload = new FormData();
@@ -142,31 +112,15 @@ const ApplyOD = () => {
       const resData = await response.json();
 
       if (response.ok) {
-        const backendId = resData?.data?._id || resData?.data?.id;
-        if (backendId) {
-          setCurrentOdId(backendId);
-        }
-
-        // ✅ Lock form (optional, but good for UX if they return)
-        setFormLocked(true);
-
-        // Show success message briefly, then redirect
-        setMessage({
-          type: 'success',
-          text: `✅ Your On-Duty (${formData.duration}) request has been submitted successfully! Redirecting to My Requests...`
-        });
-
-        // ✅ Redirect to My Requests after a short delay (so user sees the success message)
-        setTimeout(() => {
-          navigate('/student/my-requests');
-        }, 1500);
+        // ✅ Redirect immediately to My Requests page
+        navigate('/student/my-requests');
       } else {
-        setMessage({ type: 'error', text: resData.message || 'Submission initialization failed.' });
+        setErrorMsg(resData.message || 'Submission initialization failed.');
         setSubmitting(false);
       }
     } catch (err) {
       console.error("Frontend UI execution breakdown tracer:", err);
-      setMessage({ type: 'error', text: 'Could not establish connection to clearance endpoint node.' });
+      setErrorMsg('Could not establish connection to clearance endpoint node.');
       setSubmitting(false);
     }
   };
@@ -201,22 +155,18 @@ const ApplyOD = () => {
           <span className="font-semibold text-blue-900 underline decoration-amber-500 underline-offset-2">
             {formData.type}
           </span>{' '}
-          request through this form. After submission, you'll be redirected to your <strong>My Requests</strong> page.
+          request through this form. After successful submission, you'll be redirected to your <strong>My Requests</strong> page.
         </p>
       </div>
 
-      {/* Message feedback */}
-      {message.text && (
+      {/* Error message */}
+      {errorMsg && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`p-4 rounded-2xl text-sm font-medium border ${
-            message.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
-          }`}
+          className="p-4 rounded-2xl text-sm font-medium border bg-rose-50 border-rose-200 text-rose-800"
         >
-          {message.text}
+          {errorMsg}
         </motion.div>
       )}
 
@@ -229,7 +179,7 @@ const ApplyOD = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
 
-          {/* Profile Section – unchanged */}
+          {/* Profile Section */}
           <div>
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
               <User className="w-4 h-4 text-amber-500" /> Your Details
@@ -290,7 +240,7 @@ const ApplyOD = () => {
                     <button
                       key={option}
                       type="button"
-                      disabled={formLocked}
+                      disabled={submitting}
                       onClick={() => handleDurationChange(option)}
                       className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                         formData.duration === option
@@ -313,7 +263,7 @@ const ApplyOD = () => {
                     <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500" size={16} />
                     <select
                       required
-                      disabled={formLocked}
+                      disabled={submitting}
                       value={formData.halfDaySession}
                       onChange={(e) => setFormData({ ...formData, halfDaySession: e.target.value })}
                       className="w-full bg-white border border-gray-300 rounded-xl py-3 pl-11 pr-4 text-sm text-blue-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all appearance-none font-medium disabled:bg-gray-100 disabled:text-gray-400"
@@ -340,7 +290,7 @@ const ApplyOD = () => {
                 value={formData.fromDate}
                 onChange={(e) => handleDateChange('fromDate', e.target.value)}
                 required
-                disabled={formLocked}
+                disabled={submitting}
                 className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
               {formData.duration === 'Full Day' && (
@@ -351,7 +301,7 @@ const ApplyOD = () => {
                   value={formData.toDate}
                   onChange={(e) => handleDateChange('toDate', e.target.value)}
                   required
-                  disabled={formLocked}
+                  disabled={submitting}
                   className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               )}
@@ -368,7 +318,7 @@ const ApplyOD = () => {
               value={formData.collegeName}
               onChange={(e) => setFormData({ ...formData, collegeName: e.target.value })}
               required
-              disabled={formLocked}
+              disabled={submitting}
               className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
             <InputField
@@ -379,7 +329,7 @@ const ApplyOD = () => {
               value={formData.collegeLocation}
               onChange={(e) => setFormData({ ...formData, collegeLocation: e.target.value })}
               required
-              disabled={formLocked}
+              disabled={submitting}
               className="border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
           </div>
@@ -397,7 +347,7 @@ const ApplyOD = () => {
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 placeholder="eg. Participating in the Grand Finale of Inter-University Smart Hackathon 2026..."
-                disabled={formLocked}
+                disabled={submitting}
                 className="w-full bg-white border border-gray-300 rounded-2xl py-3 pl-12 pr-4 text-sm text-blue-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all resize-none disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
@@ -405,7 +355,7 @@ const ApplyOD = () => {
 
           <hr className="border-gray-300" />
 
-          {/* Workflow Info – updated copy */}
+          {/* Workflow Info */}
           <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
             <div>
@@ -420,7 +370,7 @@ const ApplyOD = () => {
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={submitting || formLocked}
+            disabled={submitting}
             className="w-full py-3.5 sm:py-4 bg-blue-900 hover:bg-amber-500 text-white font-bold rounded-2xl shadow-md shadow-blue-900/20 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (

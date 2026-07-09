@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply antialiased text-slate-100 bg-slate-950 overflow-x-hidden selection:bg-blue-500/30 selection:text-white;
+    @apply font-sans antialiased text-slate-100 bg-slate-950 overflow-x-hidden selection:bg-blue-500/30 selection:text-white;
   }
 }
 
@@ -218,4 +218,3 @@
 .animate-twinkle {
   animation: twinkle 3s ease-in-out infinite;
 }
-
