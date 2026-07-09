@@ -81,6 +81,7 @@ export const sendAnonymousMessage = async (req, res) => {
     const response = {
       _id: chatMessage._id,
       message: chatMessage.message,
+      section: chatMessage.studentSection,
       createdAt: chatMessage.createdAt,
       isRead: chatMessage.isRead,
       reply: chatMessage.reply,
@@ -122,6 +123,7 @@ export const getMyMessages = async (req, res) => {
     const formattedMessages = messages.map(msg => ({
       _id: msg._id,
       message: msg.message,
+      section: msg.studentSection,
       isViewed: msg.isRead,
       reply: msg.reply || null,
       repliedAt: msg.repliedAt || null,
@@ -169,7 +171,7 @@ export const getHodMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .select('-student -__v -attachments -studentSection -studentDepartment -category -priority -status -isReplied -reply -repliedAt');
+      .select('-student -__v -attachments -studentDepartment -category -priority -status -isReplied -reply -repliedAt');
 
     // ✅ Format response - Include full message when revealed
     const formattedMessages = messages.map(msg => ({
