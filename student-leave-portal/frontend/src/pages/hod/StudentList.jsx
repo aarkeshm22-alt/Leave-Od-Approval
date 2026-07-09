@@ -11,9 +11,9 @@ const StudentList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // Certificate Modal States – now holds the selected certificate object
+  // Certificate Modal
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
-  const [selectedCertificate, setSelectedCertificate] = useState(null); // { base64, reason, fromDate, toDate }
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
 
   useEffect(() => {
     const fetchAllStudents = async () => {
@@ -31,6 +31,11 @@ const StudentList = () => {
 
         const receivedStudents = response.data.data || [];
         console.log('✅ Loaded students:', receivedStudents.length);
+        // Log first student to inspect structure
+        if (receivedStudents.length > 0) {
+          console.log('🔍 Sample student structure:', receivedStudents[0]);
+          console.log('🔍 Sample student.ods:', receivedStudents[0].ods);
+        }
         setStudents(receivedStudents);
       } catch (error) {
         console.error('Failed fetching student registry:', error);
@@ -43,7 +48,7 @@ const StudentList = () => {
     fetchAllStudents();
   }, []);
 
-  // Helper functions for filtering
+  // Helper functions
   const normalizeSection = (sectionValue) => {
     if (!sectionValue) return 'UNKNOWN';
     return sectionValue.toString().trim().toUpperCase().replace('SECTION', '').trim();
@@ -54,20 +59,26 @@ const StudentList = () => {
     return yearValue.toString().trim().toUpperCase().replace('YEAR', '').trim();
   };
 
-  // ===== COLLECT ALL CERTIFICATES FROM ODs =====
+  // ===== ROBUST CERTIFICATE EXTRACTION =====
   const getStudentCertificates = (st) => {
     const certs = [];
-    // Check both possible locations
-    const ods = st.ods || st.student?.ods || [];
-    if (Array.isArray(ods)) {
-      ods.forEach((od) => {
-        const cert = od.certificate || od.document;
+
+    // Try multiple possible locations for the OD array
+    const odsArray = st.ods || st.onDutyRequests || st.odRequests || st.student?.ods || [];
+    console.log(`🔍 Found ${odsArray.length} OD entries for ${st.name || st.registerNo}`);
+
+    if (Array.isArray(odsArray)) {
+      odsArray.forEach((od, index) => {
+        // Try multiple possible certificate field names
+        const cert = od.certificate || od.document || od.proof || od.attachment || od.file || od.image || od.certificateUrl;
         if (cert && typeof cert === 'string' && cert.trim().length > 0) {
-          // Check if it's a valid image (base64) or at least a reasonable string
-          if (cert.trim().startsWith('data:image/') || cert.trim().length > 100) {
+          // Accept both base64 and URL
+          const isBase64 = cert.trim().startsWith('data:image/');
+          const isUrl = cert.trim().startsWith('http://') || cert.trim().startsWith('https://');
+          if (isBase64 || isUrl || cert.trim().length > 50) {
             certs.push({
-              base64: cert.trim(),
-              reason: od.reason || 'N/A',
+              base64: cert.trim(), // may be URL or base64
+              reason: od.reason || od.purpose || 'N/A',
               fromDate: od.fromDate
                 ? new Date(od.fromDate).toLocaleDateString('en-GB', {
                     day: '2-digit',
@@ -87,10 +98,26 @@ const StudentList = () => {
         }
       });
     }
+
+    // Also check if the student has a direct certificate (some legacy)
+    const directCert = st.certificate || st.document || st.student?.certificate || st.student?.document;
+    if (directCert && typeof directCert === 'string' && directCert.trim().length > 0) {
+      // If no ODs found but a direct certificate exists, add it as a single entry
+      if (certs.length === 0) {
+        certs.push({
+          base64: directCert.trim(),
+          reason: 'Student Certificate',
+          fromDate: 'N/A',
+          toDate: 'N/A',
+        });
+      }
+    }
+
+    console.log(`📄 Extracted ${certs.length} certificates for ${st.name || st.registerNo}`);
     return certs;
   };
 
-  // Certificate Modal Handlers
+  // Modal handlers
   const openCertificateModal = (cert) => {
     setSelectedCertificate(cert);
     setCertificateModalOpen(true);
@@ -99,11 +126,18 @@ const StudentList = () => {
   const downloadCertificate = () => {
     if (!selectedCertificate?.base64) return;
     const link = document.createElement('a');
-    link.href = selectedCertificate.base64;
-    link.download = `OD_Certificate_${Date.now()}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // If it's a URL, fetch it as blob? For simplicity, we just open in new tab.
+    // For base64, we can download directly.
+    if (selectedCertificate.base64.startsWith('data:image/')) {
+      link.href = selectedCertificate.base64;
+      link.download = `OD_Certificate_${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // For URLs, open in new tab
+      window.open(selectedCertificate.base64, '_blank');
+    }
   };
 
   const closeCertificateModal = () => {
@@ -111,7 +145,7 @@ const StudentList = () => {
     setSelectedCertificate(null);
   };
 
-  // Dynamic filter options
+  // Dynamic filters
   const dynamicYearsArray = ['ALL', ...new Set(
     students.map(s => normalizeYear(s.year || s.yr)).filter(Boolean).sort()
   )];
@@ -120,7 +154,6 @@ const StudentList = () => {
     students.map(s => normalizeSection(s.section || s.sec)).filter(Boolean).sort()
   )];
 
-  // Filtered students
   const filteredStudentsMatrix = students.filter(student => {
     const studentYear = normalizeYear(student.year || student.yr);
     const studentSection = normalizeSection(student.section || student.sec);
@@ -289,7 +322,12 @@ const StudentList = () => {
                     <td className="p-3 sm:p-4 text-left w-28 sm:w-36">
                       <motion.button
                         type="button"
-                        onClick={() => setSelectedStudent(row)}
+                        onClick={() => {
+                          setSelectedStudent(row);
+                          // Log student structure when opening profile
+                          console.log('📋 Full student object:', row);
+                          console.log('📋 Student ODs:', row.ods);
+                        }}
                         whileHover={{ scale: 1.04 }}
                         whileTap={{ scale: 0.98 }}
                         className="inline-flex items-center gap-1.5 bg-indigo-900 hover:bg-indigo-800 text-white font-semibold text-[10px] sm:text-[11px] px-2 sm:px-3 py-1.5 rounded-lg transition-colors shadow-sm tracking-tight whitespace-nowrap"
@@ -397,7 +435,13 @@ const StudentList = () => {
               {/* ===== CERTIFICATE GALLERY ===== */}
               {(() => {
                 const certs = getStudentCertificates(selectedStudent);
-                if (certs.length === 0) return null;
+                if (certs.length === 0) {
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
+                      <p className="text-xs text-slate-400">No certificates found for this student.</p>
+                    </div>
+                  );
+                }
                 return (
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -487,11 +531,18 @@ const StudentList = () => {
                 </div>
               </div>
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
-                <img
-                  src={selectedCertificate.base64}
-                  alt="OD Certificate"
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
-                />
+                {selectedCertificate.base64.startsWith('data:image/') || selectedCertificate.base64.startsWith('http') ? (
+                  <img
+                    src={selectedCertificate.base64}
+                    alt="OD Certificate"
+                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                  />
+                ) : (
+                  <div className="text-center text-sm text-gray-500">
+                    <p>Certificate data is not a valid image.</p>
+                    <p className="text-xs text-gray-400 mt-2">Preview not available.</p>
+                  </div>
+                )}
               </div>
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
                 Certificate for On-Duty request – valid only as per institutional guidelines.

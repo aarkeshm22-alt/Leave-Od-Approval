@@ -269,42 +269,21 @@ export const getStudentsByMentor = async (req, res) => {
   try {
     const { mentorName, category } = req.query;
 
-    // Build the base query
     let query = { role: 'Student' };
-
-    // If mentorName is provided, filter by mentor fields
     if (mentorName && mentorName.trim() !== '') {
       const cleanName = mentorName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const caseInsensitiveRegex = new RegExp(`^${cleanName}$`, 'i');
-
-      const mentorFields = [];
-      if (category === 'CA1') {
-        mentorFields.push('firstmentorName');
-      } else if (category === 'CA2') {
-        mentorFields.push('secondmentorName');
-      } else {
-        mentorFields.push('firstmentorName', 'secondmentorName');
-      }
-
-      query.$or = mentorFields.map(field => ({
-        [field]: { $regex: caseInsensitiveRegex }
-      }));
+      const mentorFields = category === 'CA1' ? ['firstmentorName'] :
+                           category === 'CA2' ? ['secondmentorName'] :
+                           ['firstmentorName', 'secondmentorName'];
+      query.$or = mentorFields.map(field => ({ [field]: { $regex: caseInsensitiveRegex } }));
     }
 
-    // If no mentorName, return all students (HOD view)
-    // No additional filter needed
-
-    console.log('[getStudentsByMentor] Query:', JSON.stringify(query));
-
     const students = await User.find(query)
-      .select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName ')
+      .select('firstName lastName name year section registerNo studentType mobileNo email firstmentorName secondmentorName')
       .lean();
 
-    console.log(`[getStudentsByMentor] Found ${students.length} students`);
-
-    // Enrich with leave/OD counts and certificate
     const enrichedStudents = await Promise.all(students.map(async (student) => {
-      // Count leaves and ODs
       const leaveCount = await Leave.countDocuments({
         student: student._id,
         type: 'Leave',
@@ -317,44 +296,30 @@ export const getStudentsByMentor = async (req, res) => {
         status: 'Approved'
       });
 
-      // Fetch latest document
-      let document = null;
-      try {
-        const docResult = await OnDuty.findOne({
-          student: student._id,
-          certificate: { $exists: true, $ne: null, $ne: "" }
-        })
+      // ✅ Fetch ALL On‑Duty records (not just one)
+      const ods = await OnDuty.find({
+        student: student._id,
+        type: { $in: ['On-Duty', 'OD'] }
+      })
+        .select('certificate reason fromDate toDate status duration halfDaySession')
         .sort({ createdAt: -1 })
-        .select('certificate')
         .lean();
 
-        if (docResult) {
-          document = docResult.certificate;
-        }
-      } catch (err) {
-        console.warn(`Could not fetch certificate for student ${student._id}:`, err.message);
-      }
+      const latestCert = ods.length > 0 ? ods[0].certificate : null;
 
       return {
         ...student,
         name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
-        leaveCount: leaveCount,
-        odCount: odCount,
-        certificate: document || 'No certificate available'
+        leaveCount,
+        odCount,
+        ods,                        // ← Full array of OD objects (each with certificate)
+        certificate: latestCert || 'No certificate available'
       };
     }));
 
-    return res.status(200).json({
-      success: true,
-      data: enrichedStudents
-    });
-
+    res.status(200).json({ success: true, data: enrichedStudents });
   } catch (error) {
     console.error('Error in getStudentsByMentor:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error fetching students.',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Server error.', error: error.message });
   }
 };
