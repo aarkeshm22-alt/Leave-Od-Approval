@@ -182,7 +182,7 @@ const HodDashboard = () => {
     },
     { 
       title: "Total Faculty Registered", 
-      value: `${facultyCount} Members`, 
+      value: `${facultyCount} Faculty's`, 
       description: "Mentors under your HOD", 
       icon: Users, 
       color: "text-amber-600 bg-amber-50 border-amber-200" 

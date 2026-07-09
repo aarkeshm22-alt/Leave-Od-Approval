@@ -22,6 +22,7 @@ const MentorDashboard = () => {
     processedTransactionsCount: 0,
     approvalYield: '0.0%'
   });
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -43,15 +44,17 @@ const MentorDashboard = () => {
     month: '2-digit',
     year: 'numeric'
   });
-  const formattedTime = now.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
+  const formattedTime = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
   });
   const dayName = now.toLocaleDateString('en-IN', { weekday: 'long' });
 
-  // Helper: check if a request is active today (UTC-based)
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 🔥 FIXED: UTC-based date comparison to avoid timezone issues
   const isActiveToday = (fromDate, toDate) => {
     if (!fromDate || !toDate) return false;
     const today = new Date();
@@ -287,11 +290,11 @@ const MentorDashboard = () => {
                       isAnimationActive={false}
                     >
                       {statusData.filter(d => d.value > 0).map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={COLORS[statusData.findIndex(d => d.name === entry.name)]} 
-                          stroke="#ffffff" 
-                          strokeWidth={2} 
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[statusData.findIndex(d => d.name === entry.name)]}
+                          stroke="#ffffff"
+                          strokeWidth={2}
                         />
                       ))}
                     </Pie>

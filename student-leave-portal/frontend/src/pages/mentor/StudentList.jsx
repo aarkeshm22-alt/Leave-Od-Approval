@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, AlertCircle, Users, User, ShieldCheck, Phone, Hash, Calendar,
   X, Eye, User2, Clock, Search, Filter, Download, FileSpreadsheet, FileText,
-  RotateCcw, GraduationCap
+  RotateCcw, GraduationCap, Image
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -17,15 +17,13 @@ const StudentList = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // 🆕 Certificate Modal States
+  // 🆕 Certificate Gallery States
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
-  const [certificateInfo, setCertificateInfo] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null); // { base64, reason, fromDate, toDate }
 
   const openProfileDrawer = (student) => {
     setSelectedStudent(student);
     setIsDrawerOpen(true);
-    console.log('📌 Selected Student:', student);
-    console.log('📌 Certificate field:', student.certificate);
   };
 
   // Filter states
@@ -41,20 +39,35 @@ const StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  // Certificate detection
-  const getStudentCertificate = (st) => {
-    return st.certificate ||
-           st.document ||
-           st.student?.certificate ||
-           st.student?.document ||
-           st._doc?.certificate ||
-           st._doc?.document ||
-           null;
-  };
-
-  const hasCertificate = (st) => {
-    const cert = getStudentCertificate(st);
-    return !!(cert && cert.length > 0);
+  // ----- Collect all certificates from ODs -----
+  const getStudentCertificates = (st) => {
+    const certs = [];
+    if (st.ods && Array.isArray(st.ods)) {
+      st.ods.forEach((od) => {
+        const cert = od.certificate || od.document;
+        if (cert && typeof cert === 'string' && cert.startsWith('data:image')) {
+          certs.push({
+            base64: cert,
+            reason: od.reason || 'N/A',
+            fromDate: od.fromDate
+              ? new Date(od.fromDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : 'N/A',
+            toDate: od.toDate
+              ? new Date(od.toDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : 'N/A',
+          });
+        }
+      });
+    }
+    return certs;
   };
 
   // ----- Fetch data -----
@@ -75,10 +88,6 @@ const StudentList = () => {
         const data = await response.json();
         if (response.ok) {
           const extractedStudents = data.data || data.students || (Array.isArray(data) ? data : []);
-          if (extractedStudents.length > 0) {
-            console.log('Sample student:', extractedStudents[0]);
-            console.log('Certificate in first student:', extractedStudents[0].certificate);
-          }
           setStudents(extractedStudents);
         } else {
           setErrorMsg(data.message || 'Failed to sync with structural student database.');
@@ -132,7 +141,7 @@ const StudentList = () => {
         "OD Count": getODCount(st),
         "Email": st.email || st.student?.email || 'N/A',
         "Mobile": st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
-        "Certificate": hasCertificate(st) ? 'Yes' : 'No'
+        "Certificate Count": getStudentCertificates(st).length
       }));
 
       if (format === 'excel') {
@@ -155,7 +164,7 @@ const StudentList = () => {
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Students: ${filteredStudents.length}`, 14, 18);
 
         const tableHeaders = [
-          ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Cert"]
+          ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Certs"]
         ];
         const tableBody = filteredStudents.map(st => [
           st.registerNo || st.register || st.student?.registerNo || 'N/A',
@@ -167,7 +176,7 @@ const StudentList = () => {
           getODCount(st).toString(),
           st.email || st.student?.email || 'N/A',
           st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
-          hasCertificate(st) ? 'Yes' : 'No'
+          getStudentCertificates(st).length.toString()
         ]);
 
         autoTable(doc, {
@@ -213,50 +222,24 @@ const StudentList = () => {
   // ============================================================
   // 🆕 CERTIFICATE MODAL HANDLERS
   // ============================================================
-  const openCertificateModal = () => {
-    if (!selectedStudent) return;
-    const cert = getStudentCertificate(selectedStudent);
-    if (!cert) return;
-
-    // Find the OD that has this certificate
-    const odWithCert = selectedStudent.ods?.find(
-      (od) => od.certificate === cert || od.document === cert
-    );
-
-    setCertificateInfo({
-      base64: cert,
-      reason: odWithCert?.reason || 'N/A',
-      fromDate: odWithCert?.fromDate
-        ? new Date(odWithCert.fromDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          })
-        : 'N/A',
-      toDate: odWithCert?.toDate
-        ? new Date(odWithCert.toDate).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          })
-        : 'N/A',
-    });
+  const openCertificateModal = (cert) => {
+    setSelectedCertificate(cert);
     setCertificateModalOpen(true);
-  };
-
-  const downloadCertificate = () => {
-    if (!certificateInfo?.base64) return;
-    const link = document.createElement('a');
-    link.href = certificateInfo.base64;
-    link.download = `OD_Certificate_${Date.now()}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const closeCertificateModal = () => {
     setCertificateModalOpen(false);
-    setCertificateInfo(null);
+    setSelectedCertificate(null);
+  };
+
+  const downloadCertificate = () => {
+    if (!selectedCertificate?.base64) return;
+    const link = document.createElement('a');
+    link.href = selectedCertificate.base64;
+    link.download = `OD_Certificate_${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // ----- Loading State -----
@@ -574,29 +557,41 @@ const StudentList = () => {
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> Class Advisor 2</span>
                     <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || selectedStudent.student?.secondmentorName || 'Assigned to Self'}</span>
                   </div>
-
-                  {/* Certificate display – now opens modal with details */}
-                  {(() => {
-                    const cert = getStudentCertificate(selectedStudent);
-                    if (cert) {
-                      return (
-                        <div className="bg-white border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs shadow-sm">
-                          <span className="text-amber-600 font-bold flex items-center gap-1.5 shrink-0">
-                            <Eye size={14} /> Uploaded OD Proof
-                          </span>
-                          <button
-                            type="button"
-                            onClick={openCertificateModal}
-                            className="text-[11px] font-black tracking-tight bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                          >
-                            View Certificate
-                          </button>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
                 </div>
+
+                {/* ========== 🆕 CERTIFICATE GALLERY ========== */}
+                {(() => {
+                  const certs = getStudentCertificates(selectedStudent);
+                  if (certs.length === 0) return null;
+                  return (
+                    <div className="space-y-2">
+                      <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Image size={12} /> OD Certificates ({certs.length})
+                      </h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {certs.map((cert, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-indigo-900 truncate">{cert.reason}</p>
+                              <p className="text-[10px] text-gray-500">
+                                {cert.fromDate} {cert.fromDate !== 'N/A' && 'to'} {cert.toDate}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => openCertificateModal(cert)}
+                              className="shrink-0 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all shadow-sm"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Analytics summary */}
                 <div className="p-4 bg-indigo-900 text-white rounded-2xl space-y-3 shadow-md">
@@ -674,10 +669,10 @@ const StudentList = () => {
       </AnimatePresence>
 
       {/* ================================================================ */}
-      {/* 🆕 CERTIFICATE MODAL WITH REASON & DATE */}
+      {/* 🆕 CERTIFICATE MODAL (re-usable for any certificate) */}
       {/* ================================================================ */}
       <AnimatePresence>
-        {certificateModalOpen && certificateInfo && (
+        {certificateModalOpen && selectedCertificate && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -693,15 +688,15 @@ const StudentList = () => {
               className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header – now shows reason and date */}
+              {/* Modal Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div>
                   <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
-                    <Eye size={18} className="text-amber-500" />
-                    Certificate for: {certificateInfo.reason}
+                    <Image size={18} className="text-amber-500" />
+                    Certificate for: {selectedCertificate.reason}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {certificateInfo.fromDate} {certificateInfo.fromDate !== 'N/A' && 'to'} {certificateInfo.toDate}
+                    {selectedCertificate.fromDate} {selectedCertificate.fromDate !== 'N/A' && 'to'} {selectedCertificate.toDate}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -724,7 +719,7 @@ const StudentList = () => {
               {/* Image Container */}
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
-                  src={certificateInfo.base64}
+                  src={selectedCertificate.base64}
                   alt="OD Certificate"
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
                 />

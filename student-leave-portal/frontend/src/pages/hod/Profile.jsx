@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 const HodProfile = () => {
   const { user, loading } = useAuth();
 
-  // Combine names cleanly if structured as first/last, or fallback safely
+  // Combine names cleanly
   const profileName = user?.firstName || user?.lastName
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
     : user?.name || "Verified Identity";
@@ -21,7 +21,7 @@ const HodProfile = () => {
   if (loading || !user) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 font-sans bg-[#F8FAFC]">
-        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-indigo-700 border-t-transparent rounded-full animate-spin" />
         <p className="text-xs font-bold text-slate-600 tracking-tight animate-pulse">Syncing Institutional Records Engine...</p>
       </div>
     );
@@ -37,15 +37,15 @@ const HodProfile = () => {
       
       {/* Page Title Header Block */}
       <div className="border-b border-slate-200/80 pb-5">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Profile Details</h2>
+        <h2 className="text-2xl font-black text-indigo-900 tracking-tight">Profile Details</h2>
         <p className="text-xs text-slate-500 font-medium mt-0.5">Role and department verified successfully.</p>
       </div>
 
       {/* Primary Profile Identity Blueprints */}
       <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm shadow-slate-100/50">
         
-        {/* Upper Decorative Authority Banner Section */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-indigo-950 px-6 py-8 text-white relative overflow-hidden">
+        {/* Upper Decorative Authority Banner – Navy with Amber accent */}
+        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-950 px-6 py-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:14px_24px]" />
           
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
@@ -54,16 +54,16 @@ const HodProfile = () => {
                 {userInitials}
               </div>
               <div className="space-y-0.5">
-                <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md border border-indigo-400/20">
+                <span className="inline-block text-[9px] font-extrabold uppercase tracking-widest bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-md border border-amber-400/20">
                   Head of Department (HOD)
                 </span>
                 <h3 className="text-lg font-black tracking-tight mt-1">{profileName}</h3>
-                <p className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">{userEmail}</p>
+                <p className="text-xs text-slate-300 font-semibold flex items-center gap-1.5">{userEmail}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-auto bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 backdrop-blur-xs shadow-3xs">
-              <Fingerprint size={16} className="text-indigo-400" />
+              <Fingerprint size={16} className="text-amber-400" />
               <div className="text-left">
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Status</p>
                 <p className="text-[11px] font-bold text-emerald-400">Active & Authenticated</p>
@@ -85,40 +85,40 @@ const HodProfile = () => {
             {/* Identity Parameter Link */}
             <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-slate-500 font-bold flex items-center gap-2">
-                <User size={14} className="text-slate-400" />
+                <User size={14} className="text-amber-500" />
                 <span>Full Name</span>
               </span>
-              <span className="font-extrabold text-slate-900 text-sm tracking-tight">{profileName}</span>
+              <span className="font-extrabold text-indigo-900 text-sm tracking-tight">{profileName}</span>
             </div>
 
             {/* Email Parameter Link */}
             <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-slate-500 font-bold flex items-center gap-2">
-                <Mail size={14} className="text-slate-400" />
-                <span>Mail Id</span>
+                <Mail size={14} className="text-amber-500" />
+                <span>Email Address</span>
               </span>
-              <span className="font-mono text-slate-700 font-semibold bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-lg shadow-3xs">
+              <span className="font-mono text-indigo-900 font-semibold bg-indigo-50 border border-indigo-100/60 px-2 py-0.5 rounded-lg shadow-3xs">
                 {userEmail}
               </span>
             </div>
 
             <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-slate-500 font-bold flex items-center gap-2">
-                <PhoneCallIcon size={14} className="text-slate-400" />
+                <PhoneCallIcon size={14} className="text-amber-500" />
                 <span>Mobile Number</span>
               </span>
-              <span className="font-mono text-slate-700 font-semibold bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-lg shadow-3xs">
-                {user.mobile}
+              <span className="font-mono text-indigo-900 font-semibold bg-indigo-50 border border-indigo-100/60 px-2 py-0.5 rounded-lg shadow-3xs">
+                {user.mobile || 'N/A'}
               </span>
             </div>
 
             {/* Department Mapping Link */}
             <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-slate-500 font-bold flex items-center gap-2">
-                <Building2 size={14} className="text-slate-400" />
+                <Building2 size={14} className="text-amber-500" />
                 <span>Department</span>
               </span>
-              <span className="font-mono text-indigo-700 bg-indigo-50 border border-indigo-100/80 px-2.5 py-0.5 rounded-lg font-bold text-xs shadow-3xs">
+              <span className="font-mono text-indigo-900 bg-indigo-50 border border-indigo-100/80 px-2.5 py-0.5 rounded-lg font-bold text-xs shadow-3xs">
                 {userDepartment}
               </span>
             </div>
@@ -126,11 +126,11 @@ const HodProfile = () => {
             {/* Security Privilege Level Link */}
             <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-slate-500 font-bold flex items-center gap-2">
-                <KeyRound size={14} className="text-slate-400" />
+                <KeyRound size={14} className="text-amber-500" />
                 <span>Security Access</span>
               </span>
-              <span className="text-slate-900 font-black uppercase tracking-wider text-[10px] flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg shadow-3xs w-fit">
-                <ShieldCheck size={13} className="text-emerald-600 stroke-[2.5]" />
+              <span className="text-indigo-900 font-black uppercase tracking-wider text-[10px] flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-lg shadow-3xs w-fit">
+                <ShieldCheck size={13} className="text-amber-600 stroke-[2.5]" />
                 <span>Admin Node</span>
               </span>
             </div>

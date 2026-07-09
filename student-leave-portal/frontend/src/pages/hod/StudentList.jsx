@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GraduationCap, UserCheck, X, Loader, Mail, Phone, Calendar, Grid, Layers, FileText, Eye, Search, User, User2, Download } from 'lucide-react';
+import { GraduationCap, UserCheck, X, Loader, Mail, Phone, Calendar, Grid, Layers, FileText, Eye, Search, User, User2, Download, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
@@ -11,9 +11,9 @@ const StudentList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // Certificate Modal States
+  // Certificate Modal States – now holds the selected certificate object
   const [certificateModalOpen, setCertificateModalOpen] = useState(false);
-  const [certificateData, setCertificateData] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null); // { base64, reason, fromDate, toDate }
 
   useEffect(() => {
     const fetchAllStudents = async () => {
@@ -54,39 +54,52 @@ const StudentList = () => {
     return yearValue.toString().trim().toUpperCase().replace('YEAR', '').trim();
   };
 
-  // ===== IMPROVED CERTIFICATE HELPERS =====
-  const getStudentCertificate = (st) => {
-    // Try multiple possible field names
-    const cert = st.certificate || st.document || st.student?.certificate || st.student?.document || null;
-    if (typeof cert === 'string') {
-      const trimmed = cert.trim();
-      if (trimmed.length === 0) return null;
-      // Check if it's a valid base64 image or at least a reasonable string
-      if (trimmed.startsWith('data:image/') || trimmed.length > 100) {
-        return trimmed;
-      }
-      return null;
+  // ===== COLLECT ALL CERTIFICATES FROM ODs =====
+  const getStudentCertificates = (st) => {
+    const certs = [];
+    // Check both possible locations
+    const ods = st.ods || st.student?.ods || [];
+    if (Array.isArray(ods)) {
+      ods.forEach((od) => {
+        const cert = od.certificate || od.document;
+        if (cert && typeof cert === 'string' && cert.trim().length > 0) {
+          // Check if it's a valid image (base64) or at least a reasonable string
+          if (cert.trim().startsWith('data:image/') || cert.trim().length > 100) {
+            certs.push({
+              base64: cert.trim(),
+              reason: od.reason || 'N/A',
+              fromDate: od.fromDate
+                ? new Date(od.fromDate).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'N/A',
+              toDate: od.toDate
+                ? new Date(od.toDate).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'N/A',
+            });
+          }
+        }
+      });
     }
-    return null;
-  };
-
-  const hasCertificate = (st) => {
-    return !!getStudentCertificate(st);
+    return certs;
   };
 
   // Certificate Modal Handlers
-  const openCertificateModal = (student) => {
-    if (!student) return;
-    const cert = getStudentCertificate(student);
-    if (!cert) return;
-    setCertificateData(cert);
+  const openCertificateModal = (cert) => {
+    setSelectedCertificate(cert);
     setCertificateModalOpen(true);
   };
 
   const downloadCertificate = () => {
-    if (!certificateData) return;
+    if (!selectedCertificate?.base64) return;
     const link = document.createElement('a');
-    link.href = certificateData;
+    link.href = selectedCertificate.base64;
     link.download = `OD_Certificate_${Date.now()}.jpg`;
     document.body.appendChild(link);
     link.click();
@@ -95,7 +108,7 @@ const StudentList = () => {
 
   const closeCertificateModal = () => {
     setCertificateModalOpen(false);
-    setCertificateData(null);
+    setSelectedCertificate(null);
   };
 
   // Dynamic filter options
@@ -381,21 +394,39 @@ const StudentList = () => {
                 </div>
               </div>
 
-              {/* ===== CERTIFICATE SECTION – ONLY IF VALID ===== */}
-              {hasCertificate(selectedStudent) && (
-                <div className="bg-amber-50/40 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-amber-600 shrink-0" />
-                    <span className="text-xs font-bold text-indigo-900">On-Duty Certificate </span>
+              {/* ===== CERTIFICATE GALLERY ===== */}
+              {(() => {
+                const certs = getStudentCertificates(selectedStudent);
+                if (certs.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Image size={14} /> OD Certificates ({certs.length})
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {certs.map((cert, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl p-2.5 text-xs"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-indigo-900 truncate">{cert.reason}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {cert.fromDate} {cert.fromDate !== 'N/A' && 'to'} {cert.toDate}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => openCertificateModal(cert)}
+                            className="shrink-0 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all shadow-sm"
+                          >
+                            View
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => openCertificateModal(selectedStudent)}
-                    className="text-[11px] font-black bg-indigo-900 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs w-full sm:w-auto text-center"
-                  >
-                    View Certificate
-                  </button>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="pt-4 border-t border-slate-200">
@@ -413,7 +444,7 @@ const StudentList = () => {
 
       {/* ===== CERTIFICATE MODAL ===== */}
       <AnimatePresence>
-        {certificateModalOpen && certificateData && (
+        {certificateModalOpen && selectedCertificate && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -430,10 +461,15 @@ const StudentList = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
-                  <Eye size={18} className="text-amber-500" />
-                  Uploaded Certificate 
-                </h3>
+                <div>
+                  <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                    <Image size={18} className="text-amber-500" />
+                    Certificate for: {selectedCertificate.reason}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {selectedCertificate.fromDate} {selectedCertificate.fromDate !== 'N/A' && 'to'} {selectedCertificate.toDate}
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={downloadCertificate}
@@ -452,13 +488,13 @@ const StudentList = () => {
               </div>
               <div className="p-4 flex items-center justify-center bg-gray-50 min-h-[200px]">
                 <img
-                  src={certificateData}
-                  alt="Certificate"
+                  src={selectedCertificate.base64}
+                  alt="OD Certificate"
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
                 />
               </div>
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
-                Certificate for On-Duty.
+                Certificate for On-Duty request – valid only as per institutional guidelines.
               </div>
             </motion.div>
           </motion.div>
