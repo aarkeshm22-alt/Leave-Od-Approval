@@ -64,6 +64,7 @@ const MentorDashboard = () => {
     return fromMidnight.getTime() <= todayMidnight.getTime() && todayMidnight.getTime() <= toMidnight.getTime();
   };
 
+  // 🔥 UPDATED: fetch dashboard data with actual counts
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -85,59 +86,63 @@ const MentorDashboard = () => {
           }
         };
 
-        // 1. Fetch mentor profile
+        // 1. Fetch mentor profile (for name & assigned count)
         const { data } = await axios.get(`${BASE_URL}/api/users/profile`, config);
 
-        if (data) {
-          const assigned = data.assignedStudentsCount || data.studentsCount || 0;
-          const pending = data.pendingCount || data.pendingVerificationCount || 0;
-          const approved = data.approvedCount || data.processedCount || 0;
-
-          // ✅ FIXED: compute rejected from the other counts, ignore API's rejectedCount
-          const rejected = Math.max(0, assigned - pending - approved);
-
-          const yieldValue = (approved + pending) > 0
-            ? ((approved / (approved + pending)) * 100).toFixed(1)
-            : '100.0';
-
-          setMetrics({
-            name: data.name || 'Mentor',
-            assignedStudentsCount: assigned,
-            pendingVerificationCount: pending,
-            processedTransactionsCount: approved,
-            approvalYield: `${yieldValue}%`
-          });
-
-          setStatusData([
-            { name: 'Pending', value: pending },
-            { name: 'Approved', value: approved },
-            { name: 'Rejected', value: rejected }
-          ]);
-        }
-
-        // 2. Fetch students for today's absences
+        // 2. Fetch students (to count actual requests)
         const studentsRes = await axios.get(`${BASE_URL}/api/mentor/my-students`, config);
         const students = studentsRes.data?.data || [];
 
+        let assignedCount = students.length;
+        let pendingCount = 0;
+        let approvedCount = 0;
+        let rejectedCount = 0;
         let activeLeaves = 0;
         let activeODs = 0;
 
         students.forEach(student => {
+          // Count leaves
           (student.leaves || []).forEach(leave => {
-            if (leave.status === 'Approved' || leave.status === 'Partially Approved') {
-              if (isActiveToday(leave.fromDate, leave.toDate)) {
-                activeLeaves++;
-              }
+            const status = leave.status?.toLowerCase();
+            if (status === 'pending') pendingCount++;
+            else if (status === 'approved' || status === 'partially approved') {
+              approvedCount++;
+              if (isActiveToday(leave.fromDate, leave.toDate)) activeLeaves++;
             }
+            else if (status === 'rejected') rejectedCount++;
           });
+
+          // Count ODs
           (student.ods || []).forEach(od => {
-            if (od.status === 'Approved' || od.status === 'Partially Approved') {
-              if (isActiveToday(od.fromDate, od.toDate)) {
-                activeODs++;
-              }
+            const status = od.status?.toLowerCase();
+            if (status === 'pending') pendingCount++;
+            else if (status === 'approved' || status === 'partially approved') {
+              approvedCount++;
+              if (isActiveToday(od.fromDate, od.toDate)) activeODs++;
             }
+            else if (status === 'rejected') rejectedCount++;
           });
         });
+
+        // 3. Compute approval yield
+        const totalDecisions = approvedCount + rejectedCount;
+        const yieldValue = totalDecisions > 0
+          ? ((approvedCount / totalDecisions) * 100).toFixed(1)
+          : '100.0';
+
+        setMetrics({
+          name: data?.name || 'Mentor',
+          assignedStudentsCount: assignedCount,
+          pendingVerificationCount: pendingCount,
+          processedTransactionsCount: approvedCount,
+          approvalYield: `${yieldValue}%`
+        });
+
+        setStatusData([
+          { name: 'Pending', value: pendingCount },
+          { name: 'Approved', value: approvedCount },
+          { name: 'Rejected', value: rejectedCount }
+        ]);
 
         setTodayActiveLeaves(activeLeaves);
         setTodayActiveODs(activeODs);
