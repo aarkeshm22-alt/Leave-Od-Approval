@@ -15,7 +15,6 @@ import HodDashboard from '../pages/hod/Dashboard';
 import HodApprovals from '../pages/hod/Approvals';
 import HodMentors from '../pages/hod/MentorList';
 import HodStudents from '../pages/hod/StudentList';
-import HodReports from '../pages/hod/Reports';
 import HodProfile from '../pages/hod/Profile';
 import HODChatManagement from '../pages/hod/ChatManagement';
 import TodayAbsence from '../pages/hod/TodayAbsence';
@@ -91,7 +90,6 @@ const AppRoutes = () => {
         <Route path="approvals" element={<HodApprovals />} />
         <Route path="mentors" element={<HodMentors />} />
         <Route path="students" element={<HodStudents />} />
-        <Route path="reports" element={<HodReports />} />
         <Route path="profile" element={<HodProfile />} /> 
         <Route path="chat" element={<HODChatManagement />} />
         <Route path="today-absence" element={<TodayAbsence />} />

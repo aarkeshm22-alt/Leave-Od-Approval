@@ -505,7 +505,7 @@ const Register = () => {
             Registration For
           </h2>
           <p className="text-xs text-indigo-700 dark:text-indigo-200 font-semibold mt-1">
-            Leave & OD Approval Portal
+            LOA Portal
           </p>
         </div>
 
@@ -656,8 +656,8 @@ const Register = () => {
               exit={{ opacity: 0, y: -5 }}
               className="space-y-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl p-4"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Account Type: <span className="text-indigo-600 dark:text-indigo-300 font-extrabold">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-black/80">
+                Account Type: <span className="text-indigo-600 dark:text-white font-extrabold">
                   {tierMeta[selectedRole].text}
                 </span>
               </div>
@@ -859,8 +859,9 @@ const Register = () => {
 
               {/* HOD EXTRA FIELDS */}
               {selectedRole === 'HOD' && (
-                <div className="p-3 bg-white/30 backdrop-blur-md border border-white/40 rounded-xl text-[11px] font-medium text-slate-900 leading-relaxed shadow-sm">
-                  ✨ No additional authorization trees are required for department heads.
+                <div className="p-3 bg-white/30 backdrop-blur-md border border-white/40 rounded-xl text-[11px] font-medium text-slate-900 leading-relaxed shadow-sm flex items-center gap-2">
+                  <Sparkles size={12} className="text-slate-900 shrink-0" />
+                  <span>No additional authorization trees are required for department heads.</span>
                 </div>
               )}
             </motion.div>
@@ -897,15 +898,15 @@ const Register = () => {
             disabled={isLoading}
             className="w-full mt-4 py-3 px-4 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 transition-all duration-200 uppercase tracking-wider disabled:opacity-50"
           >
-            <span>{isLoading ? 'Processing...' : 'Secure Access'}</span>
+            <span>{isLoading ? 'Processing...' : 'Register Profile'}</span>
             {!isLoading && <ArrowRight size={14} />}
           </motion.button>
         </form>
 
-        <div className="text-center text-xs text-slate-600 dark:text-slate-300 font-medium mt-6 pt-4 border-t border-white/20">
+        <div className="text-center text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-6 pt-4 border-t border-white/20">
           Already have an institutional profile?{' '}
           <Link to="/login" className="text-slate-800 dark:text-white font-bold hover:underline">
-            Sign up
+            Sign in
           </Link>
         </div>
       </motion.div>

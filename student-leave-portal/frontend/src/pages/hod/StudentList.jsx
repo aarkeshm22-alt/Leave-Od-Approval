@@ -545,7 +545,7 @@ const StudentList = () => {
                 )}
               </div>
               <div className="p-3 border-t border-gray-200 text-center text-[10px] text-gray-400">
-                Certificate for On-Duty request – valid only as per institutional guidelines.
+                Certificate for On-Duty.
               </div>
             </motion.div>
           </motion.div>

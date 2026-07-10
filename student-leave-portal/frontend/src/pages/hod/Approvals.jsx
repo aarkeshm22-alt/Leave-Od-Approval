@@ -624,7 +624,7 @@ const Approvals = () => {
             )}
             <span className="flex items-center gap-1"><Hash size={11} /> Register No</span>
           </div>
-          <div className="col-span-2 flex items-center gap-1.5"><User size={12} /> Student Identity</div>
+          <div className="col-span-2 flex items-center gap-1.5"><User size={12} /> Student Name</div>
           <div className="col-span-2 flex items-center gap-1.5"><Layers3 size={12} /> Section</div>
           <div className="col-span-2 flex items-center gap-1.5"><User size={12} /> Faculty Mentor (CA1)</div>
           <div className="col-span-2 flex items-center gap-1.5"><FileText size={12} /> Reason</div>
@@ -714,7 +714,7 @@ const Approvals = () => {
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                         : 'bg-rose-50 text-rose-700 border-rose-200'
                     }`}>
-                      {row.status === 'Approved' ? 'Cleared' : 'Declined'}
+                      {row.status === 'Approved' ? 'Approved' : 'Rejected'}
                     </span>
                   )}
                 </div>

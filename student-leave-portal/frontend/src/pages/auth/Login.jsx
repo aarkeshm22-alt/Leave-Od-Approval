@@ -420,10 +420,10 @@ const handleSubmit = async (e) => {
             <ShieldCheck className="text-indigo-600 dark:text-indigo-300" size={26} />
           </div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
-            Leave & OD Approval Portal
+            LOA Portal 
           </h2>
           <p className="text-xs text-indigo-700 dark:text-indigo-200 font-medium mt-1">
-            Manage Leave Requests and On-Duty Approvals Efficiently
+            LOA Portal
           </p>
         </div>
 
@@ -463,7 +463,7 @@ const handleSubmit = async (e) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <InputField
-            label="Institutional Email Address"
+            label="Email Address"
             type="email"
             placeholder="username@ksrce.ac.in"
             icon={Mail}
@@ -488,17 +488,17 @@ const handleSubmit = async (e) => {
             type="submit"
             className="w-full mt-6 py-3 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-wider"
           >
-            <span>Authenticate Secure Session</span>
+            <span>Authenticate Login</span>
             <ArrowRight size={14} />
           </motion.button>
         </form>
 
         <div className="mt-6 pt-4 border-t border-white/20 flex justify-end">
-          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+          <p className="text-xs text-slate-300 dark:text-slate-400 font-medium">
             New here?{' '}
             <Link
               to="/register"
-              className="text-slate-800 dark:text-white font-bold hover:underline"
+              className="text-slate-800 dark:text-white font-bold underline"
             >
               Create an account
             </Link>
