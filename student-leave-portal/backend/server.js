@@ -15,7 +15,7 @@ const app = express();
 
 // ✅ Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'https://leave-od-approval.onrender.com'],
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'https://leave-od-approval.onrender.com', 'https://leave-od-approval.vercel.app'],
     credentials: true
 }));
 app.use(express.json());
