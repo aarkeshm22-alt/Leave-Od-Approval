@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, ArrowLeft, CheckCircle, AlertCircle, Cloud } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, Cloud } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -302,55 +302,67 @@ const SkyBackground = () => {
   );
 };
 
-// ─── Main ForgotPassword Component ──────────────────────────────────────
-const ForgotPassword = () => {
+// ─── Main ResetPassword Component ──────────────────────────────────────
+const ResetPassword = () => {
   const navigate = useNavigate();
+  const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem('resetToken');
+    const savedEmail = localStorage.getItem('resetEmail');
+
+    console.log('📥 Auto-loaded Token:', savedToken ? 'Yes ✅' : 'No ❌');
+
+    if (savedToken) setToken(savedToken);
+    if (savedEmail) setEmail(savedEmail);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    console.log('🔑 Using Token:', token ? 'Token present ✅' : 'No token ❌');
 
-    if (!email.trim()) {
-      toast.error('Please enter your email address');
+    if (!token) {
+      toast.error('No reset token found. Please request a new one.');
+      navigate('/forgot-password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
-      const API_URL = 'http://localhost:5000';
-      // ⏱️ Add a 15‑second timeout to prevent hanging
-      const response = await axios.post(
-        `${API_URL}/api/auth/forgot-password`,
-        { email: email.trim() },
-        { timeout: 15000 } // 15 seconds
-      );
+      const response = await axios.post('http://localhost:5000/api/auth/reset-password', {
+        token,
+        newPassword,
+      });
+
+      console.log('✅ Reset Response:', response.data);
 
       if (response.data.success) {
-        localStorage.setItem('resetEmail', response.data.email || email);
         setSuccess(true);
-        toast.success('OTP sent to your email!');
-        setTimeout(() => {
-          navigate('/verify-otp');
-        }, 2000);
-      } else {
-        setError(response.data.message || 'Failed to send OTP');
-        toast.error(response.data.message || 'Failed to send OTP');
+        toast.success('Password reset successfully!');
+        localStorage.removeItem('resetToken');
+        localStorage.removeItem('resetEmail');
+        setTimeout(() => navigate('/login'), 3000);
       }
-    } catch (err) {
-      let errorMsg = 'Failed to send OTP';
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-        errorMsg = 'Request timed out. The server is taking too long to respond. Please try again.';
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      } else {
-        errorMsg = err.message || 'Failed to send OTP';
-      }
-      setError(errorMsg);
-      toast.error(errorMsg);
+    } catch (error) {
+      console.error('❌ Error:', error);
+      console.error('❌ Response:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -374,9 +386,10 @@ const ForgotPassword = () => {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100/80 backdrop-blur-sm mb-4">
             <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
-          <h3 className="text-xl font-bold text-black dark:text-white">OTP Sent</h3>
-          <p className="mt-2 text-sm text-black dark:text-white">Please check your email for the OTP.</p>
-          <p className="mt-1 text-xs text-black/70 dark:text-white/70">Redirecting to OTP verification...</p>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-white">Password Reset Successful</h3>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+            Your password has been reset. Redirecting to login...
+          </p>
           <div className="mt-4 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
           </div>
@@ -403,80 +416,114 @@ const ForgotPassword = () => {
 
         <div className="flex flex-col items-center text-center mb-6">
           <div className="h-14 w-14 bg-white/30 dark:bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4 border border-white/30 shadow-inner">
-            <Mail className="text-indigo-600 dark:text-indigo-300" size={26} />
+            <Lock className="text-indigo-600 dark:text-indigo-300" size={26} />
           </div>
-          <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
             LOA Portal
           </h2>
-          <p className="text-xs text-black dark:text-white font-medium mt-1">
-            Reset your password
+          <p className="text-xs text-indigo-700 dark:text-indigo-200 font-medium mt-1">
+            Create new password
           </p>
+          {email && (
+            <p className="mt-1 text-xs text-slate-700 dark:text-slate-400">
+              Resetting for: <strong className="text-slate-800 dark:text-white">{email}</strong>
+            </p>
+          )}
         </div>
 
         <Link
           to="/login"
-          className="inline-flex items-center text-xs font-medium text-black dark:text-white hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+          className="inline-flex items-center text-xs font-medium text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-100 transition-colors"
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Login
         </Link>
 
         <div className="mt-4 bg-white/30 dark:bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50/80 dark:bg-red-900/30 backdrop-blur-sm border border-red-200/60 dark:border-red-700/60 rounded-xl text-red-600 dark:text-red-400 text-xs font-medium flex items-start gap-2">
+          {!token ? (
+            <div className="mb-4 p-3 bg-yellow-50/80 dark:bg-yellow-900/30 backdrop-blur-sm border border-yellow-200/60 dark:border-yellow-700/60 rounded-xl text-yellow-700 dark:text-yellow-400 text-xs font-medium flex items-start gap-2">
               <AlertCircle size={18} className="shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <span>No reset token found. Please request a new one.</span>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-green-50/80 dark:bg-green-900/30 backdrop-blur-sm border border-green-200/60 dark:border-green-700/60 rounded-xl text-green-700 dark:text-green-400 text-xs font-medium flex items-start gap-2">
+              <CheckCircle size={18} className="shrink-0 mt-0.5" />
+              <span>Token verified! You can now reset your password.</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="block text-[11px] font-bold uppercase text-black dark:text-white tracking-wider">
-                Email Address
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider mb-1.5">
+                New Password
               </label>
-              <div className="mt-1.5 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-black dark:text-white" />
-                </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-700 dark:text-slate-400" />
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2.5 bg-white/60 dark:bg-slate-800/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/30 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:outline-none focus:border-indigo-400/70 dark:focus:border-indigo-400/70 transition-all text-sm"
+                  placeholder="Min 6 characters"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 bg-white/60 dark:bg-slate-800/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/30 rounded-xl text-black dark:text-white placeholder:text-black/50 dark:placeholder:text-white/50 focus:outline-none focus:border-indigo-400/70 dark:focus:border-indigo-400/70 transition-all text-sm"
-                  placeholder="Enter your registered email"
+                  disabled={!token}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-slate-700 dark:text-slate-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-slate-700 dark:text-slate-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-[11px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider mb-1.5">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-700 dark:text-slate-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 bg-white/60 dark:bg-slate-800/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/30 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:outline-none focus:border-indigo-400/70 dark:focus:border-indigo-400/70 transition-all text-sm"
+                  placeholder="Confirm your password"
+                  required
+                  disabled={!token}
                 />
               </div>
-              <p className="mt-1 text-[10px] text-black dark:text-white">
-                Enter your registered email to receive an OTP.
-              </p>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all duration-200 uppercase tracking-wider disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={loading || !token}
+              className={`w-full py-3 px-4 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 dark:shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all duration-200 uppercase tracking-wider ${
+                loading || !token ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
               {loading ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Sending...
+                  Resetting...
                 </>
               ) : (
-                'Send OTP'
+                'Reset Password'
               )}
             </button>
           </form>
         </div>
 
-        <div className="text-center text-xs font-medium mt-6 pt-4 border-t border-white/20">
-          <span className="text-black dark:text-white">Remember your password? </span>
-          <Link to="/login" className="text-black dark:text-white font-bold hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">
+        <div className="text-center text-xs text-indigo-600 dark:text-indigo-300 font-medium mt-6 pt-4 border-t border-white/20">
+          Remember your password?{' '}
+          <Link to="/login" className="text-slate-800 dark:text-white font-bold hover:underline">
             Sign in
           </Link>
         </div>
@@ -485,4 +532,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword;
+export default ResetPassword;
