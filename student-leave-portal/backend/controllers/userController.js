@@ -314,7 +314,7 @@ export const getStudentsByMentor = async (req, res) => {
 };
 
 // ============================================
-// 8. FORGOT PASSWORD - SEND OTP
+// 8. FORGOT PASSWORD - SEND OTP (FIXED)
 // ============================================
 export const forgotPassword = async (req, res) => {
     try {
@@ -351,26 +351,35 @@ export const forgotPassword = async (req, res) => {
         console.log('🔑 OTP:', otp);
         console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
 
-        // ✅ Send OTP via Email
+        // ✅ Send OTP via Email - FIXED with IPv4, port 587, TLS
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // true for 465, false for 587
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
             },
             tls: {
-                rejectUnauthorized: false
-            }
+                rejectUnauthorized: false,
+                ciphers: 'SSLv3'
+            },
+            // ✅ Force IPv4 to avoid ENETUNREACH
+            family: 4,
+            // ✅ Timeouts
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 10000,
         });
 
         const mailOptions = {
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
             to: user.email,
-            subject: '🔐 LOA Portal - Password Reset OTP',
+            subject: 'LOA Portal - Password Reset OTP',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
                     <div style="text-align: center; padding: 20px 0;">
-                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">🔐 LOA Portal</h1>
+                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
                         <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
                     </div>
                     
@@ -525,8 +534,9 @@ export const verifyOTP = async (req, res) => {
         });
     }
 };
+
 // ============================================
-// 10. RESEND OTP
+// 10. RESEND OTP (FIXED)
 // ============================================
 export const resendOTP = async (req, res) => {
     try {
@@ -555,25 +565,33 @@ export const resendOTP = async (req, res) => {
         user.resetTokenExpiry = otpExpiry;
         await user.save();
 
+        // ✅ Send OTP via Email - FIXED with IPv4, port 587, TLS
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
             },
             tls: {
-                rejectUnauthorized: false
-            }
+                rejectUnauthorized: false,
+                ciphers: 'SSLv3'
+            },
+            family: 4, // Force IPv4
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 10000,
         });
 
         const mailOptions = {
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
             to: user.email,
-            subject: '🔄 LOA Portal - New OTP for Password Reset',
+            subject: 'LOA Portal - New OTP for Password Reset',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
                     <div style="text-align: center; padding: 20px 0;">
-                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">🔐 LOA Portal</h1>
+                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
                         <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
                     </div>
                     
