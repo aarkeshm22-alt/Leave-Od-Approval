@@ -590,6 +590,10 @@ const TodayAbsence = () => {
           </div>
         </div>
       )}
+
+      {absenceData.length === 0 && (
+        <div className="text-center py-8 text-slate-400">No approved absences today. All students are present!</div>
+      )}
     </motion.div>
   );
 };

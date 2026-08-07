@@ -330,63 +330,63 @@ const Login = () => {
     setFormData((prev) => ({ ...prev, role: targetRole.toLowerCase() }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsVerifying(true);
-    setErrorMsg('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsVerifying(true);
+  setErrorMsg('');
 
-    const backendCapitalizedRole =
-      formData.role === 'hod'
-        ? 'HOD'
-        : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
+  const backendCapitalizedRole =
+    formData.role === 'hod'
+      ? 'HOD'
+      : formData.role.charAt(0).toUpperCase() + formData.role.slice(1);
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-          role: backendCapitalizedRole,
-        }),
-      });
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: formData.email.trim(),
+        password: formData.password,
+        role: backendCapitalizedRole,
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid institutional credentials.');
-      }
-
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-
-      // ── Build normalized user object ──
-      const userData = data.user || data;
-      let role = (userData.role || formData.role).toLowerCase();
-      const category = userData.category || null;
-
-      // ✅ If mentor and category is CA2 → change role to 'ca2'
-      if (role === 'mentor' && category === 'CA2') {
-        role = 'ca2';
-      }
-
-      const normalizedUser = {
-        ...userData,
-        role,
-        category,
-      };
-
-      login(normalizedUser);
-
-      // ── Redirect to the appropriate dashboard ──
-      navigate(`/${role}/dashboard`);
-    } catch (err) {
-      console.error('Authentication Loop Exception:', err);
-      setErrorMsg(err.message || 'Network failure connecting to authorization servers.');
-      setIsVerifying(false);
+    if (!response.ok) {
+      throw new Error(data.message || 'Invalid institutional credentials.');
     }
-  };
+
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+    }
+
+    // ── Build normalized user object ──
+    const userData = data.user || data;
+    let role = (userData.role || formData.role).toLowerCase();
+    const category = userData.category || null;
+
+    // ✅ If mentor and category is CA2 → change role to 'ca2'
+    if (role === 'mentor' && category === 'CA2') {
+      role = 'ca2';
+    }
+
+    const normalizedUser = {
+      ...userData,
+      role,
+      category,
+    };
+
+    login(normalizedUser);
+
+    // ── Redirect to the appropriate dashboard ──
+    navigate(`/${role}/dashboard`);
+  } catch (err) {
+    console.error('Authentication Loop Exception:', err);
+    setErrorMsg(err.message || 'Network failure connecting to authorization servers.');
+    setIsVerifying(false);
+  }
+};
 
   // ── Role display mapping ──
   const displayRoleMap = { student: 'Student', mentor: 'Mentor', hod: 'HOD' };
@@ -483,20 +483,10 @@ const Login = () => {
             className="bg-white/40 backdrop-blur-sm border-white/30 text-slate-800 placeholder:text-slate-500 focus-within:border-indigo-400/70 transition-all rounded-xl px-4 py-3"
           />
 
-          {/* ✅ Forgot Password Link - Added Here */}
-          <div className="flex items-center justify-end mt-1">
-            <Link
-              to="/forgot-password"
-              className="text-xs font-medium text-black dark:text-white underline transition-colors"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
           <motion.button
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full mt-2 py-3 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-wider"
+            className="w-full mt-6 py-3 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-wider"
           >
             <span>Authenticate Login</span>
             <ArrowRight size={14} />

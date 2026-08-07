@@ -115,6 +115,7 @@ const StudentDashboard = () => {
       const { data } = await axios.get('https://leave-od-approval.onrender.com/api/users/profile', config);
 
       if (data) {
+        // Update metrics with pending splits if available
         setMetrics({
           name: data.name || '',
           totalLeaves: data.totalLeavesCount || 0,
@@ -253,17 +254,28 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* Metrics Cards – updated with StatusCard for all four */}
+        {/* Metrics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           <StatusCard title="TOTAL LEAVES" value={`${metrics.totalLeaves} Days`} icon={Calendar} color="blue" />
           <StatusCard title="TOTAL ON-DUTY (OD)" value={`${metrics.totalOD} Days`} icon={Award} color="amber" />
-          <StatusCard title="PENDING REQUESTS" value={metrics.pendingApprovals} icon={Clock} color="red" />
-          <StatusCard 
-            title="APPROVED REQUESTS" 
-            value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} 
-            icon={CheckCircle2} 
-            color="emerald" 
-          />
+
+          {/* CUSTOM PENDING CARD – shows split breakdown */}
+          <div className="p-5 bg-white border border-gray-300 rounded-2xl shadow-sm relative group hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Pending Requests</p>
+                <p className="text-xl font-black text-blue-900 mt-1">
+                  {metrics.pendingApprovals}
+                </p>
+              </div>
+              <div className="h-9 w-9 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:border-amber-300 group-hover:bg-amber-50 transition-colors">
+                <Clock size={16} />
+              </div>
+            </div>
+
+          </div>
+
+          <StatusCard title="APPROVED REQUESTS" value={`${metrics.approvedRequests} Request${metrics.approvedRequests === 1 ? '' : 's'}`} icon={CheckCircle2} color="emerald" />
         </div>
 
         {/* Daily Quote */}
