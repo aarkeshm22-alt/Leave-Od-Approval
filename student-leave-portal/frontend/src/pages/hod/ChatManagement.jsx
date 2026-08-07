@@ -39,11 +39,30 @@ const HODChatManagement = () => {
   const [lockRotation, setLockRotation] = useState(0);
   const [showKey, setShowKey] = useState(false);
 
-  // Beautiful Hogwarts House Colors for messages
-  const houseColors = [
+  // 🎨 Brand Colors: Blue (#1a56db) and Golden (#d4a843)
+  const brandColors = {
+    blue: '#1a56db',
+    blueLight: '#e8edf8',
+    blueBg: '#f0f4ff',
+    gold: '#d4a843',
+    goldLight: '#fdf6e8',
+    goldBg: '#fef9f0',
+  };
+
+  // ✨ Brand Color combinations for messages
+  const messageColors = [
     { 
-      bg: 'from-amber-50 to-orange-50', 
-      border: 'border-amber-200',
+      bg: 'from-blue-50 to-indigo-50', 
+      border: 'border-black-200',
+      accent: 'bg-blue-600',
+      text: 'text-blue-800',
+      badge: 'bg-blue-100 text-blue-700',
+      shadow: 'shadow-blue-200/30',
+      hover: 'hover:shadow-blue-300/40'
+    },
+    { 
+      bg: 'from-amber-50 to-yellow-50', 
+      border: 'border-black-200',
       accent: 'bg-amber-500',
       text: 'text-amber-800',
       badge: 'bg-amber-100 text-amber-700',
@@ -51,8 +70,8 @@ const HODChatManagement = () => {
       hover: 'hover:shadow-amber-300/40'
     },
     { 
-      bg: 'from-blue-50 to-indigo-50', 
-      border: 'border-blue-200',
+      bg: 'from-blue-50 to-cyan-50', 
+      border: 'border-black-200',
       accent: 'bg-blue-500',
       text: 'text-blue-800',
       badge: 'bg-blue-100 text-blue-700',
@@ -60,45 +79,36 @@ const HODChatManagement = () => {
       hover: 'hover:shadow-blue-300/40'
     },
     { 
-      bg: 'from-emerald-50 to-teal-50', 
-      border: 'border-emerald-200',
-      accent: 'bg-emerald-500',
-      text: 'text-emerald-800',
-      badge: 'bg-emerald-100 text-emerald-700',
-      shadow: 'shadow-emerald-200/30',
-      hover: 'hover:shadow-emerald-300/40'
+      bg: 'from-amber-50 to-orange-50', 
+      border: 'border-black-200',
+      accent: 'bg-amber-500',
+      text: 'text-amber-800',
+      badge: 'bg-amber-100 text-amber-700',
+      shadow: 'shadow-amber-200/30',
+      hover: 'hover:shadow-amber-300/40'
     },
     { 
-      bg: 'from-purple-50 to-pink-50', 
-      border: 'border-purple-200',
-      accent: 'bg-purple-500',
-      text: 'text-purple-800',
-      badge: 'bg-purple-100 text-purple-700',
-      shadow: 'shadow-purple-200/30',
-      hover: 'hover:shadow-purple-300/40'
+      bg: 'from-indigo-50 to-blue-50', 
+      border: 'border-black-800',
+      accent: 'bg-indigo-500',
+      text: 'text-indigo-800',
+      badge: 'bg-indigo-100 text-indigo-700',
+      shadow: 'shadow-indigo-200/30',
+      hover: 'hover:shadow-indigo-300/40'
     },
     { 
-      bg: 'from-rose-50 to-red-50', 
-      border: 'border-rose-200',
-      accent: 'bg-rose-500',
-      text: 'text-rose-800',
-      badge: 'bg-rose-100 text-rose-700',
-      shadow: 'shadow-rose-200/30',
-      hover: 'hover:shadow-rose-300/40'
-    },
-    { 
-      bg: 'from-cyan-50 to-sky-50', 
-      border: 'border-cyan-200',
-      accent: 'bg-cyan-500',
-      text: 'text-cyan-800',
-      badge: 'bg-cyan-100 text-cyan-700',
-      shadow: 'shadow-cyan-200/30',
-      hover: 'hover:shadow-cyan-300/40'
+      bg: 'from-yellow-50 to-amber-50', 
+      border: 'border-black-200',
+      accent: 'bg-yellow-500',
+      text: 'text-yellow-800',
+      badge: 'bg-yellow-100 text-yellow-700',
+      shadow: 'shadow-yellow-200/30',
+      hover: 'hover:shadow-yellow-300/40'
     },
   ];
 
   const getMessageColor = (index) => {
-    return houseColors[index % houseColors.length];
+    return messageColors[index % messageColors.length];
   };
 
   const years = ['all', 'I', 'II', 'III', 'IV'];
@@ -255,29 +265,52 @@ const HODChatManagement = () => {
     return year || '?';
   };
 
-  // Lock Screen - Mobile Responsive
+  // Lock Screen - Brand Colors
   if (isLocked) {
     return (
       <div className="min-h-screen flex items-center justify-center transition-all duration-700 relative overflow-hidden px-4">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0015] via-[#1a0a2e] to-[#0a0015]">
-          {[...Array(50)].map((_, i) => (
+        {/* 🎨 Brand Color Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/90 via-white to-amber-50/90">
+          {/* Floating Light Particles */}
+          {[...Array(40)].map((_, i) => (
             <div
               key={i}
-              className="absolute rounded-full animate-twinkle"
+              className="absolute rounded-full animate-float-light"
               style={{
                 width: Math.random() * 3 + 1 + 'px',
                 height: Math.random() * 3 + 1 + 'px',
                 top: Math.random() * 100 + '%',
                 left: Math.random() * 100 + '%',
                 animationDelay: Math.random() * 5 + 's',
-                animationDuration: Math.random() * 3 + 2 + 's',
-                backgroundColor: ['#FFD700', '#FF6B6B', '#4ECDC4', '#FFE66D', '#A8E6CF'][Math.floor(Math.random() * 5)],
-                opacity: 0.3 + Math.random() * 0.7
+                animationDuration: Math.random() * 4 + 3 + 's',
+                backgroundColor: ['#1a56db', '#d4a843', '#93C5FD', '#FCD34D', '#60A5FA'][Math.floor(Math.random() * 5)],
+                opacity: 0.2 + Math.random() * 0.4
               }}
             />
           ))}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-yellow-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-1/3 right-1/3 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+          {/* Soft Glows */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-amber-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-blue-100/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s' }} />
+          
+          {/* Floating Golden Sparkles */}
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute animate-float-sparkle-light"
+              style={{
+                width: Math.random() * 4 + 2 + 'px',
+                height: Math.random() * 4 + 2 + 'px',
+                top: Math.random() * 100 + '%',
+                left: Math.random() * 100 + '%',
+                animationDelay: Math.random() * 3 + 's',
+                animationDuration: Math.random() * 5 + 3 + 's',
+                backgroundColor: ['#d4a843', '#FCD34D', '#FBBF24', '#F59E0B', '#FDE68A'][Math.floor(Math.random() * 5)],
+                opacity: 0.2 + Math.random() * 0.3,
+                boxShadow: '0 0 10px rgba(212, 168, 67, 0.2)'
+              }}
+            />
+          ))}
         </div>
 
         <div className="relative z-10 w-full max-w-sm">
@@ -296,9 +329,9 @@ const HODChatManagement = () => {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
                   <Key 
                     size={36}
-                    className="text-yellow-400 drop-shadow-lg"
+                    className="text-[#d4a843] drop-shadow-lg"
                     style={{
-                      filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.5))'
+                      filter: 'drop-shadow(0 0 20px rgba(212, 168, 67, 0.4))'
                     }}
                   />
                 </div>
@@ -315,36 +348,36 @@ const HODChatManagement = () => {
                 transition: 'transform 0.1s ease-in-out'
               }}
             >
-              <div className="absolute inset-0 rounded-full border-4 border-transparent bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37] p-[3px]">
+              <div className="absolute inset-0 rounded-full border-4 border-transparent bg-gradient-to-r from-[#1a56db] via-[#d4a843] to-[#1a56db] p-[3px] shadow-lg">
                 <div className={`w-full h-full rounded-full flex items-center justify-center ${
-                  darkMode ? 'bg-[#1a0a2e]' : 'bg-[#1a0a2e]'
+                  darkMode ? 'bg-[#1a0a2e]' : 'bg-white'
                 }`}>
                   {isUnlocking ? (
                     <div className="flex items-center justify-center">
                       <Lock 
                         size={36}
-                        className="text-yellow-400"
+                        className="text-[#1a56db]"
                         style={{
                           animation: 'shake 0.3s ease-in-out infinite alternate'
                         }}
                       />
                     </div>
                   ) : (
-                    <Lock size={36} className="text-yellow-400" />
+                    <Lock size={36} className="text-slate-400" />
                   )}
                 </div>
               </div>
-              <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-500/30 border border-yellow-500/50" />
+              <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-[#d4a843]/50 border border-[#d4a843]/50" />
             </div>
 
             {isUnlocking && (
               <div className="absolute -bottom-12 sm:-bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
-                <span className="text-yellow-400 text-xs sm:text-sm font-bold animate-pulse">
+                <span className="text-[#1a56db] text-xs sm:text-sm font-bold animate-pulse">
                   🔓 Unlocking...
                 </span>
-                <div className="w-24 sm:w-32 h-1 bg-yellow-500/20 rounded-full mx-auto mt-2 overflow-hidden">
+                <div className="w-24 sm:w-32 h-1 bg-blue-200/50 rounded-full mx-auto mt-2 overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full transition-all duration-100"
+                    className="h-full bg-gradient-to-r from-[#1a56db] to-[#d4a843] rounded-full transition-all duration-100"
                     style={{ width: `${keyPosition}%` }}
                   />
                 </div>
@@ -357,55 +390,72 @@ const HODChatManagement = () => {
     );
   }
 
-  // ✅ Harry Potter Themed Chat Screen - Mobile Responsive
+  // ✅ Brand Color Themed Chat Screen
   return (
     <div className="min-h-screen p-3 sm:p-4 md:p-8 transition-all duration-500 relative overflow-hidden">
       
-      {/* === BEAUTIFUL MAGICAL BACKGROUND === */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1A0A00] via-[#2D1508] to-[#1A0A00]">
-        {/* Floating Candles */}
+      {/* 🎨 Brand Color Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/70 via-white/90 to-amber-50/70">
+        {/* Floating Light Particles */}
         {[...Array(30)].map((_, i) => (
           <div
             key={i}
-            className="absolute animate-float-candle"
+            className="absolute rounded-full animate-float-light"
             style={{
-              width: '2px',
-              height: '8px',
-              top: Math.random() * 60 + 10 + '%',
+              width: Math.random() * 3 + 1 + 'px',
+              height: Math.random() * 3 + 1 + 'px',
+              top: Math.random() * 100 + '%',
               left: Math.random() * 100 + '%',
-              animationDelay: Math.random() * 3 + 's',
-              animationDuration: Math.random() * 3 + 2 + 's',
-              background: 'linear-gradient(to top, #F59E0B, #FCD34D, #FEF3C7)',
-              borderRadius: '2px',
-              boxShadow: '0 0 20px rgba(251, 191, 36, 0.3), 0 0 60px rgba(251, 191, 36, 0.1)',
-              opacity: 0.6 + Math.random() * 0.4
+              animationDelay: Math.random() * 6 + 's',
+              animationDuration: Math.random() * 5 + 4 + 's',
+              backgroundColor: ['#1a56db', '#d4a843', '#93C5FD', '#FCD34D', '#60A5FA'][Math.floor(Math.random() * 5)],
+              opacity: 0.15 + Math.random() * 0.25
             }}
           />
         ))}
         
-        {/* Warm Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[500px] md:w-[600px] h-[300px] sm:h-[400px] bg-amber-500/5 rounded-full blur-3xl" />
+        {/* Soft Brand Glows */}
+        <div className="absolute top-10 right-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-10 left-10 w-80 h-80 bg-amber-200/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-100/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '3s' }} />
         
-        {/* Table lines (decorative) */}
-        <div className="absolute bottom-1/4 left-0 right-0 h-[1px] bg-amber-500/10" />
-        <div className="absolute bottom-1/3 left-0 right-0 h-[1px] bg-amber-500/5" />
+        {/* Floating Golden Sparkles */}
+        {[...Array(15)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute animate-float-sparkle-light"
+            style={{
+              width: Math.random() * 4 + 2 + 'px',
+              height: Math.random() * 4 + 2 + 'px',
+              top: Math.random() * 100 + '%',
+              left: Math.random() * 100 + '%',
+              animationDelay: Math.random() * 4 + 's',
+              animationDuration: Math.random() * 6 + 4 + 's',
+              backgroundColor: ['#d4a843', '#FCD34D', '#FBBF24', '#F59E0B', '#FDE68A'][Math.floor(Math.random() * 5)],
+              opacity: 0.15 + Math.random() * 0.25,
+              boxShadow: '0 0 15px rgba(212, 168, 67, 0.15)'
+            }}
+          />
+        ))}
       </div>
 
       <div className="max-w-5xl mx-auto relative z-10">
         
-        {/* HEADER - Mobile Responsive */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 sm:pb-6 mb-4 sm:mb-6 border-b border-purple-200/50">
+        {/* HEADER - Brand Colors */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 sm:pb-6 mb-4 sm:mb-6 border-b border-blue-200/50">
           <div className="flex items-center gap-3">
-            <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-500/20 backdrop-blur-sm border border-amber-200/30 shadow-lg shadow-amber-200/20">
-              <Wand2 size={20} className="sm:w-7 sm:h-7 text-amber-600" />
+            <div className="p-2 sm:p-3 rounded-2xl bg-gradient-to-br from-blue-100/80 to-amber-100/80 backdrop-blur-sm border border-blue-200/30 shadow-lg shadow-blue-200/20">
+              <Wand2 size={20} className="sm:w-7 sm:h-7 text-[#1a56db]" />
             </div>
             <div>
-              <h1 className="text-base sm:text-2xl md:text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-purple-600 to-pink-600">
-                View Student Messages
+              <h1 className="text-base sm:text-2xl md:text-3xl font-bold tracking-tight">
+                <span className="text-[#1a56db]">View</span>{' '}
+                <span className="text-[#d4a843]">Student</span>{' '}
+                <span className="text-[#1a56db]">Messages</span>
               </h1>
-              <p className="text-[10px] sm:text-xs md:text-sm font-medium text-purple-500/70 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Open · Tap to reveal · <Info size={10} className="sm:w-3 sm:h-3 inline" /> for details
+              <p className="text-[10px] sm:text-xs md:text-sm font-medium text-slate-500/80 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#d4a843] animate-pulse" />
+                Open · Tap to reveal · <Info size={10} className="sm:w-3 sm:h-3 inline text-[#1a56db]" /> for details
               </p>
             </div>
           </div>
@@ -418,7 +468,7 @@ const HODChatManagement = () => {
             
             <button
               onClick={handleReset}
-              className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full bg-gradient-to-r from-amber-100 to-amber-200 text-amber-700 border border-amber-200/50 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105"
+              className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 border border-slate-200/50 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105"
             >
               <Lock size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1" />
               <span className="hidden sm:inline">Lock</span>
@@ -426,7 +476,7 @@ const HODChatManagement = () => {
 
             <button
               onClick={() => setShowStats(!showStats)}
-              className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105"
+              className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 text-[#1a56db] border border-blue-200/50 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105"
             >
               <BarChart3 size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1" />
               <span className="hidden sm:inline">{showStats ? 'Hide Stats' : 'Show Stats'}</span>
@@ -434,22 +484,22 @@ const HODChatManagement = () => {
           </div>
         </div>
 
-        {/* STATS - Mobile Responsive */}
+        {/* STATS - Brand Colors */}
         {showStats && stats && (
           <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
             {[
-              { label: 'Total', value: stats.total, color: 'from-blue-400 to-indigo-500', bg: 'from-blue-50 to-indigo-50', border: 'border-blue-200' },
-              { label: 'Viewed', value: stats.viewed, color: 'from-emerald-400 to-teal-500', bg: 'from-emerald-50 to-teal-50', border: 'border-emerald-200' },
-              { label: 'Unread', value: stats.unread, color: 'from-rose-400 to-pink-500', bg: 'from-rose-50 to-pink-50', border: 'border-rose-200' },
+              { label: 'Total', value: stats.total, color: 'text-[black]', bg: 'bg-blue-50/70', border: 'border-blue-500' },
+              { label: 'Viewed', value: stats.viewed, color: 'text-black', bg: 'bg-emerald-50/70', border: 'border-emerald-500' },
+              { label: 'Unread', value: stats.unread, color: 'text-[black]', bg: 'bg-amber-50/70', border: 'border-amber-500' },
             ].map((stat, idx) => (
               <div
                 key={idx}
                 className={`p-2 sm:p-3 md:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-br ${stat.bg} border ${stat.border} shadow-sm hover:shadow-md transition-all duration-300`}
               >
-                <p className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+                <p className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500`}>
                   {stat.label}
                 </p>
-                <p className={`text-lg sm:text-2xl md:text-3xl font-black mt-0.5 bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+                <p className={`text-lg sm:text-2xl md:text-3xl font-black mt-0.5 ${stat.color}`}>
                   {stat.value || 0}
                 </p>
               </div>
@@ -457,46 +507,46 @@ const HODChatManagement = () => {
           </div>
         )}
 
-        {/* FILTER - Mobile Responsive */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl bg-white/60 backdrop-blur-sm border border-purple-200/30 shadow-sm">
-          <Filter size={14} className="sm:w-4 sm:h-4 text-purple-500" />
-          <span className="text-[10px] sm:text-xs font-bold uppercase text-purple-600">Filter:</span>
+        {/* FILTER - Brand Colors */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl bg-white/60 backdrop-blur-sm border border-blue-200/30 shadow-sm">
+          <Filter size={14} className="sm:w-4 sm:h-4 text-[#1a56db]" />
+          <span className="text-[10px] sm:text-xs font-bold uppercase text-[#1a56db]">Filter:</span>
           <select
             value={filter.year}
             onChange={(e) => setFilter(prev => ({ ...prev, year: e.target.value }))}
-            className="flex-1 px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs md:text-sm font-medium rounded-lg border border-purple-200/50 bg-white/80 text-purple-800 outline-none focus:ring-2 focus:ring-purple-300 transition-all"
+            className="flex-1 px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs md:text-sm font-medium rounded-lg border border-blue-200/50 bg-white/80 text-blue-800 outline-none focus:ring-2 focus:ring-[#1a56db]/50 transition-all"
           >
             <option value="all">All Years</option>
-            <option value="I"><Star size={8} className="inline mr-1" /> I Year</option>
-            <option value="II"><Star size={8} className="inline mr-1" /> II Year</option>
-            <option value="III"><Star size={8} className="inline mr-1" /> III Year</option>
-            <option value="IV"><Star size={8} className="inline mr-1" /> IV Year</option>
+            <option value="I"><Star size={8} className="inline mr-1 text-[#d4a843]" /> I Year</option>
+            <option value="II"><Star size={8} className="inline mr-1 text-[#d4a843]" /> II Year</option>
+            <option value="III"><Star size={8} className="inline mr-1 text-[#d4a843]" /> III Year</option>
+            <option value="IV"><Star size={8} className="inline mr-1 text-[#d4a843]" /> IV Year</option>
           </select>
 
           <button
             onClick={fetchMessages}
-            className="px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-lg bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-400/30 hover:shadow-xl transition-all duration-300 hover:scale-105"
+            className="px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-bold rounded-lg bg-[#1a56db] hover:bg-[#1548b8] text-white shadow-lg shadow-blue-600/30 hover:shadow-xl transition-all duration-300 hover:scale-105"
           >
             <Search size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1" />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
 
-        {/* MESSAGES - Mobile Responsive */}
+        {/* MESSAGES - Brand Colors */}
         {loading ? (
           <div className="flex items-center justify-center py-16 sm:py-20">
             <div className="relative">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-purple-200 border-t-amber-500 rounded-full animate-spin" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-blue-200 border-t-[#1a56db] rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-4 h-4 sm:w-6 sm:h-6 bg-gradient-to-r from-amber-400 to-purple-400 rounded-full animate-pulse" />
+                <div className="w-4 h-4 sm:w-6 sm:h-6 bg-[#d4a843] rounded-full animate-pulse" />
               </div>
             </div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-12 sm:py-16 md:py-20 rounded-2xl sm:rounded-3xl bg-white/50 backdrop-blur-sm border border-purple-200/30">
-            <MessageCircle size={40} className="sm:w-14 sm:h-14 mx-auto mb-3 text-purple-300" />
-            <h3 className="text-lg sm:text-xl font-bold text-purple-700">No messages yet</h3>
-            <p className="text-xs sm:text-sm text-purple-400">Students haven't sent any messages</p>
+          <div className="text-center py-12 sm:py-16 md:py-20 rounded-2xl sm:rounded-3xl bg-white/50 backdrop-blur-sm border border-blue-200/30">
+            <MessageCircle size={40} className="sm:w-14 sm:h-14 mx-auto mb-3 text-[#1a56db]/40" />
+            <h3 className="text-lg sm:text-xl font-bold text-[#1a56db]">No messages yet</h3>
+            <p className="text-xs sm:text-sm text-slate-400">Students haven't sent any messages</p>
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
@@ -511,10 +561,10 @@ const HODChatManagement = () => {
                   className={`group relative p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-br ${colors.bg} border ${colors.border} shadow-sm ${colors.shadow} ${colors.hover} transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden`}
                   onClick={() => handleRevealMessage(msg)}
                 >
-                  {/* Magical Sparkle Effect - Hidden on mobile */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none hidden sm:block">
-                    <div className="absolute top-0 left-0 w-20 h-20 bg-amber-300/20 rounded-full blur-2xl animate-pulse" />
-                    <div className="absolute bottom-0 right-0 w-20 h-20 bg-purple-300/20 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
+                  {/* ✨ Magical Sparkle Effect */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                    <div className="absolute top-0 left-0 w-20 h-20 bg-[#1a56db]/10 rounded-full blur-2xl animate-pulse" />
+                    <div className="absolute bottom-0 right-0 w-20 h-20 bg-[#d4a843]/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
                     {[...Array(8)].map((_, i) => (
                       <div
                         key={i}
@@ -525,7 +575,7 @@ const HODChatManagement = () => {
                           top: Math.random() * 100 + '%',
                           left: Math.random() * 100 + '%',
                           animationDelay: Math.random() * 2 + 's',
-                          backgroundColor: ['#FCD34D', '#F472B6', '#60A5FA', '#34D399', '#A78BFA'][Math.floor(Math.random() * 5)],
+                          backgroundColor: ['#1a56db', '#d4a843', '#93C5FD', '#FCD34D', '#60A5FA'][Math.floor(Math.random() * 5)],
                         }}
                       />
                     ))}
@@ -538,8 +588,8 @@ const HODChatManagement = () => {
                   {!isPending && (
                     <div className="flex items-center justify-end mb-1 sm:mb-2">
                       <span className={`flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[10px] font-bold rounded-full ${colors.badge} border ${colors.border} shadow-sm animate-reveal-badge`}>
-                        <Star size={10} className="sm:w-3 sm:h-3 text-amber-500" />
-                        <Check size={8} className="sm:w-2.5 sm:h-2.5 text-amber-500" />
+                        <Star size={10} className="sm:w-3 sm:h-3 text-[#d4a843]" />
+                        <Check size={8} className="sm:w-2.5 sm:h-2.5 text-[#1a56db]" />
                         <span className="hidden xs:inline">Revealed</span>
                       </span>
                     </div>
@@ -560,28 +610,28 @@ const HODChatManagement = () => {
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 sm:gap-2 group-hover:gap-2 sm:group-hover:gap-3 transition-all duration-300">
-                          <Lock size={12} className="sm:w-3.5 sm:h-3.5 text-amber-400 group-hover:scale-110 transition-transform duration-300" />
-                          <span className="text-[11px] sm:text-sm group-hover:text-amber-600 transition-colors duration-300">
-                            <Star size={8} className="sm:w-2.5 sm:h-2.5 inline mr-1" /> Tap to reveal <span className="hidden xs:inline">this message</span> <Star size={8} className="sm:w-2.5 sm:h-2.5 inline ml-1" />
+                          <Lock size={12} className="sm:w-3.5 sm:h-3.5 text-[#1a56db] group-hover:scale-110 transition-transform duration-300" />
+                          <span className="text-[11px] sm:text-sm group-hover:text-[#1a56db] transition-colors duration-300">
+                            <Star size={8} className="sm:w-2.5 sm:h-2.5 inline mr-1 text-[#d4a843]" /> Tap to reveal <span className="hidden xs:inline">this message</span> <Star size={8} className="sm:w-2.5 sm:h-2.5 inline ml-1 text-[#d4a843]" />
                           </span>
-                          <Wand2 size={12} className="sm:w-3.5 sm:h-3.5 text-purple-400 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12 hidden sm:inline" />
+                          <Wand2 size={12} className="sm:w-3.5 sm:h-3.5 text-[#d4a843] opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12" />
                         </span>
                       )}
                     </p>
                   </div>
 
-                  {/* Magic Dust Trail */}
+                  {/* ✨ Magic Dust Trail */}
                   {isRevealed && (
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-60">
-                      {[...Array(3)].map((_, i) => (
+                      {[...Array(5)].map((_, i) => (
                         <div
                           key={i}
                           className="rounded-full animate-magic-dust"
                           style={{
-                            width: Math.random() * 2 + 1 + 'px',
-                            height: Math.random() * 2 + 1 + 'px',
+                            width: Math.random() * 3 + 1 + 'px',
+                            height: Math.random() * 3 + 1 + 'px',
                             animationDelay: i * 0.2 + 's',
-                            backgroundColor: ['#FCD34D', '#F472B6', '#60A5FA', '#34D399', '#A78BFA'][i % 5],
+                            backgroundColor: ['#1a56db', '#d4a843', '#0c4f9b', '#ae890e', '#60A5FA'][i % 5],
                           }}
                         />
                       ))}
@@ -597,8 +647,8 @@ const HODChatManagement = () => {
                       }}
                       className={`p-1 rounded-lg transition-all duration-300 hover:scale-110 ${
                         isRevealed 
-                          ? 'text-purple-500 hover:text-purple-700 hover:bg-purple-100/50' 
-                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100/50'
+                          ? 'text-[#1a56db] hover:text-[#1548b8] hover:bg-blue-50' 
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                       }`}
                       title="View message details"
                     >
@@ -611,22 +661,22 @@ const HODChatManagement = () => {
           </div>
         )}
 
-        {/* PAGINATION - Mobile Responsive */}
+        {/* PAGINATION - Brand Colors */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between gap-2 mt-6 sm:mt-8 border-t border-purple-200/30 pt-4 sm:pt-6">
+          <div className="flex items-center justify-between gap-2 mt-6 sm:mt-8 border-t border-blue-200/30 pt-4 sm:pt-6">
             <button
               onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
               disabled={pagination.page === 1}
               className={`px-3 py-1.5 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-xl transition-all duration-300 ${
                 pagination.page === 1
                   ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400'
-                  : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50 shadow-sm hover:shadow-md hover:scale-105'
+                  : 'bg-gradient-to-r from-blue-100 to-indigo-100 text-[#1a56db] border border-blue-200/50 shadow-sm hover:shadow-md hover:scale-105'
               }`}
             >
               <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1 rotate-180" />
               <span className="hidden xs:inline">Previous</span>
             </button>
-            <span className="text-[10px] sm:text-sm font-medium text-purple-600">
+            <span className="text-[10px] sm:text-sm font-medium text-[#1a56db]">
               {pagination.page} / {pagination.pages}
             </span>
             <button
@@ -635,7 +685,7 @@ const HODChatManagement = () => {
               className={`px-3 py-1.5 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-xl transition-all duration-300 ${
                 pagination.page === pagination.pages
                   ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400'
-                  : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border border-purple-200/50 shadow-sm hover:shadow-md hover:scale-105'
+                  : 'bg-gradient-to-r from-blue-100 to-indigo-100 text-[#1a56db] border border-blue-200/50 shadow-sm hover:shadow-md hover:scale-105'
               }`}
             >
               <span className="hidden xs:inline">Next</span>
@@ -644,25 +694,25 @@ const HODChatManagement = () => {
           </div>
         )}
 
-        {/* === INFO POPUP - Mobile Responsive === */}
+        {/* === INFO POPUP - Brand Colors === */}
         {showPopup && selectedMessage && (
           <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/30 backdrop-blur-sm animate-fadeIn"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/20 backdrop-blur-sm animate-fadeIn"
             onClick={closePopup}
           >
             <div 
-              className="w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden bg-white/95 backdrop-blur-sm border border-purple-200/30 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden bg-white/95 backdrop-blur-sm border border-blue-200/30 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 sm:p-6 border-b border-purple-100/50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 sticky top-0 z-10">
+              <div className="p-4 sm:p-6 border-b border-blue-100/50 bg-gradient-to-r from-blue-50/50 to-amber-50/50 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-amber-400/30">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#1a56db] to-[#d4a843] flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-lg shadow-blue-600/30">
                       {getYearText(selectedMessage.studentYear)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-base sm:text-lg text-purple-800">
-                        <Star size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1 text-amber-500" />
+                      <h3 className="font-bold text-base sm:text-lg text-[#1a56db]">
+                        <Star size={12} className="sm:w-3.5 sm:h-3.5 inline mr-1 text-[#d4a843]" />
                         Message Details
                       </h3>
                       <span className={`text-[10px] sm:text-xs font-medium ${selectedMessage.isRead ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -676,7 +726,7 @@ const HODChatManagement = () => {
                   </div>
                   <button
                     onClick={closePopup}
-                    className="p-1.5 sm:p-2 rounded-xl hover:bg-purple-100 text-purple-400 transition-all duration-300"
+                    className="p-1.5 sm:p-2 rounded-xl hover:bg-blue-100 text-[#1a56db] transition-all duration-300"
                   >
                     <X size={18} className="sm:w-5 sm:h-5" />
                   </button>
@@ -685,42 +735,42 @@ const HODChatManagement = () => {
 
               <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                 {/* Year */}
-                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-purple-50/50">
-                  <User size={14} className="sm:w-4 sm:h-4 text-purple-400" />
-                  <span className="text-xs sm:text-sm text-purple-700">
+                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-blue-50/50">
+                  <User size={14} className="sm:w-4 sm:h-4 text-[#1a56db]" />
+                  <span className="text-xs sm:text-sm text-slate-700">
                     Year: <strong>{getYearText(selectedMessage.studentYear)}</strong>
                   </span>
                 </div>
 
                 {/* Section */}
-                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-purple-50/50">
-                  <Hash size={14} className="sm:w-4 sm:h-4 text-purple-400" />
-                  <span className="text-xs sm:text-sm text-purple-700">
+                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-amber-50/50">
+                  <Hash size={14} className="sm:w-4 sm:h-4 text-[#d4a843]" />
+                  <span className="text-xs sm:text-sm text-slate-700">
                     Section: <strong>{selectedMessage.studentSection || 'N/A'}</strong>
                   </span>
                 </div>
 
                 {/* Date & Time */}
-                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-purple-50/50">
-                  <Calendar size={14} className="sm:w-4 sm:h-4 text-purple-400" />
-                  <span className="text-xs sm:text-sm text-purple-700">
+                <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-blue-50/50">
+                  <Calendar size={14} className="sm:w-4 sm:h-4 text-[#1a56db]" />
+                  <span className="text-xs sm:text-sm text-slate-700">
                     {formatDateFull(selectedMessage.createdAt)}
                   </span>
                 </div>
 
                 {/* Message Content */}
-                <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/30">
-                  <p className="text-[10px] sm:text-xs font-medium text-amber-600 mb-1">
+                <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-blue-50 to-amber-50 border border-blue-200/30">
+                  <p className="text-[10px] sm:text-xs font-medium text-[#1a56db] mb-1">
                     <Mail size={10} className="sm:w-3 sm:h-3 inline mr-1" />
                     Message:
                   </p>
-                  <p className="text-sm sm:text-base font-medium text-amber-900 break-words">
+                  <p className="text-sm sm:text-base font-medium text-slate-800 break-words">
                     {selectedMessage.message || 'No message content'}
                   </p>
                 </div>
 
                 {/* View Status */}
-                <div className="flex items-center justify-end gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-purple-100/50">
+                <div className="flex items-center justify-end gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-blue-100/50">
                   {selectedMessage.isRead ? (
                     <span className="flex items-center gap-1 text-[10px] sm:text-xs font-medium text-emerald-600">
                       <Eye size={12} className="sm:w-3.5 sm:h-3.5" />

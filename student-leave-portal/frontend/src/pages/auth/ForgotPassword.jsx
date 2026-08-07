@@ -310,6 +310,9 @@ const ForgotPassword = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // ✅ Updated to use deployed backend URL
+  const BACKEND_URL = 'https://leave-od-approval.onrender.com';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -321,12 +324,10 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      const API_URL = 'http://localhost:5000';
-      // ⏱️ Add a 15‑second timeout to prevent hanging
       const response = await axios.post(
-        `${API_URL}/api/auth/forgot-password`,
+        `${BACKEND_URL}/api/auth/forgot-password`,
         { email: email.trim() },
-        { timeout: 15000 } // 15 seconds
+        { timeout: 15000 } // 15 seconds timeout
       );
 
       if (response.data.success) {

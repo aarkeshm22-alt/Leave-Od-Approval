@@ -366,7 +366,7 @@ const VerifyOTP = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/verify-otp', {
+      const response = await axios.post('https://leave-od-approval.onrender.com/api/auth/verify-otp', {
         email,
         otp: cleanOtp,
       });
@@ -403,7 +403,7 @@ const VerifyOTP = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/verify-otp', {
+      const response = await axios.post('https://leave-od-approval.onrender.com/api/auth/verify-otp', {
         email,
         otp: storedOtp,
         newPassword,
@@ -431,7 +431,7 @@ const VerifyOTP = () => {
     setResending(true);
     setError('');
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/resend-otp', {
+      const response = await axios.post('https://leave-od-approval.onrender.com/api/auth/resend-otp', {
         email,
       });
 

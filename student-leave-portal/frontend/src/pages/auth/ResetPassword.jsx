@@ -345,7 +345,7 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/reset-password', {
+      const response = await axios.post('https://leave-od-approval.onrender.com/api/auth/reset-password', {
         token,
         newPassword,
       });
