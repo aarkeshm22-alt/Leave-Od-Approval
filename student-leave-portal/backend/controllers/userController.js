@@ -338,11 +338,11 @@ export const forgotPassword = async (req, res) => {
             });
         }
 
-        // ✅ Generate 6-digit OTP
+        // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = Date.now() + 600000; // 10 minutes
 
-        // ✅ Save OTP to user
+        // Save OTP to user
         user.resetToken = otp;
         user.resetTokenExpiry = new Date(otpExpiry);
         await user.save();
@@ -351,7 +351,7 @@ export const forgotPassword = async (req, res) => {
         console.log('🔑 OTP:', otp);
         console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
 
-        // ✅ Send OTP via Email - FIXED with IPv4, port 587, TLS
+        // ✅ Transporter with IPv4 fix, port 587, TLS, and generous timeouts
         const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
@@ -364,12 +364,11 @@ export const forgotPassword = async (req, res) => {
                 rejectUnauthorized: false,
                 ciphers: 'SSLv3'
             },
-            // ✅ Force IPv4 to avoid ENETUNREACH
-            family: 4,
-            // ✅ Timeouts
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
+            family: 4,                        // ✅ Force IPv4 to avoid ENETUNREACH
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 15000,
+            debug: true,                      // optional logging
         });
 
         const mailOptions = {
@@ -419,7 +418,7 @@ export const forgotPassword = async (req, res) => {
             success: true,
             message: 'OTP sent to your email successfully',
             email: user.email,
-            otp: otp // ✅ Return OTP for debugging
+            otp: otp // Remove this line in production for security, but keep for debugging
         });
     } catch (error) {
         console.error('❌ Forgot password error:', error);
@@ -461,7 +460,6 @@ export const verifyOTP = async (req, res) => {
         console.log('⏰ Stored OTP Expiry:', user.resetTokenExpiry);
         console.log('⏰ Current Time:', new Date());
 
-        // ✅ Check if OTP exists
         if (!user.resetToken) {
             return res.status(400).json({
                 success: false,
@@ -469,7 +467,6 @@ export const verifyOTP = async (req, res) => {
             });
         }
 
-        // ✅ Check if OTP matches
         if (user.resetToken !== otp) {
             console.log('❌ OTP mismatch. Expected:', user.resetToken, 'Got:', otp);
             return res.status(400).json({
@@ -478,7 +475,6 @@ export const verifyOTP = async (req, res) => {
             });
         }
 
-        // ✅ Check if OTP is expired
         if (new Date(user.resetTokenExpiry) < new Date()) {
             return res.status(400).json({
                 success: false,
@@ -486,7 +482,6 @@ export const verifyOTP = async (req, res) => {
             });
         }
 
-        // ✅ If newPassword is NOT provided, just verify OTP (don't clear it)
         if (!newPassword) {
             console.log('✅ OTP verified successfully (keeping OTP for password reset)');
             return res.status(200).json({
@@ -495,7 +490,6 @@ export const verifyOTP = async (req, res) => {
             });
         }
 
-        // ✅ If newPassword is provided, reset password and clear OTP
         if (newPassword) {
             if (newPassword.length < 6) {
                 return res.status(400).json({
@@ -508,7 +502,6 @@ export const verifyOTP = async (req, res) => {
             user.password = await bcrypt.hash(newPassword, salt);
             console.log('✅ Password hashed and saved');
 
-            // ✅ Clear OTP only after password is reset
             user.resetToken = null;
             user.resetTokenExpiry = null;
             await user.save();
@@ -521,7 +514,6 @@ export const verifyOTP = async (req, res) => {
             });
         }
 
-        // Fallback response
         res.status(400).json({
             success: false,
             message: 'Invalid request'
@@ -565,7 +557,7 @@ export const resendOTP = async (req, res) => {
         user.resetTokenExpiry = otpExpiry;
         await user.save();
 
-        // ✅ Send OTP via Email - FIXED with IPv4, port 587, TLS
+        // ✅ Same transporter configuration as forgotPassword
         const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
@@ -578,10 +570,11 @@ export const resendOTP = async (req, res) => {
                 rejectUnauthorized: false,
                 ciphers: 'SSLv3'
             },
-            family: 4, // Force IPv4
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
+            family: 4,
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 15000,
+            debug: true,
         });
 
         const mailOptions = {
