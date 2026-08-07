@@ -1,54 +1,74 @@
-// server.js
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import leaveRoutes from './routes/leaveRoutes.js'; 
-import { protect } from './middleware/authMiddleware.js'; 
-import User from './models/User.js'; 
 import mentorRoutes from './routes/mentorRoutes.js'; 
 import odRoutes from './routes/odRoutes.js'; 
 import ca2Routes from './routes/ca2Routes.js';
-import chatRoutes from './routes/chatRoutes.js'; // Import the chat routes
+import chatRoutes from './routes/chatRoutes.js';
 
-dotenv.config(); 
+dotenv.config();
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// ✅ Middleware
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'https://leave-od-approval.onrender.com'],
+    credentials: true
+}));
 app.use(express.json());
 
-// Reference connection URI from system environment safely
-const MONGO_URI = process.env.MONGODB_URI;
-
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('✓ Successfully locked into MongoDB Instance Database.'))
-  .catch((err) => console.error('✗ Core Database synchronization failure:', err));
-
-/**
- * Route Mount Setup
- */
-
-// 1. Root Route (Fixes the "Cannot GET /" error)
+// ✅ Health check
 app.get('/', (req, res) => {
-  res.json({
-    status: 'active',
-    message: '🚀 Gateway Server is running smoothly and ready to accept requests.'
-  });
+    res.json({ 
+        status: 'active',
+        message: '🚀 Gateway Server is running smoothly'
+    });
 });
 
-// 2. API Routes
+// ✅ MongoDB Connection
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leave_portal';
+
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ Successfully connected to MongoDB'))
+    .catch((err) => console.error('❌ MongoDB connection error:', err));
+
+// ============================================
+// ✅ ROUTES
+// ============================================
+
+// ✅ Auth routes (login, register, forgot password, etc.)
 app.use('/api', authRoutes);
+
+// ✅ Other routes
 app.use('/api/leaves', leaveRoutes); 
 app.use('/api/od', odRoutes); 
 app.use('/api/mentor', mentorRoutes); 
 app.use('/api/ca2', ca2Routes);
-app.use('/api/chat', chatRoutes); // Mount the chat routes
+app.use('/api/chat', chatRoutes);
 
-// Pull deployment target gateway port dynamically 
+// ❌ REMOVE: app.use('/api', apiRoutes); - This causes conflicts!
+
+// ✅ Error handling
+app.use((err, req, res, next) => {
+    console.error('❌ Error:', err.stack);
+    res.status(500).json({ 
+        success: false, 
+        message: 'Internal Server Error'
+    });
+});
+
+// ✅ 404 handler
+app.use((req, res) => {
+    res.status(404).json({ 
+        success: false, 
+        message: 'Route not found' 
+    });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Gateway Server active and serving requests on port: ${PORT}`);
+    console.log(`🚀 Server running on port: ${PORT}`);
 });
