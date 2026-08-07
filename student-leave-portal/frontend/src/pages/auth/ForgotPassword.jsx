@@ -310,9 +310,6 @@ const ForgotPassword = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // ✅ Updated to use deployed backend URL
-  const BACKEND_URL = 'https://leave-od-approval.onrender.com';
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -324,11 +321,10 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/auth/forgot-password`,
-        { email: email.trim() },
-        { timeout: 15000 } // 15 seconds timeout
-      );
+      const API_URL = 'https://leave-od-approval.onrender.com'; // Use the deployed backend URL
+      const response = await axios.post(`${API_URL}/api/auth/forgot-password`, {
+        email: email.trim(),
+      });
 
       if (response.data.success) {
         localStorage.setItem('resetEmail', response.data.email || email);
@@ -341,15 +337,8 @@ const ForgotPassword = () => {
         setError(response.data.message || 'Failed to send OTP');
         toast.error(response.data.message || 'Failed to send OTP');
       }
-    } catch (err) {
-      let errorMsg = 'Failed to send OTP';
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-        errorMsg = 'Request timed out. The server is taking too long to respond. Please try again.';
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      } else {
-        errorMsg = err.message || 'Failed to send OTP';
-      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to send OTP';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -375,9 +364,9 @@ const ForgotPassword = () => {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100/80 backdrop-blur-sm mb-4">
             <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
-          <h3 className="text-xl font-bold text-black dark:text-white">OTP Sent</h3>
-          <p className="mt-2 text-sm text-black dark:text-white">Please check your email for the OTP.</p>
-          <p className="mt-1 text-xs text-black/70 dark:text-white/70">Redirecting to OTP verification...</p>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-white">OTP Sent</h3>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">Please check your email for the OTP.</p>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Redirecting to OTP verification...</p>
           <div className="mt-4 flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
           </div>
@@ -406,17 +395,17 @@ const ForgotPassword = () => {
           <div className="h-14 w-14 bg-white/30 dark:bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4 border border-white/30 shadow-inner">
             <Mail className="text-indigo-600 dark:text-indigo-300" size={26} />
           </div>
-          <h2 className="text-2xl font-bold text-black dark:text-white tracking-tight">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
             LOA Portal
           </h2>
-          <p className="text-xs text-black dark:text-white font-medium mt-1">
+          <p className="text-xs text-indigo-700 dark:text-indigo-200 font-medium mt-1">
             Reset your password
           </p>
         </div>
 
         <Link
           to="/login"
-          className="inline-flex items-center text-xs font-medium text-black dark:text-white hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+          className="inline-flex items-center text-xs font-medium text-indigo-600 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-100 transition-colors"
         >
           <ArrowLeft size={16} className="mr-1" /> Back to Login
         </Link>
@@ -431,12 +420,13 @@ const ForgotPassword = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-[11px] font-bold uppercase text-black dark:text-white tracking-wider">
+              {/* ✅ Darkened label for better readability */}
+              <label htmlFor="email" className="block text-[11px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider">
                 Email Address
               </label>
               <div className="mt-1.5 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-black dark:text-white" />
+                  <Mail className="h-5 w-5 text-slate-700 dark:text-slate-400" />
                 </div>
                 <input
                   id="email"
@@ -446,11 +436,12 @@ const ForgotPassword = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 bg-white/60 dark:bg-slate-800/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/30 rounded-xl text-black dark:text-white placeholder:text-black/50 dark:placeholder:text-white/50 focus:outline-none focus:border-indigo-400/70 dark:focus:border-indigo-400/70 transition-all text-sm"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white/60 dark:bg-slate-800/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/30 rounded-xl text-slate-800 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:outline-none focus:border-indigo-400/70 dark:focus:border-indigo-400/70 transition-all text-sm"
                   placeholder="Enter your registered email"
                 />
               </div>
-              <p className="mt-1 text-[10px] text-black dark:text-white">
+              {/* ✅ Darkened helper text */}
+              <p className="mt-1 text-[10px] text-slate-700 dark:text-slate-400">
                 Enter your registered email to receive an OTP.
               </p>
             </div>
@@ -475,9 +466,9 @@ const ForgotPassword = () => {
           </form>
         </div>
 
-        <div className="text-center text-xs font-medium mt-6 pt-4 border-t border-white/20">
-          <span className="text-black dark:text-white">Remember your password? </span>
-          <Link to="/login" className="text-black dark:text-white font-bold hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">
+        <div className="text-center text-xs text-indigo-600 dark:text-indigo-300 font-medium mt-6 pt-4 border-t border-white/20">
+          Remember your password?{' '}
+          <Link to="/login" className="text-slate-800 dark:text-white font-bold hover:underline">
             Sign in
           </Link>
         </div>
@@ -486,4 +477,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword;
+export default ForgotPassword; 
