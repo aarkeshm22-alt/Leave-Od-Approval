@@ -1,12 +1,16 @@
-// controllers/userController.js
 import User from '../models/User.js';
-import Leave from '../models/Leave.js'; // Import the Leave model to count leave and OD records 
+import Leave from '../models/Leave.js';
 import OnDuty from '../models/OnDuty.js';
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+import PDFDocumentWithTables from 'pdfkit-table';
 
-// 1. Fetch HODs for selection dropdown
+// ============================================
+// 1. FETCH HODs
+// ============================================
 export const getHods = async (req, res) => {
   try {
     const hods = await User.find({ role: 'HOD' }).select('_id firstName lastName department');
@@ -16,7 +20,9 @@ export const getHods = async (req, res) => {
   }
 };
 
-// 2. Fetch Mentors for selection dropdown - UPGRADED TO INCLUDE CONTACT INFRASTRUCTURE & CATEGORY
+// ============================================
+// 2. FETCH MENTORS
+// ============================================
 export const getAllMentors = async (req, res) => {
   try {
     const mentors = await User.find({ role: 'Mentor' }).select('_id firstName lastName department email mobileNo role category');
@@ -32,11 +38,11 @@ export const getAllMentors = async (req, res) => {
   }
 };
 
-// 3. Sample controller to pull complete student profiles
-// Check your auth or user controller (e.g., getStudentProfile)
+// ============================================
+// 3. GET STUDENT PROFILE
+// ============================================
 export const getStudentProfile = async (req, res) => {
   try {
-    // 🫵 FIX THIS ONE TOO! Ensure it doesn't have mixed selection statements.
     const user = await User.findById(req.user.id).select('-password');
     res.status(200).json(user);
   } catch (error) {
@@ -44,23 +50,23 @@ export const getStudentProfile = async (req, res) => {
   }
 };
 
-// 4. Process Account Registration Pipeline
+// ============================================
+// 4. REGISTER USER
+// ============================================
 export const registerUser = async (req, res) => {
   try {
     const {
       role, firstName, lastName, gender, department,
       email, mobileNo, password, year, section, studentType,
       firstmentorName, secondmentorName, hodName, category,
-      registerNo // CAPTURE REGISTRATION NUMBER FROM FRONTEND
+      registerNo
     } = req.body;
 
-    // Check email duplication
     const userExists = await User.findOne({ email: email.toLowerCase().trim() });
     if (userExists) {
       return res.status(400).json({ message: 'This email address is already registered.' });
     }
 
-    // EXCLUSIVE STUDENT REGISTER NUMBER DUPLICATION CHECK
     if (role === 'Student' && registerNo) {
       const regNoExists = await User.findOne({ registerNo: registerNo.trim() });
       if (regNoExists) {
@@ -68,19 +74,16 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    // Encrypt security password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Dynamic payload building mapping string targets
     const newUserPayload = {
       role, firstName, lastName, gender, department,
       email: email.toLowerCase().trim(),
       mobileNo,
       password: hashedPassword,
-      // MAP FIELD IN EXCLUSIVE STUDENT STRUCTURAL SPREAD
       ...(role === 'Student' && { registerNo: registerNo?.trim(), year, section, studentType, firstmentorName, secondmentorName }),
-      ...(role === 'Mentor' && { hodName, category }) // Persists CA1 / CA2 categorization fields natively
+      ...(role === 'Mentor' && { hodName, category })
     };
 
     const newUser = new User(newUserPayload);
@@ -90,7 +93,6 @@ export const registerUser = async (req, res) => {
   } catch (error) {
     console.error("Detailed DB Save Error:", error);
 
-    // Handle manual Mongo Duplicate Key Index error (#11000) gracefully
     if (error.code === 11000) {
       const duplicateField = Object.keys(error.keyValue)[0];
       return res.status(400).json({ message: `The provided ${duplicateField} is already registered on our servers.` });
@@ -105,43 +107,39 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// 5. Secure Session Generation Pipeline
+// ============================================
+// 5. LOGIN USER
+// ============================================
 export const loginUser = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // Validate explicit input presence
     if (!email || !password || !role) {
       return res.status(400).json({ message: 'Please provide email, password, and role.' });
     }
 
-    // Locate the user by institutional email address
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({ message: 'Invalid institutional credentials.' });
     }
 
-    // Prevent cross-role spoofing
     if (user.role.toLowerCase() !== role.toLowerCase()) {
       return res.status(403).json({
         message: `Access denied. Your profile is registered as a ${user.role}, not an ${role}.`
       });
     }
 
-    // Verify password encryption integrity
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid institutional credentials.' });
     }
 
-    // Generate a secure signing token (JWT)
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback_super_secret_key_change_this',
       { expiresIn: '1d' }
     );
 
-    // Strip the encrypted password hash from the return payload
     const userResponse = {
       _id: user._id,
       name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
@@ -159,17 +157,17 @@ export const loginUser = async (req, res) => {
       token,
       user: userResponse
     });
-
   } catch (error) {
     console.error('Core Login Pipeline Exception:', error);
     return res.status(500).json({ message: 'Internal server authorization loop failure.' });
   }
 };
 
-// 6. Get all registered mentors assigned to the logged-in HOD with accurate dynamic allocation routing
+// ============================================
+// 6. GET MENTORS BY HOD
+// ============================================
 export const getMentorsByHod = async (req, res) => {
   try {
-    // 1. Resolve logged-in HOD name safely
     const currentHodName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.name;
 
     if (!currentHodName) {
@@ -179,14 +177,10 @@ export const getMentorsByHod = async (req, res) => {
       });
     }
 
-    // 2. Direct Raw Database Access Layer
     const rawUserCollection = mongoose.connection.db.collection('users');
-
-    // Escaped loose case-insensitive matching rule for the HOD's name assignment
     const escapedHodName = currentHodName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const hodRegex = new RegExp(escapedHodName, 'i');
 
-    // Fetch mentors under this HOD directly from raw MongoDB
     const mentors = await rawUserCollection.find({
       role: 'Mentor',
       hodName: hodRegex
@@ -199,20 +193,17 @@ export const getMentorsByHod = async (req, res) => {
       });
     }
 
-    // 3. Loop through mentors to synchronize student counts safely
     const synchronizedMentors = await Promise.all(
       mentors.map(async (mentor) => {
         const mentorFullName = mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
-        const mentorCategory = mentor.category; // 'CA1' or 'CA2'
+        const mentorCategory = mentor.category;
 
-        // Prepare safe, flexible regex matching for this specific mentor's name string
         const escapedMentorName = mentorFullName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
         const mentorRegexRule = new RegExp(`^${escapedMentorName}$`, 'i');
         const fallbackLooseRegexRule = new RegExp(escapedMentorName, 'i');
 
         let studentCountQuery = { role: 'Student' };
 
-        // Precise query filtering following student assignment matrix paths
         if (mentorCategory === 'CA1') {
           studentCountQuery.firstmentorName = mentorRegexRule;
         } else if (mentorCategory === 'CA2') {
@@ -224,10 +215,8 @@ export const getMentorsByHod = async (req, res) => {
           ];
         }
 
-        // Count matching documents using direct collection operations
         let realStudentCount = await rawUserCollection.countDocuments(studentCountQuery);
 
-        // Fallback loose match validation if the exact match comes up empty due to string irregularities
         if (realStudentCount === 0) {
           if (mentorCategory === 'CA1') {
             studentCountQuery.firstmentorName = fallbackLooseRegexRule;
@@ -244,7 +233,7 @@ export const getMentorsByHod = async (req, res) => {
 
         return {
           ...mentor,
-          _id: mentor._id.toString(), // Ensure Object ID parses seamlessly into React mapping keys
+          _id: mentor._id.toString(),
           capacity: realStudentCount
         };
       })
@@ -254,17 +243,19 @@ export const getMentorsByHod = async (req, res) => {
       success: true,
       data: synchronizedMentors
     });
-
   } catch (error) {
     console.error('Error calculating dynamic mentor allocation statistics:', error);
     return res.status(500).json({
       success: false,
       message: 'Server failed aggregating real-time allocation records.',
       error: error.message
-    }); 
+    });
   }
 };
 
+// ============================================
+// 7. GET STUDENTS BY MENTOR
+// ============================================
 export const getStudentsByMentor = async (req, res) => {
   try {
     const { mentorName, category } = req.query;
@@ -274,8 +265,8 @@ export const getStudentsByMentor = async (req, res) => {
       const cleanName = mentorName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const caseInsensitiveRegex = new RegExp(`^${cleanName}$`, 'i');
       const mentorFields = category === 'CA1' ? ['firstmentorName'] :
-                           category === 'CA2' ? ['secondmentorName'] :
-                           ['firstmentorName', 'secondmentorName'];
+        category === 'CA2' ? ['secondmentorName'] :
+          ['firstmentorName', 'secondmentorName'];
       query.$or = mentorFields.map(field => ({ [field]: { $regex: caseInsensitiveRegex } }));
     }
 
@@ -296,7 +287,6 @@ export const getStudentsByMentor = async (req, res) => {
         status: 'Approved'
       });
 
-      // ✅ Fetch ALL On‑Duty records (not just one)
       const ods = await OnDuty.find({
         student: student._id,
         type: { $in: ['On-Duty', 'OD'] }
@@ -312,7 +302,7 @@ export const getStudentsByMentor = async (req, res) => {
         name: student.name || `${student.firstName || ''} ${student.lastName || ''}`.trim(),
         leaveCount,
         odCount,
-        ods,                        // ← Full array of OD objects (each with certificate)
+        ods,
         certificate: latestCert || 'No certificate available'
       };
     }));
@@ -321,5 +311,312 @@ export const getStudentsByMentor = async (req, res) => {
   } catch (error) {
     console.error('Error in getStudentsByMentor:', error);
     res.status(500).json({ success: false, message: 'Server error.', error: error.message });
+  }
+};
+
+// ============================================
+// 8. FORGOT PASSWORD - SEND OTP
+// ============================================
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log('📧 Forgot password request for:', email);
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email address'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email'
+      });
+    }
+
+    // ✅ Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + 600000; // 10 minutes
+
+    // ✅ Save OTP to user
+    user.resetToken = otp;
+    user.resetTokenExpiry = new Date(otpExpiry);
+    await user.save();
+
+    console.log('✅ OTP generated for:', email);
+    console.log('🔑 OTP:', otp);
+    console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
+
+    // ✅ Send OTP via Email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: `"LOA Portal" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: '🔐 LOA Portal - Password Reset OTP',
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
+                    <div style="text-align: center; padding: 20px 0;">
+                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">🔐 LOA Portal</h1>
+                        <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                            Hello <strong>${user.firstName || 'User'}</strong>,
+                        </p>
+                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                            You requested to reset your password for the LOA Portal. Use the OTP below:
+                        </p>
+                        
+                        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
+                            <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
+                                ${otp}
+                            </span>
+                        </div>
+                        
+                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                            This OTP will expire in <strong>10 minutes</strong>.
+                        </p>
+                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                            If you didn't request this, please ignore this email.
+                        </p>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
+                        <p>&copy; 2026 LOA Portal. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent to:', user.email);
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent to your email successfully',
+      email: user.email,
+      otp: otp // ✅ Return OTP for debugging
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: ' + error.message
+    });
+  }
+};
+
+// ============================================
+// 9. VERIFY OTP AND RESET PASSWORD
+// ============================================
+export const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    console.log('🔑 Verify OTP request for:', email);
+    console.log('📝 Received OTP:', otp);
+    console.log('🔒 New Password provided:', newPassword ? 'Yes' : 'No');
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('📦 Stored OTP in DB:', user.resetToken);
+    console.log('⏰ Stored OTP Expiry:', user.resetTokenExpiry);
+    console.log('⏰ Current Time:', new Date());
+
+    // ✅ Check if OTP exists
+    if (!user.resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'No OTP found. Please request a new one.'
+      });
+    }
+
+    // ✅ Check if OTP matches
+    if (user.resetToken !== otp) {
+      console.log('❌ OTP mismatch. Expected:', user.resetToken, 'Got:', otp);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP'
+      });
+    }
+
+    // ✅ Check if OTP is expired
+    if (new Date(user.resetTokenExpiry) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    // ✅ If newPassword is NOT provided, just verify OTP (don't clear it)
+    if (!newPassword) {
+      console.log('✅ OTP verified successfully (keeping OTP for password reset)');
+      return res.status(200).json({
+        success: true,
+        message: 'OTP verified successfully!'
+      });
+    }
+
+    // ✅ If newPassword is provided, reset password and clear OTP
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters'
+        });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+      console.log('✅ Password hashed and saved');
+
+      // ✅ Clear OTP only after password is reset
+      user.resetToken = null;
+      user.resetTokenExpiry = null;
+      await user.save();
+
+      console.log('✅ OTP cleared after password reset');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset successfully!'
+      });
+    }
+
+    // Fallback response
+    res.status(400).json({
+      success: false,
+      message: 'Invalid request'
+    });
+  } catch (error) {
+    console.error('❌ Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: ' + error.message
+    });
+  }
+};
+// ============================================
+// 10. RESEND OTP
+// ============================================
+export const resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email address'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email'
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + 600000;
+
+    user.resetToken = otp;
+    user.resetTokenExpiry = otpExpiry;
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: `"LOA Portal" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: ' 🔐 LOA Portal - New OTP for Password Reset',
+      html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
+                    <div style="text-align: center; padding: 20px 0;">
+                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">🔐 LOA Portal</h1>
+                        <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
+                    </div>
+                    
+                    <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                            Hello <strong>${user.firstName || 'User'}</strong>,
+                        </p>
+                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                            Here is your new OTP for password reset:
+                        </p>
+                        
+                        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
+                            <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
+                                ${otp}
+                            </span>
+                        </div>
+                        
+                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                            This OTP will expire in <strong>10 minutes</strong>.
+                        </p>
+                    </div>
+                    
+                    <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
+                        <p>&copy; 2026 LOA Portal. All rights reserved.</p>
+                    </div>
+                </div>
+            `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('✅ New OTP sent to:', user.email);
+
+    res.status(200).json({
+      success: true,
+      message: 'New OTP sent to your email successfully',
+      email: user.email
+    });
+  } catch (error) {
+    console.error('❌ Resend OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: ' + error.message
+    });
   }
 };

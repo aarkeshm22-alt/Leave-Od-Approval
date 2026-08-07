@@ -38,6 +38,14 @@ const UserSchema = new mongoose.Schema({
         type: String,
         enum: ['CA1', 'CA2'],
         required: function () { return this.role === 'Mentor'; }
+    }, 
+     resetToken: {
+        type: String,
+        default: null
+    },
+    resetTokenExpiry: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

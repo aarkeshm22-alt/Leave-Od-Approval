@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,10 +19,308 @@ import {
   Fingerprint,
   Cloud,
   ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
 import InputField from '../../components/common/InputField';
 
-// ─── Flying Bird Component ──────────────────────────────────────────────────
+// ─── Styled Select (prioritises below, flips only when tight) ──────────
+const StyledSelect = memo(({ options, value, onChange, placeholder, label, icon: Icon, disabled, required }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState({ opacity: 0 });
+  const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || '';
+
+  const handleSelect = (selectedValue) => {
+    onChange(selectedValue);
+    setIsOpen(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        const portalDropdown = document.getElementById('styled-dropdown');
+        if (portalDropdown && portalDropdown.contains(e.target)) return;
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getDropdownStyle = useCallback(() => {
+    if (!triggerRef.current) return { opacity: 0 };
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const MIN_SPACE = 150; // minimum space needed to show below
+    const dropdownHeight = Math.min(200, Math.max(80, spaceBelow > spaceAbove ? spaceBelow - 10 : spaceAbove - 10));
+
+    let top;
+    // Prefer below unless there's not enough room
+    if (spaceBelow > MIN_SPACE) {
+      top = rect.bottom + window.scrollY + 4;
+    } else {
+      top = rect.top + window.scrollY - dropdownHeight - 4;
+    }
+
+    return {
+      position: 'absolute',
+      top: top,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      maxHeight: dropdownHeight,
+      zIndex: 9999,
+      opacity: 1,
+      transition: 'opacity 0.15s ease',
+    };
+  }, []);
+
+  const toggleOpen = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      const newStyle = getDropdownStyle();
+      setDropdownStyle(newStyle);
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+      setDropdownStyle(prev => ({ ...prev, opacity: 0 }));
+    }
+  };
+
+  // Recalculate on scroll/resize when open
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleUpdate = () => {
+      const newStyle = getDropdownStyle();
+      setDropdownStyle(newStyle);
+    };
+    window.addEventListener('scroll', handleUpdate, true);
+    window.addEventListener('resize', handleUpdate);
+    return () => {
+      window.removeEventListener('scroll', handleUpdate, true);
+      window.removeEventListener('resize', handleUpdate);
+    };
+  }, [isOpen, getDropdownStyle]);
+
+  return (
+    <div className="space-y-1.5 relative" ref={containerRef}>
+      {label && (
+        <label className="text-[10px] font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+          {Icon && <Icon size={11} className="text-slate-600" />}
+          <span>{label}</span>
+        </label>
+      )}
+      <div
+        ref={triggerRef}
+        className={`w-full text-xs font-medium bg-white/60 backdrop-blur-sm border border-white/50 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400 focus:bg-white/80 transition-all cursor-pointer shadow-sm flex items-center justify-between ${
+          disabled ? 'opacity-50 pointer-events-none' : ''
+        }`}
+        onClick={toggleOpen}
+      >
+        <span className={selectedLabel ? 'text-slate-800 font-semibold' : 'text-slate-600'}>
+          {selectedLabel || placeholder || 'Select...'}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && !disabled && ReactDOM.createPortal(
+        <div
+          id="styled-dropdown"
+          style={dropdownStyle}
+          className="bg-white/95 backdrop-blur-md border border-white/60 rounded-xl shadow-xl overflow-y-auto"
+        >
+          {options.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-slate-700 text-center">No options available</div>
+          ) : (
+            options.map((opt) => (
+              <div
+                key={opt.value}
+                className={`px-3 py-2.5 sm:py-2 text-xs sm:text-sm hover:bg-indigo-100 cursor-pointer transition-colors ${
+                  value === opt.value ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-slate-800'
+                }`}
+                onClick={() => handleSelect(opt.value)}
+              >
+                {opt.label}
+              </div>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+});
+
+// ─── SearchableSelect (unchanged, uses same positioning logic) ──────────
+const SearchableSelect = memo(({ options, value, onChange, placeholder, label, disabled, required, loading }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [dropdownStyle, setDropdownStyle] = useState({ opacity: 0 });
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const filteredOptions = useMemo(() => {
+    return options.filter(opt =>
+      opt.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search]);
+
+  const selectedLabel = useMemo(() => {
+    return options.find(opt => opt.value === value)?.label || '';
+  }, [options, value]);
+
+  const handleSelect = (selectedValue) => {
+    onChange(selectedValue);
+    setIsOpen(false);
+    setSearch('');
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        const portalDropdown = document.getElementById('searchable-dropdown');
+        if (portalDropdown && portalDropdown.contains(e.target)) return;
+        setIsOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getDropdownStyle = useCallback(() => {
+    if (!inputRef.current) return { opacity: 0 };
+    const rect = inputRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const MIN_SPACE = 150;
+    const dropdownHeight = Math.min(256, Math.max(100, spaceBelow > spaceAbove ? spaceBelow - 10 : spaceAbove - 10));
+
+    let top;
+    if (spaceBelow > MIN_SPACE) {
+      top = rect.bottom + window.scrollY + 4;
+    } else {
+      top = rect.top + window.scrollY - dropdownHeight - 4;
+    }
+
+    return {
+      position: 'absolute',
+      top: top,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      maxHeight: dropdownHeight,
+      zIndex: 9999,
+      opacity: 1,
+      transition: 'opacity 0.15s ease',
+    };
+  }, []);
+
+  const toggleOpen = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      const newStyle = getDropdownStyle();
+      setDropdownStyle(newStyle);
+      setIsOpen(true);
+      setSearch('');
+    } else {
+      setIsOpen(false);
+      setDropdownStyle(prev => ({ ...prev, opacity: 0 }));
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleUpdate = () => {
+      const newStyle = getDropdownStyle();
+      setDropdownStyle(newStyle);
+    };
+    window.addEventListener('scroll', handleUpdate, true);
+    window.addEventListener('resize', handleUpdate);
+    return () => {
+      window.removeEventListener('scroll', handleUpdate, true);
+      window.removeEventListener('resize', handleUpdate);
+    };
+  }, [isOpen, getDropdownStyle]);
+
+  useEffect(() => {
+    if (isOpen && !loading) {
+      const newStyle = getDropdownStyle();
+      setDropdownStyle(newStyle);
+    }
+  }, [isOpen, loading, getDropdownStyle]);
+
+  return (
+    <div className="space-y-1.5 relative" ref={containerRef}>
+      {label && (
+        <label className="text-[10px] font-bold uppercase text-slate-700 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
+          <Users size={11} className="text-slate-600" />
+          <span>{label}</span>
+        </label>
+      )}
+      <div ref={inputRef}>
+        <div
+          className={`w-full text-xs font-medium bg-white/60 backdrop-blur-sm border border-white/50 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400 focus:bg-white/80 transition-all cursor-pointer shadow-sm flex items-center justify-between ${
+            disabled ? 'opacity-50 pointer-events-none' : ''
+          }`}
+          onClick={toggleOpen}
+        >
+          <span className={selectedLabel ? 'text-slate-800 font-semibold' : 'text-slate-600'}>
+            {selectedLabel || placeholder || 'Select...'}
+          </span>
+          <ChevronDown className="w-4 h-4 text-slate-500" />
+        </div>
+      </div>
+
+      {isOpen && !disabled && ReactDOM.createPortal(
+        <div
+          id="searchable-dropdown"
+          style={dropdownStyle}
+          className="bg-white/95 backdrop-blur-md border border-white/60 rounded-xl shadow-xl overflow-y-auto"
+        >
+          <div className="sticky top-0 bg-white/95 backdrop-blur-md p-2 border-b border-white/30">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-xs font-medium bg-white/80 border border-white/50 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:border-indigo-400 placeholder:text-slate-500"
+              placeholder="Search..."
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {loading ? (
+            <div className="px-3 py-3 text-xs text-slate-700 flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              Loading...
+            </div>
+          ) : filteredOptions.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-slate-700 text-center">
+              {options.length === 0 ? 'No advisors available' : 'No matching results'}
+            </div>
+          ) : (
+            filteredOptions.map((opt) => (
+              <div
+                key={opt.value}
+                className={`px-3 py-2.5 sm:py-2 text-xs sm:text-sm hover:bg-indigo-100 cursor-pointer transition-colors ${
+                  value === opt.value ? 'bg-indigo-50 font-bold text-indigo-700' : 'text-slate-800'
+                }`}
+                onClick={() => handleSelect(opt.value)}
+              >
+                {opt.label}
+              </div>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+});
+
+// ─── Flying Bird Component ────────────────────────────────────────────────
 const FlyingBird = ({ startX, startY, duration, delay, size = 20, flapSpeed = 0.6 }) => {
   return (
     <motion.div
@@ -69,7 +368,7 @@ const FlyingBird = ({ startX, startY, duration, delay, size = 20, flapSpeed = 0.
   );
 };
 
-// ─── Sky Background Component ──────────────────────────────────────────────
+// ─── Sky Background Component ─────────────────────────────────────────────
 const SkyBackground = () => {
   const [time, setTime] = useState(new Date());
   const containerRef = useRef(null);
@@ -88,7 +387,6 @@ const SkyBackground = () => {
     return 'night';
   }, [hour]);
 
-  // ── Enhanced, premium colour palettes ──
   const gradients = {
     sunrise: "from-[#FFB347] via-[#FFCC80] to-[#FFE0B2]",
     day: "from-[#38BDF8] via-[#60A5FA] to-[#BFDBFE]",
@@ -99,7 +397,6 @@ const SkyBackground = () => {
   const showSun = hour >= 6 && hour < 18;
   const showMoon = !showSun;
 
-  // ── Clouds ──
   const clouds = useMemo(
     () => [
       { id: 1, size: 60, top: 12, duration: 22, delay: 0, opacity: 0.9 },
@@ -116,7 +413,6 @@ const SkyBackground = () => {
     []
   );
 
-  // ── Birds ──
   const birds = useMemo(
     () => [
       { id: 1, startX: '5%', startY: '15%', duration: 18, delay: 0, size: 18, flapSpeed: 0.5 },
@@ -128,7 +424,6 @@ const SkyBackground = () => {
     []
   );
 
-  // ── Stars ──
   const stars = useMemo(
     () =>
       Array.from({ length: 100 }, (_, i) => ({
@@ -143,7 +438,6 @@ const SkyBackground = () => {
     []
   );
 
-  // ── Shooting stars ──
   const [shootingStars, setShootingStars] = useState([]);
   useEffect(() => {
     if (skyState !== 'night') return;
@@ -167,7 +461,7 @@ const SkyBackground = () => {
       ref={containerRef}
       className={`absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-b ${gradients[skyState]} transition-colors duration-1000`}
     >
-      {/* ── Fixed Sun / Moon ── */}
+      {/* Sun / Moon */}
       <div className="absolute top-2 left-2 md:top-8 md:right-8 md:left-auto z-10 pointer-events-none">
         {showSun && (
           <motion.div
@@ -188,7 +482,7 @@ const SkyBackground = () => {
         )}
       </div>
 
-      {/* ── Animated Clouds ── */}
+      {/* Clouds */}
       {clouds.map((cloud) => (
         <motion.div
           key={cloud.id}
@@ -210,7 +504,7 @@ const SkyBackground = () => {
         </motion.div>
       ))}
 
-      {/* ── Flying Birds ── */}
+      {/* Birds */}
       {skyState !== 'night' &&
         birds.map((bird) => (
           <FlyingBird
@@ -224,7 +518,7 @@ const SkyBackground = () => {
           />
         ))}
 
-      {/* ── Stars ── */}
+      {/* Stars */}
       {skyState === 'night' &&
         stars.map((star) => (
           <motion.div
@@ -247,7 +541,7 @@ const SkyBackground = () => {
           />
         ))}
 
-      {/* ── Shooting stars ── */}
+      {/* Shooting stars */}
       {shootingStars.map((star) => (
         <motion.div
           key={star.id}
@@ -268,7 +562,7 @@ const SkyBackground = () => {
         />
       ))}
 
-      {/* ── Floating particles ── */}
+      {/* Floating particles */}
       <div className="absolute inset-0 pointer-events-none z-0">
         {Array.from({ length: 15 }).map((_, i) => (
           <motion.div
@@ -293,7 +587,7 @@ const SkyBackground = () => {
         ))}
       </div>
 
-      {/* ── Grass layer ── */}
+      {/* Grass */}
       <div className="absolute bottom-0 left-0 right-0 h-16 md:h-20 pointer-events-none overflow-hidden z-0">
         <div
           className="w-full h-full"
@@ -333,6 +627,8 @@ const Register = () => {
 
   const [hodsList, setHodsList] = useState([]);
   const [mentorsList, setMentorsList] = useState([]);
+  const [loadingMentors, setLoadingMentors] = useState(true);
+  const [loadingHods, setLoadingHods] = useState(true);
 
   const [formData, setFormData] = useState({
     registerNo: '',
@@ -355,31 +651,36 @@ const Register = () => {
 
   const BACKEND_URL = 'https://leave-od-approval.onrender.com';
 
-  // Fetch directory values – fixed to handle nested `data` property
+  // Fetch directory data
   useEffect(() => {
     const fetchReferences = async () => {
+      setLoadingMentors(true);
+      setLoadingHods(true);
+
       try {
         const hodsRes = await fetch(`${BACKEND_URL}/api/users/hods`);
         if (hodsRes.ok) {
           const hodsData = await hodsRes.json();
-          // Extract array from possible { data: [...] } wrapper
           const hodsArray = hodsData?.data || hodsData;
           setHodsList(Array.isArray(hodsArray) ? hodsArray : []);
         }
       } catch (err) {
         console.error('Connection failure syncing HOD directory:', err);
+      } finally {
+        setLoadingHods(false);
       }
 
       try {
         const mentorsRes = await fetch(`${BACKEND_URL}/api/users/mentors`);
         if (mentorsRes.ok) {
           const mentorsData = await mentorsRes.json();
-          // Extract array from possible { data: [...] } wrapper
           const mentorsArray = mentorsData?.data || mentorsData;
           setMentorsList(Array.isArray(mentorsArray) ? mentorsArray : []);
         }
       } catch (err) {
         console.error('Connection failure syncing Mentor directory:', err);
+      } finally {
+        setLoadingMentors(false);
       }
     };
 
@@ -485,6 +786,23 @@ const Register = () => {
     HOD: { icon: Building2, text: 'Head of Department Account' },
   };
 
+  // Prepare options for SearchableSelect
+  const getMentorOptions = useCallback((category) => {
+    return mentorsList
+      .filter(m => m.category === category)
+      .map(m => {
+        const fullName = `${m.firstName || ''} ${m.lastName || ''}`.trim();
+        return { value: fullName, label: fullName };
+      });
+  }, [mentorsList]);
+
+  const hodOptions = useMemo(() => {
+    return hodsList.map(hod => {
+      const fullName = `Dr. ${hod.firstName || ''} ${hod.lastName || ''}`.trim();
+      return { value: fullName, label: fullName };
+    });
+  }, [hodsList]);
+
   return (
     <div className="min-h-screen relative flex items-center justify-center px-4 py-8 overflow-hidden">
       <SkyBackground />
@@ -586,41 +904,33 @@ const Register = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                <Smile size={12} className="text-slate-500" />
-                <span>Gender</span>
-              </label>
-              <select
-                value={formData.gender}
-                onChange={(e) => handleInputChange('gender', e.target.value)}
-                required
-                disabled={isLoading}
-                className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
-              >
-                <option value="" disabled hidden>Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+            <StyledSelect
+              label="Gender"
+              icon={Smile}
+              options={[
+                { value: 'Male', label: 'Male' },
+                { value: 'Female', label: 'Female' },
+                { value: 'Other', label: 'Other' },
+              ]}
+              value={formData.gender}
+              onChange={(val) => handleInputChange('gender', val)}
+              placeholder="Select Gender"
+              disabled={isLoading}
+              required
+            />
 
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                <Layers size={12} className="text-slate-500" />
-                <span>Department</span>
-              </label>
-              <select
-                value={formData.department}
-                onChange={(e) => handleInputChange('department', e.target.value)}
-                required
-                disabled={isLoading}
-                className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
-              >
-                <option value="" disabled hidden>Select Department</option>
-                <option value="Computer Science and Engineering">Computer Science and Engineering</option>
-              </select>
-            </div>
+            <StyledSelect
+              label="Department"
+              icon={Layers}
+              options={[
+                { value: 'Computer Science and Engineering', label: 'Computer Science and Engineering' },
+              ]}
+              value={formData.department}
+              onChange={(val) => handleInputChange('department', val)}
+              placeholder="Select Department"
+              disabled={isLoading}
+              required
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -677,183 +987,104 @@ const Register = () => {
                   />
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                        <Sparkles size={11} className="text-slate-500" />
-                        <span>Academic Year</span>
-                      </label>
-                      <select
-                        value={formData.year}
-                        onChange={(e) => handleInputChange('year', e.target.value)}
-                        required
-                        disabled={isLoading}
-                        className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
-                      >
-                        <option value="" disabled hidden>Choose Year</option>
-                        <option value="I Year">I Year</option>
-                        <option value="II Year">II Year</option>
-                        <option value="III Year">III Year</option>
-                        <option value="IV Year">IV Year</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                        <Building2 size={11} className="text-slate-500" />
-                        <span>Section</span>
-                      </label>
-                      <select
-                        value={formData.section}
-                        onChange={(e) => handleInputChange('section', e.target.value)}
-                        required
-                        disabled={isLoading}
-                        className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
-                      >
-                        <option value="" disabled hidden>Choose Section</option>
-                        <option value="Section A">A</option>
-                        <option value="Section B">B</option>
-                        <option value="Section C">C</option>
-                        <option value="Section D">D</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 tracking-wider flex items-center gap-1">
-                      <Home size={11} className="text-slate-500" />
-                      <span>Student Type</span>
-                    </label>
-                    <select
-                      value={formData.studentType}
-                      onChange={(e) => handleInputChange('studentType', e.target.value)}
-                      required
+                    <StyledSelect
+                      label="Academic Year"
+                      icon={Sparkles}
+                      options={[
+                        { value: 'I Year', label: 'I Year' },
+                        { value: 'II Year', label: 'II Year' },
+                        { value: 'III Year', label: 'III Year' },
+                        { value: 'IV Year', label: 'IV Year' },
+                      ]}
+                      value={formData.year}
+                      onChange={(val) => handleInputChange('year', val)}
+                      placeholder="Choose Year"
                       disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:border-indigo-400/70 transition-all cursor-pointer"
-                    >
-                      <option value="" disabled hidden>Choose Type</option>
-                      <option value="Day Scholar">Day Scholar</option>
-                      <option value="Hosteller">Hosteller</option>
-                    </select>
+                      required
+                    />
+
+                    <StyledSelect
+                      label="Section"
+                      icon={Building2}
+                      options={[
+                        { value: 'Section A', label: 'A' },
+                        { value: 'Section B', label: 'B' },
+                        { value: 'Section C', label: 'C' },
+                        { value: 'Section D', label: 'D' },
+                      ]}
+                      value={formData.section}
+                      onChange={(val) => handleInputChange('section', val)}
+                      placeholder="Choose Section"
+                      disabled={isLoading}
+                      required
+                    />
                   </div>
 
-                  {/* 👔 CLASS ADVISOR 1 (CA1) DROPDOWN */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
-                      <Users size={11} className="text-slate-600" />
-                      <span>Class Advisor 1 (CA1)</span>
-                    </label>
-                    <select
-                      value={formData.firstmentorName || ""}
-                      onChange={(e) => handleInputChange('firstmentorName', e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
-                    >
-                      <option value="" disabled hidden>Choose Your CA1 Advisor</option>
-                      {mentorsList.filter(m => m.category === 'CA1').length > 0 ? (
-                        mentorsList
-                          .filter(mentor => mentor.category === 'CA1')
-                          .map((mentor) => {
-                            const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
-                            return (
-                              <option key={mentor._id || mentor.id} value={mentorFullName}>
-                                {mentorFullName}
-                              </option>
-                            );
-                          })
-                      ) : (
-                        <option value="" disabled className="text-slate-400">
-                          No registered CA1 mentors available
-                        </option>
-                      )}
-                    </select>
-                  </div>
+                  <StyledSelect
+                    label="Student Type"
+                    icon={Home}
+                    options={[
+                      { value: 'Day Scholar', label: 'Day Scholar' },
+                      { value: 'Hosteller', label: 'Hosteller' },
+                    ]}
+                    value={formData.studentType}
+                    onChange={(val) => handleInputChange('studentType', val)}
+                    placeholder="Choose Type"
+                    disabled={isLoading}
+                    required
+                  />
 
-                  {/* 👔 CLASS ADVISOR 2 (CA2) DROPDOWN */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
-                      <Users size={11} className="text-slate-600" />
-                      <span>Class Advisor 2 (CA2)</span>
-                    </label>
-                    <select
-                      value={formData.secondmentorName || ""}
-                      onChange={(e) => handleInputChange('secondmentorName', e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
-                    >
-                      <option value="" disabled hidden>Choose Your CA2 Advisor</option>
-                      {mentorsList.filter(m => m.category === 'CA2').length > 0 ? (
-                        mentorsList
-                          .filter(mentor => mentor.category === 'CA2')
-                          .map((mentor) => {
-                            const mentorFullName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim();
-                            return (
-                              <option key={mentor._id || mentor.id} value={mentorFullName}>
-                                {mentorFullName}
-                              </option>
-                            );
-                          })
-                      ) : (
-                        <option value="" disabled className="text-slate-400">
-                          No registered CA2 mentors available
-                        </option>
-                      )}
-                    </select>
-                  </div>
+                  <SearchableSelect
+                    label="Class Advisor 1 (CA1)"
+                    options={getMentorOptions('CA1')}
+                    value={formData.firstmentorName || ''}
+                    onChange={(val) => handleInputChange('firstmentorName', val)}
+                    placeholder="Choose Your CA1 Advisor"
+                    disabled={isLoading}
+                    required
+                    loading={loadingMentors}
+                  />
+
+                  <SearchableSelect
+                    label="Class Advisor 2 (CA2)"
+                    options={getMentorOptions('CA2')}
+                    value={formData.secondmentorName || ''}
+                    onChange={(val) => handleInputChange('secondmentorName', val)}
+                    placeholder="Choose Your CA2 Advisor"
+                    disabled={isLoading}
+                    required
+                    loading={loadingMentors}
+                  />
                 </div>
               )}
 
               {/* MENTOR EXTRA FIELDS */}
               {selectedRole === 'Mentor' && (
                 <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
-                      <Users size={11} className="text-slate-600" />
-                      <span>Select Department HOD</span>
-                    </label>
-                    <select
-                      value={formData.selectedHodId}
-                      onChange={(e) => handleInputChange('selectedHodId', e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
-                    >
-                      <option value="" disabled hidden>Choose Your Head of Department</option>
-                      {hodsList.length > 0 ? (
-                        hodsList.map((hod) => {
-                          const hodFullName = `Dr. ${hod.firstName || ''} ${hod.lastName || ''}`.trim();
-                          return (
-                            <option key={hod._id || hod.id} value={hodFullName}>
-                              {hodFullName}
-                            </option>
-                          );
-                        })
-                      ) : (
-                        <option value="" disabled className="text-slate-400">
-                          No HODs available
-                        </option>
-                      )}
-                    </select>
-                  </div>
+                  <SearchableSelect
+                    label="Select Department HOD"
+                    options={hodOptions}
+                    value={formData.selectedHodId || ''}
+                    onChange={(val) => handleInputChange('selectedHodId', val)}
+                    placeholder="Choose Your Head of Department"
+                    disabled={isLoading}
+                    required
+                    loading={loadingHods}
+                  />
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-slate-800 dark:text-slate-300 tracking-wider flex items-center gap-1 pl-1">
-                      <ShieldCheck size={11} className="text-slate-600" />
-                      <span>Mentor Category</span>
-                    </label>
-                    <select
-                      value={formData.category || ""}
-                      onChange={(e) => handleInputChange('category', e.target.value)}
-                      required
-                      disabled={isLoading}
-                      className="w-full text-xs font-medium bg-white/40 backdrop-blur-sm border border-white/40 rounded-xl px-3 py-2.5 text-slate-900 focus:outline-none focus:border-white focus:bg-white/70 transition-all cursor-pointer shadow-inner"
-                    >
-                      <option value="" disabled hidden>Select Category</option>
-                      <option value="CA1">CA1</option>
-                      <option value="CA2">CA2</option>
-                    </select>
-                  </div>
+                  <StyledSelect
+                    label="Mentor Category"
+                    icon={ShieldCheck}
+                    options={[
+                      { value: 'CA1', label: 'CA1' },
+                      { value: 'CA2', label: 'CA2' },
+                    ]}
+                    value={formData.category || ''}
+                    onChange={(val) => handleInputChange('category', val)}
+                    placeholder="Select Category"
+                    disabled={isLoading}
+                    required
+                  />
                 </div>
               )}
 
