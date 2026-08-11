@@ -3,8 +3,8 @@ import nodemailer from 'nodemailer';
 // Create transporter from environment variables
 const createTransporter = () => {
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT) || 465;          // SSL by default
-  const secure = process.env.EMAIL_SECURE === 'true' || port === 465;
+  const port = parseInt(process.env.EMAIL_PORT) || 587;          // SSL by default
+  const secure = process.env.EMAIL_SECURE === 'false' || port === 587;
 
   return nodemailer.createTransport({
     host,
@@ -14,8 +14,8 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-    connectionTimeout: 15000,
-    socketTimeout: 15000,
+    connectionTimeout: 30000,
+    socketTimeout: 30000,
     // Force IPv4 (helps with some cloud environments)
     family: 4,
   });
