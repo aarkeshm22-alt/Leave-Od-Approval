@@ -441,7 +441,7 @@ const ForgotPassword = () => {
                 />
               </div>
               {/* ✅ Darkened helper text */}
-              <p className="mt-1 text-[10px] text-slate-700 dark:text-slate-400">
+              <p className="mt-1 text-[10px] text-white/30 dark:text-white/40 font-medium">
                 Enter your registered email to receive an OTP.
               </p>
             </div>

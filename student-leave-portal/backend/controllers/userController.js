@@ -265,7 +265,7 @@ export const getStudentsByMentor = async (req, res) => {
             const caseInsensitiveRegex = new RegExp(`^${cleanName}$`, 'i');
             const mentorFields = category === 'CA1' ? ['firstmentorName'] :
                 category === 'CA2' ? ['secondmentorName'] :
-                ['firstmentorName', 'secondmentorName'];
+                    ['firstmentorName', 'secondmentorName'];
             query.$or = mentorFields.map(field => ({ [field]: { $regex: caseInsensitiveRegex } }));
         }
 
@@ -359,14 +359,17 @@ export const forgotPassword = async (req, res) => {
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
-            }                   // ✅ Force IPv4 to avoid ENETUNREACH                      // optional logging
+            },
+            connectionTimeout: 15000,      // 15 seconds
+            socketTimeout: 15000,
+            // ✅ Force IPv4 to avoid ENETUNREACH                      // optional logging
         });
         transporter.verify((error, success) => {
             if (error) {
-                console.error('Email transporter verification failed:', error); 
+                console.error('Email transporter verification failed:', error);
             } else {
                 console.log('Email transporter is ready to send messages');
-            }   
+            }
         });
 
         const mailOptions = {
@@ -568,9 +571,9 @@ export const resendOTP = async (req, res) => {
         transporter.verify((error, success) => {
             if (error) {
                 console.error('Email transporter verification failed:', error);
-            }else {
+            } else {
                 console.log('Email transporter is ready to send messages');
-            }   
+            }
         });
 
         const mailOptions = {
