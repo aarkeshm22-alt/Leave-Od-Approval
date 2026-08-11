@@ -26,7 +26,7 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false, 
     },
-    connectionTimeout: 40000,  // 40 seconds
+    connectionTimeout: 40000,  // 40 seconds 
     socketTimeout: 40000,
   });
 };
