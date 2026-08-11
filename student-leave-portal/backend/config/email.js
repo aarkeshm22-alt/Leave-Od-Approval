@@ -2,15 +2,13 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
-// ------------------------------------------------------------------
-// 1. Create transporter from environment variables
-// ------------------------------------------------------------------
-const createTransporter = () => {
-  const host = process.env.EMAIL_HOST || 'smtp-relay.brevo.com';
-  const port = parseInt(process.env.EMAIL_PORT) || 587;
-  const secure = process.env.EMAIL_SECURE === 'true' || false;
 
-  // Log for debugging
+const createTransporter = () => {
+  // Read from environment, fallback to Brevo with SSL
+  const host = process.env.EMAIL_HOST || 'smtp-relay.brevo.com';
+  const port = parseInt(process.env.EMAIL_PORT) || 465;   // ✅ SSL port
+  const secure = process.env.EMAIL_SECURE === 'true' || port === 465;  // SSL for 465
+
   console.log('📧 EMAIL_HOST:', host);
   console.log('📧 EMAIL_PORT:', port);
   console.log('📧 EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
@@ -21,22 +19,16 @@ const createTransporter = () => {
     secure,
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    }, 
-    tls: {
-      rejectUnauthorized: false, 
+      pass: process.env.EMAIL_PASSWORD, 
     },
-    connectionTimeout: 40000,  // 40 seconds 
-    socketTimeout: 40000,
+    connectionTimeout: 30000,   // 30 seconds
+    socketTimeout: 30000,
+    tls: { rejectUnauthorized: false },
   });
 };
 
-// ------------------------------------------------------------------
-// 2. Create and verify transporter (synchronous)
-// ------------------------------------------------------------------
 const transporter = createTransporter();
 
-// Verify immediately (non‑blocking)
 transporter.verify((error, success) => {
   if (error) {
     console.error('⚠️ Email transporter verification failed:', error.message);
@@ -45,9 +37,6 @@ transporter.verify((error, success) => {
   }
 });
 
-// ------------------------------------------------------------------
-// 3. Export sendEmail function
-// ------------------------------------------------------------------
 export const sendEmail = async (mailOptions) => {
   try {
     const info = await transporter.sendMail(mailOptions);
