@@ -1,61 +1,65 @@
 import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import dns from 'dns';
+import { promisify } from 'util';
 
-dotenv.config();
+const lookup = promisify(dns.lookup);
 
-const createTransporter = () => {
-  // Log the values (mask password for security)
-  console.log('📧 EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
-  console.log('📧 EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Missing');
-
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT) || 587;
-  const secure = process.env.EMAIL_SECURE === 'true' || false;
-
-  // Ensure credentials exist
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    throw new Error('Missing email credentials. Check your environment variables.');
-  }
+const createTransporter = async () => {
+  // Force IPv4 resolution
+  const { address } = await lookup('smtp.gmail.com', { family: 4 });
+  console.log(`📧 Resolved Gmail SMTP IPv4: ${address}`);
 
   return nodemailer.createTransport({
-    host,
-    port,
-    secure,
+    host: address,          // 👈 use the IP directly
+    port: 587,
+    secure: false,          // STARTTLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-    tls: { rejectUnauthorized: false },
+    tls: {
+      rejectUnauthorized: false,   // optional – helps with some proxies
+    },
     connectionTimeout: 15000,
     socketTimeout: 15000,
-    family: 4,   // force IPv4
+    // family: 4,           // no longer needed – we resolved manually
   });
 };
 
 let transporter;
-try {
-  transporter = createTransporter();
-} catch (error) {
-  console.error('❌ Failed to create email transporter:', error.message);
-  // You can still export a dummy transporter that logs instead of sending
-  transporter = {
-    sendMail: (mailOptions) => {
-      console.log('📧 Email would be sent (transporter not configured):', mailOptions.to);
-      return Promise.resolve({ messageId: 'dummy' });
-    },
-    verify: (callback) => callback(new Error('Transporter not configured'), null)
-  };
-}
+let ready = false;
 
-transporter.verify((error, success) => {
-  if (error) {
+// Initialize transporter asynchronously
+const initTransporter = async () => {
+  try {
+    transporter = await createTransporter();
+    await new Promise((resolve, reject) => {
+      transporter.verify((error, success) => {
+        if (error) reject(error);
+        else resolve(success);
+      });
+    });
+    ready = true;
+    console.log('✅ Email transporter is ready (IPv4 forced)');
+  } catch (error) {
     console.error('⚠️ Email transporter verification failed:', error.message);
-  } else {
-    console.log('✅ Email transporter is ready');
+    // Fallback to a dummy transporter that logs instead of sending
+    transporter = {
+      sendMail: (mailOptions) => {
+        console.log('📧 Email would be sent (transporter not ready):', mailOptions.to);
+        return Promise.resolve({ messageId: 'dummy' });
+      },
+    };
   }
-});
+};
+
+// Start initialization (doesn't block startup)
+initTransporter();
 
 export const sendEmail = async (mailOptions) => {
+  if (!ready) {
+    console.warn('⚠️ Transporter not ready, queuing email:', mailOptions.to);
+  }
   try {
     const info = await transporter.sendMail(mailOptions);
     return { success: true, info };
