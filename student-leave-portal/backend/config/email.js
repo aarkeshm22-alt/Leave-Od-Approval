@@ -22,9 +22,9 @@ const createTransporter = () => {
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
-    },
+    }, 
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: false, 
     },
     connectionTimeout: 20000,  // 20 seconds
     socketTimeout: 20000,
