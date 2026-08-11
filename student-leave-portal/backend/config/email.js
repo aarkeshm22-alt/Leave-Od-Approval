@@ -1,38 +1,45 @@
 import nodemailer from 'nodemailer';
-import dns from 'dns';
-import { promisify } from 'util';
+import dotenv from 'dotenv';
 
-const lookup = promisify(dns.lookup);
+dotenv.config();
+// ------------------------------------------------------------------
+// 1. Create transporter from environment variables
+// ------------------------------------------------------------------
+const createTransporter = () => {
+  const host = process.env.EMAIL_USER || 'smtp-relay.brevo.com';
+  const port = parseInt(process.env.EMAIL_PORT) || 587;
+  const secure = process.env.EMAIL_SECURE === 'true' || false;
 
-const createTransporter = async () => {
-  // Force IPv4 resolution
-  const { address } = await lookup('smtp.gmail.com', { family: 4 });
-  console.log(`📧 Resolved Gmail SMTP IPv4: ${address}`);
+  console.log('📧 EMAIL_HOST:', host);
+  console.log('📧 EMAIL_PORT:', port);
+  console.log('📧 EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
 
   return nodemailer.createTransport({
-    host: address,          // 👈 use the IP directly
-    port: 587,
-    secure: false,          // STARTTLS
-    auth: {
+    host,
+    port,
+    secure,
+    auth: {   
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
     tls: {
-      rejectUnauthorized: false,   // optional – helps with some proxies
+      rejectUnauthorized: false,  // optional – helps with some proxies
     },
     connectionTimeout: 15000,
     socketTimeout: 15000,
-    // family: 4,           // no longer needed – we resolved manually
+    // family: 4,  // no need – Brevo uses IPv4
   });
 };
 
 let transporter;
 let ready = false;
 
-// Initialize transporter asynchronously
+// ------------------------------------------------------------------
+// 2. Initialize transporter (non‑blocking)
+// ------------------------------------------------------------------
 const initTransporter = async () => {
   try {
-    transporter = await createTransporter();
+    transporter = createTransporter();
     await new Promise((resolve, reject) => {
       transporter.verify((error, success) => {
         if (error) reject(error);
@@ -40,10 +47,10 @@ const initTransporter = async () => {
       });
     });
     ready = true;
-    console.log('✅ Email transporter is ready (IPv4 forced)');
+    console.log('✅ Email transporter is ready');
   } catch (error) {
     console.error('⚠️ Email transporter verification failed:', error.message);
-    // Fallback to a dummy transporter that logs instead of sending
+    // Fallback: dummy transporter that logs instead of sending
     transporter = {
       sendMail: (mailOptions) => {
         console.log('📧 Email would be sent (transporter not ready):', mailOptions.to);
@@ -53,9 +60,11 @@ const initTransporter = async () => {
   }
 };
 
-// Start initialization (doesn't block startup)
 initTransporter();
 
+// ------------------------------------------------------------------
+// 3. Export sendEmail function
+// ------------------------------------------------------------------
 export const sendEmail = async (mailOptions) => {
   if (!ready) {
     console.warn('⚠️ Transporter not ready, queuing email:', mailOptions.to);
@@ -69,4 +78,4 @@ export const sendEmail = async (mailOptions) => {
   }
 };
 
-export default transporter;
+export default transporter; 

@@ -346,7 +346,7 @@ export const forgotPassword = async (req, res) => {
         await user.save();
 
         console.log('✅ OTP generated for:', email);
-        console.log('🔑 OTP:', otp);
+        console.log('🔑 OTP:', otp); 
         console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
 
         const html = `
