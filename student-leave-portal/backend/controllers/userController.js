@@ -359,16 +359,14 @@ export const forgotPassword = async (req, res) => {
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
-            },
-            tls: {
-                rejectUnauthorized: false,
-                ciphers: 'SSLv3'
-            },
-            family: 4,                        // ✅ Force IPv4 to avoid ENETUNREACH
-            connectionTimeout: 15000,
-            greetingTimeout: 15000,
-            socketTimeout: 15000,
-            debug: true,                      // optional logging
+            }                   // ✅ Force IPv4 to avoid ENETUNREACH                      // optional logging
+        });
+        transporter.verify((error, success) => {
+            if (error) {
+                console.error('Email transporter verification failed:', error); 
+            } else {
+                console.log('Email transporter is ready to send messages');
+            }   
         });
 
         const mailOptions = {
@@ -565,16 +563,14 @@ export const resendOTP = async (req, res) => {
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD,
-            },
-            tls: {
-                rejectUnauthorized: false,
-                ciphers: 'SSLv3'
-            },
-            family: 4,
-            connectionTimeout: 15000,
-            greetingTimeout: 15000,
-            socketTimeout: 15000,
-            debug: true,
+            }
+        });
+        transporter.verify((error, success) => {
+            if (error) {
+                console.error('Email transporter verification failed:', error);
+            }else {
+                console.log('Email transporter is ready to send messages');
+            }   
         });
 
         const mailOptions = {
