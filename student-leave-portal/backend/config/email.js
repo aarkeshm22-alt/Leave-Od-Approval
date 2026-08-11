@@ -1,10 +1,21 @@
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 
-// Create transporter from environment variables
+dotenv.config();
+
 const createTransporter = () => {
+  // Log the values (mask password for security)
+  console.log('📧 EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
+  console.log('📧 EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Missing');
+
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT) || 587;          // SSL by default
-  const secure = process.env.EMAIL_SECURE === 'false' || port === 587;
+  const port = parseInt(process.env.EMAIL_PORT) || 587;
+  const secure = process.env.EMAIL_SECURE === 'true' || false;
+
+  // Ensure credentials exist
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    throw new Error('Missing email credentials. Check your environment variables.');
+  }
 
   return nodemailer.createTransport({
     host,
@@ -14,16 +25,28 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-    connectionTimeout: 30000,
-    socketTimeout: 30000,
-    // Force IPv4 (helps with some cloud environments)
-    family: 4,
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    socketTimeout: 15000,
+    family: 4,   // force IPv4
   });
 };
 
-const transporter = createTransporter();
+let transporter;
+try {
+  transporter = createTransporter();
+} catch (error) {
+  console.error('❌ Failed to create email transporter:', error.message);
+  // You can still export a dummy transporter that logs instead of sending
+  transporter = {
+    sendMail: (mailOptions) => {
+      console.log('📧 Email would be sent (transporter not configured):', mailOptions.to);
+      return Promise.resolve({ messageId: 'dummy' });
+    },
+    verify: (callback) => callback(new Error('Transporter not configured'), null)
+  };
+}
 
-// Verify connection on startup
 transporter.verify((error, success) => {
   if (error) {
     console.error('⚠️ Email transporter verification failed:', error.message);
