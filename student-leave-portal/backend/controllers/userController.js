@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import { sendEmail } from '../config/email.js';   // <-- NEW IMPORT
 
 // ============================================
 // 1. FETCH HODs
@@ -314,7 +314,7 @@ export const getStudentsByMentor = async (req, res) => {
 };
 
 // ============================================
-// 8. FORGOT PASSWORD - SEND OTP (FIXED)
+// 8. FORGOT PASSWORD - SEND OTP (UPDATED)
 // ============================================
 export const forgotPassword = async (req, res) => {
     try {
@@ -338,11 +338,9 @@ export const forgotPassword = async (req, res) => {
             });
         }
 
-        // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiry = Date.now() + 600000; // 10 minutes
+        const otpExpiry = Date.now() + 600000;
 
-        // Save OTP to user
         user.resetToken = otp;
         user.resetTokenExpiry = new Date(otpExpiry);
         await user.save();
@@ -351,75 +349,61 @@ export const forgotPassword = async (req, res) => {
         console.log('🔑 OTP:', otp);
         console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
 
-        // ✅ Transporter with IPv4 fix, port 587, TLS, and generous timeouts
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // true for 465, false for 587
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-            connectionTimeout: 15000,      // 15 seconds
-            socketTimeout: 15000,
-            // ✅ Force IPv4 to avoid ENETUNREACH                      // optional logging
-        });
-        transporter.verify((error, success) => {
-            if (error) {
-                console.error('Email transporter verification failed:', error);
-            } else {
-                console.log('Email transporter is ready to send messages');
-            }
-        });
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
+                <div style="text-align: center; padding: 20px 0;">
+                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
+                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
+                </div>
+                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                        Hello <strong>${user.firstName || 'User'}</strong>,
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                        You requested to reset your password for the LOA Portal. Use the OTP below:
+                    </p>
+                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
+                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
+                            ${otp}
+                        </span>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                        This OTP will expire in <strong>10 minutes</strong>.
+                    </p>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                        If you didn't request this, please ignore this email.
+                    </p>
+                </div>
+                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
+                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
+                </div>
+            </div>
+        `;
 
-        const mailOptions = {
+        // ✅ Use the centralised email helper
+        const result = await sendEmail({
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: 'LOA Portal - Password Reset OTP',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                    <div style="text-align: center; padding: 20px 0;">
-                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                        <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
-                    </div>
-                    
-                    <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                            Hello <strong>${user.firstName || 'User'}</strong>,
-                        </p>
-                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                            You requested to reset your password for the LOA Portal. Use the OTP below:
-                        </p>
-                        
-                        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                            <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                                ${otp}
-                            </span>
-                        </div>
-                        
-                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                            This OTP will expire in <strong>10 minutes</strong>.
-                        </p>
-                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                            If you didn't request this, please ignore this email.
-                        </p>
-                    </div>
-                    
-                    <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                        <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                    </div>
-                </div>
-            `,
-        };
+            html,
+        });
 
-        await transporter.sendMail(mailOptions);
+        if (!result.success) {
+            console.error('Email sending failed:', result.error);
+            return res.status(500).json({
+                success: false,
+                message: 'Unable to send OTP. Please try again later or contact support.',
+            });
+        }
+
         console.log('✅ Email sent to:', user.email);
 
         res.status(200).json({
             success: true,
             message: 'OTP sent to your email successfully',
             email: user.email,
-            otp: otp // Remove this line in production for security, but keep for debugging
+            // Remove OTP in production for security
+            otp: process.env.NODE_ENV === 'development' ? otp : undefined,
         });
     } catch (error) {
         console.error('❌ Forgot password error:', error);
@@ -529,7 +513,7 @@ export const verifyOTP = async (req, res) => {
 };
 
 // ============================================
-// 10. RESEND OTP (FIXED)
+// 10. RESEND OTP (UPDATED)
 // ============================================
 export const resendOTP = async (req, res) => {
     try {
@@ -558,62 +542,51 @@ export const resendOTP = async (req, res) => {
         user.resetTokenExpiry = otpExpiry;
         await user.save();
 
-        // ✅ Same transporter configuration as forgotPassword
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            }
-        });
-        transporter.verify((error, success) => {
-            if (error) {
-                console.error('Email transporter verification failed:', error);
-            } else {
-                console.log('Email transporter is ready to send messages');
-            }
-        });
+        console.log('📧 New OTP for:', user.email);
 
-        const mailOptions = {
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
+                <div style="text-align: center; padding: 20px 0;">
+                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
+                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
+                </div>
+                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                        Hello <strong>${user.firstName || 'User'}</strong>,
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                        Here is your new OTP for password reset:
+                    </p>
+                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
+                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
+                            ${otp}
+                        </span>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
+                        This OTP will expire in <strong>10 minutes</strong>.
+                    </p>
+                </div>
+                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
+                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
+                </div>
+            </div>
+        `;
+
+        const result = await sendEmail({
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: 'LOA Portal - New OTP for Password Reset',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                    <div style="text-align: center; padding: 20px 0;">
-                        <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                        <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
-                    </div>
-                    
-                    <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                            Hello <strong>${user.firstName || 'User'}</strong>,
-                        </p>
-                        <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                            Here is your new OTP for password reset:
-                        </p>
-                        
-                        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                            <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                                ${otp}
-                            </span>
-                        </div>
-                        
-                        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                            This OTP will expire in <strong>10 minutes</strong>.
-                        </p>
-                    </div>
-                    
-                    <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                        <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                    </div>
-                </div>
-            `,
-        };
+            html,
+        });
 
-        await transporter.sendMail(mailOptions);
+        if (!result.success) {
+            console.error('Resend email failed:', result.error);
+            return res.status(500).json({
+                success: false,
+                message: 'Unable to send OTP. Please try again later.',
+            });
+        }
+
         console.log('✅ New OTP sent to:', user.email);
 
         res.status(200).json({
