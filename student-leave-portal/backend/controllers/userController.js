@@ -338,6 +338,7 @@ export const forgotPassword = async (req, res) => {
             });
         }
 
+        // ✅ Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = Date.now() + 600000;
 
@@ -346,53 +347,16 @@ export const forgotPassword = async (req, res) => {
         await user.save();
 
         console.log('✅ OTP generated for:', email);
-        console.log('🔑 OTP:', otp); 
-        console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
+        console.log('🔑 OTP:', otp);
 
-        const html = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                <div style="text-align: center; padding: 20px 0;">
-                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
-                </div>
-                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Hello <strong>${user.firstName || 'User'}</strong>,
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        You requested to reset your password for the LOA Portal. Use the OTP below:
-                    </p>
-                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                            ${otp}
-                        </span>
-                    </div>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        This OTP will expire in <strong>10 minutes</strong>.
-                    </p>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        If you didn't request this, please ignore this email.
-                    </p>
-                </div>
-                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                </div>
-            </div>
-        `;
-
-        // ✅ Use the centralised email helper
-        const result = await sendEmail({
-            from: `LOA Portal <${process.env.EMAIL_USER}>`,
-            to: user.email,
-            subject: 'LOA Portal - Password Reset OTP',
-            html,
-        });
+        // ✅ Send OTP via Brevo SMTP
+        const result = await sendOTPEmail(user, otp);
 
         if (!result.success) {
-            console.error('Email sending failed:', result.error);
+            console.error('❌ Email sending failed:', result.error);
             return res.status(500).json({
                 success: false,
-                message: 'Unable to send OTP. Please try again later or contact support.',
+                message: 'Failed to send OTP email: ' + result.error
             });
         }
 
@@ -402,8 +366,7 @@ export const forgotPassword = async (req, res) => {
             success: true,
             message: 'OTP sent to your email successfully',
             email: user.email,
-            // Remove OTP in production for security
-            otp: process.env.NODE_ENV === 'development' ? otp : undefined,
+            otp: otp
         });
     } catch (error) {
         console.error('❌ Forgot password error:', error);
@@ -415,105 +378,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 // ============================================
-// 9. VERIFY OTP AND RESET PASSWORD
-// ============================================
-export const verifyOTP = async (req, res) => {
-    try {
-        const { email, otp, newPassword } = req.body;
-
-        console.log('🔑 Verify OTP request for:', email);
-        console.log('📝 Received OTP:', otp);
-        console.log('🔒 New Password provided:', newPassword ? 'Yes' : 'No');
-
-        if (!email || !otp) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and OTP are required'
-            });
-        }
-
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        console.log('📦 Stored OTP in DB:', user.resetToken);
-        console.log('⏰ Stored OTP Expiry:', user.resetTokenExpiry);
-        console.log('⏰ Current Time:', new Date());
-
-        if (!user.resetToken) {
-            return res.status(400).json({
-                success: false,
-                message: 'No OTP found. Please request a new one.'
-            });
-        }
-
-        if (user.resetToken !== otp) {
-            console.log('❌ OTP mismatch. Expected:', user.resetToken, 'Got:', otp);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid OTP'
-            });
-        }
-
-        if (new Date(user.resetTokenExpiry) < new Date()) {
-            return res.status(400).json({
-                success: false,
-                message: 'OTP has expired. Please request a new one.'
-            });
-        }
-
-        if (!newPassword) {
-            console.log('✅ OTP verified successfully (keeping OTP for password reset)');
-            return res.status(200).json({
-                success: true,
-                message: 'OTP verified successfully!'
-            });
-        }
-
-        if (newPassword) {
-            if (newPassword.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Password must be at least 6 characters'
-                });
-            }
-
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(newPassword, salt);
-            console.log('✅ Password hashed and saved');
-
-            user.resetToken = null;
-            user.resetTokenExpiry = null;
-            await user.save();
-
-            console.log('✅ OTP cleared after password reset');
-
-            return res.status(200).json({
-                success: true,
-                message: 'Password reset successfully!'
-            });
-        }
-
-        res.status(400).json({
-            success: false,
-            message: 'Invalid request'
-        });
-    } catch (error) {
-        console.error('❌ Verify OTP error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error: ' + error.message
-        });
-    }
-};
-
-// ============================================
-// 10. RESEND OTP (UPDATED)
+// RESEND OTP
 // ============================================
 export const resendOTP = async (req, res) => {
     try {
@@ -539,55 +404,17 @@ export const resendOTP = async (req, res) => {
         const otpExpiry = Date.now() + 600000;
 
         user.resetToken = otp;
-        user.resetTokenExpiry = otpExpiry;
+        user.resetTokenExpiry = new Date(otpExpiry);
         await user.save();
 
-        console.log('📧 New OTP for:', user.email);
-
-        const html = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                <div style="text-align: center; padding: 20px 0;">
-                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
-                </div>
-                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Hello <strong>${user.firstName || 'User'}</strong>,
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Here is your new OTP for password reset:
-                    </p>
-                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                            ${otp}
-                        </span>
-                    </div>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        This OTP will expire in <strong>10 minutes</strong>.
-                    </p>
-                </div>
-                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                </div>
-            </div>
-        `;
-
-        const result = await sendEmail({
-            from: `LOA Portal <${process.env.EMAIL_USER}>`,
-            to: user.email,
-            subject: 'LOA Portal - New OTP for Password Reset',
-            html,
-        });
+        const result = await sendOTPEmail(user, otp);
 
         if (!result.success) {
-            console.error('Resend email failed:', result.error);
             return res.status(500).json({
                 success: false,
-                message: 'Unable to send OTP. Please try again later.',
+                message: 'Failed to send OTP email: ' + result.error
             });
         }
-
-        console.log('✅ New OTP sent to:', user.email);
 
         res.status(200).json({
             success: true,
@@ -596,6 +423,86 @@ export const resendOTP = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Resend OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server Error: ' + error.message
+        });
+    }
+};
+
+// ============================================
+// VERIFY OTP AND RESET PASSWORD
+// ============================================
+export const verifyOTP = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        console.log('🔑 Verify OTP request for:', email);
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and OTP are required'
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (!user.resetToken) {
+            return res.status(400).json({
+                success: false,
+                message: 'No OTP found. Please request a new one.'
+            });
+        }
+
+        if (user.resetToken !== otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid OTP'
+            });
+        }
+
+        if (new Date(user.resetTokenExpiry) < new Date()) {
+            return res.status(400).json({
+                success: false,
+                message: 'OTP has expired. Please request a new one.'
+            });
+        }
+
+        if (!newPassword) {
+            return res.status(200).json({
+                success: true,
+                message: 'OTP verified successfully!'
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        user.resetToken = null;
+        user.resetTokenExpiry = null;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password reset successfully!'
+        });
+    } catch (error) {
+        console.error('❌ Verify OTP error:', error);
         res.status(500).json({
             success: false,
             message: 'Server Error: ' + error.message
