@@ -8,7 +8,7 @@ dotenv.config();
 // ------------------------------------------------------------------
 export const sendEmail = async (mailOptions) => {
   try {
-    const apiKey = process.env.EMAIL_PASSWORD; // Brevo API key (starts with xsmtpsib-)
+    const apiKey = process.env.EMAIL_PASSWORD; // Brevo API key (starts with xkeysib-)
     const senderEmail = process.env.EMAIL_USER; // verified sender email
 
     console.log('📧 Sending email via Brevo API to:', mailOptions.to);

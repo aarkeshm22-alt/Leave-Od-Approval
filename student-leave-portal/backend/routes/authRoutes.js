@@ -201,6 +201,8 @@ router.route('/users/profile')
                 firstmentorName: user.firstmentorName || 'Not Assigned',
                 secondmentorName: user.secondmentorName || 'Not Assigned',
                 hodName: user.hodName || 'Not Assigned',
+                enrolledDate: user.createdAt || 'Not Provided',
+                createdAt: user.createdAt ? user.createdAt.toISOString() : null, // ✅ new field
                 category: user.category,
                 assignedStudentsCount,
                 totalLeavesCount,

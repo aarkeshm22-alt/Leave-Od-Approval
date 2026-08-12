@@ -5,7 +5,70 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendEmail } from '../config/email.js';   // <-- NEW IMPORT
+import { sendEmail } from '../config/email.js';
+
+// ==============================================
+// 📧 Helper: Generate Responsive OTP Email HTML
+// ==============================================
+const generateOTPEmail = (otp, firstName, isResend = false) => {
+  const title = isResend ? 'New Password Reset OTP' : 'Password Reset OTP';
+  const intro = isResend
+    ? 'Here is your new OTP for password reset:'
+    : 'You requested to reset your password for the LOA Portal. Use the OTP below:';
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    /* Reset & Base */
+    body, html { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f8fafc; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; }
+    .header { text-align: center; padding: 20px 0; }
+    .header h1 { color: #1e293b; font-size: 24px; margin: 0; }
+    .header p { color: #64748b; font-size: 14px; margin: 5px 0; }
+    .card { background-color: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card p { color: #334155; font-size: 16px; line-height: 1.6; }
+    .otp-box { text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb; }
+    .otp-box span { font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace; }
+    .footer { text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px; }
+
+    /* 📱 Mobile Responsive */
+    @media only screen and (max-width: 600px) {
+      .container { padding: 10px; }
+      .card { padding: 20px; }
+      .otp-box { padding: 15px; margin: 20px 0; }
+      .otp-box span { font-size: 28px; letter-spacing: 4px; }
+      .card p { font-size: 14px; }
+      .header h1 { font-size: 20px; }
+      .header p { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>LOA Portal</h1>
+      <p>${title}</p>
+    </div>
+    <div class="card">
+      <p>Hello <strong>${firstName || 'User'}</strong>,</p>
+      <p>${intro}</p>
+      <div class="otp-box">
+        <span>${otp}</span>
+      </div>
+      <p>This OTP will expire in <strong>10 minutes</strong>.</p>
+      <p>If you didn't request this, please ignore this email.</p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2026 LOA Portal. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+};
 
 // ============================================
 // 1. FETCH HODs
@@ -314,73 +377,34 @@ export const getStudentsByMentor = async (req, res) => {
 };
 
 // ============================================
-// 8. FORGOT PASSWORD - SEND OTP (UPDATED)
+// 8. FORGOT PASSWORD – SEND OTP (UPDATED)
 // ============================================
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        console.log('📧 Forgot password request for:', email);
-
         if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide email address'
-            });
+            return res.status(400).json({ success: false, message: 'Please provide email address' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase().trim() });
-
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'No account found with this email'
-            });
+            return res.status(404).json({ success: false, message: 'No account found with this email' });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiry = Date.now() + 600000;
+        const otpExpiry = Date.now() + 600000; // 10 minutes
 
         user.resetToken = otp;
         user.resetTokenExpiry = new Date(otpExpiry);
         await user.save();
 
-        console.log('✅ OTP generated for:', email);
+        console.log('📧 OTP generated for:', user.email);
         console.log('🔑 OTP:', otp);
-        console.log('⏰ OTP Expiry:', user.resetTokenExpiry);
 
-        const html = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                <div style="text-align: center; padding: 20px 0;">
-                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">Password Reset OTP</p>
-                </div>
-                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Hello <strong>${user.firstName || 'User'}</strong>,
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        You requested to reset your password for the LOA Portal. Use the OTP below:
-                    </p>
-                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                            ${otp}
-                        </span>
-                    </div>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        This OTP will expire in <strong>10 minutes</strong>.
-                    </p>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        If you didn't request this, please ignore this email.
-                    </p>
-                </div>
-                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                </div>
-            </div>
-        `;
+        // ✅ Use responsive email template
+        const html = generateOTPEmail(otp, user.firstName, false);
 
-        // ✅ Use the centralised email helper
         const result = await sendEmail({
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
             to: user.email,
@@ -402,15 +426,11 @@ export const forgotPassword = async (req, res) => {
             success: true,
             message: 'OTP sent to your email successfully',
             email: user.email,
-            // Remove OTP in production for security
             otp: process.env.NODE_ENV === 'development' ? otp : undefined,
         });
     } catch (error) {
         console.error('❌ Forgot password error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error: ' + error.message
-        });
+        res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
     }
 };
 
@@ -421,94 +441,46 @@ export const verifyOTP = async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;
 
-        console.log('🔑 Verify OTP request for:', email);
-        console.log('📝 Received OTP:', otp);
-        console.log('🔒 New Password provided:', newPassword ? 'Yes' : 'No');
-
         if (!email || !otp) {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and OTP are required'
-            });
+            return res.status(400).json({ success: false, message: 'Email and OTP are required' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase().trim() });
-
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        console.log('📦 Stored OTP in DB:', user.resetToken);
-        console.log('⏰ Stored OTP Expiry:', user.resetTokenExpiry);
-        console.log('⏰ Current Time:', new Date());
-
         if (!user.resetToken) {
-            return res.status(400).json({
-                success: false,
-                message: 'No OTP found. Please request a new one.'
-            });
+            return res.status(400).json({ success: false, message: 'No OTP found. Please request a new one.' });
         }
 
         if (user.resetToken !== otp) {
-            console.log('❌ OTP mismatch. Expected:', user.resetToken, 'Got:', otp);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid OTP'
-            });
+            return res.status(400).json({ success: false, message: 'Invalid OTP' });
         }
 
         if (new Date(user.resetTokenExpiry) < new Date()) {
-            return res.status(400).json({
-                success: false,
-                message: 'OTP has expired. Please request a new one.'
-            });
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
         }
 
-        if (!newPassword) {
-            console.log('✅ OTP verified successfully (keeping OTP for password reset)');
-            return res.status(200).json({
-                success: true,
-                message: 'OTP verified successfully!'
-            });
-        }
-
+        // If newPassword is provided, reset it
         if (newPassword) {
             if (newPassword.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Password must be at least 6 characters'
-                });
+                return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
             }
-
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(newPassword, salt);
-            console.log('✅ Password hashed and saved');
-
             user.resetToken = null;
             user.resetTokenExpiry = null;
             await user.save();
-
-            console.log('✅ OTP cleared after password reset');
-
-            return res.status(200).json({
-                success: true,
-                message: 'Password reset successfully!'
-            });
+            console.log('✅ Password reset successful for:', user.email);
+            return res.status(200).json({ success: true, message: 'Password reset successfully!' });
         }
 
-        res.status(400).json({
-            success: false,
-            message: 'Invalid request'
-        });
+        // OTP verified, but password not provided yet
+        return res.status(200).json({ success: true, message: 'OTP verified successfully!' });
     } catch (error) {
         console.error('❌ Verify OTP error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error: ' + error.message
-        });
+        res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
     }
 };
 
@@ -520,19 +492,12 @@ export const resendOTP = async (req, res) => {
         const { email } = req.body;
 
         if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide email address'
-            });
+            return res.status(400).json({ success: false, message: 'Please provide email address' });
         }
 
         const user = await User.findOne({ email: email.toLowerCase().trim() });
-
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'No account found with this email'
-            });
+            return res.status(404).json({ success: false, message: 'No account found with this email' });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -544,33 +509,8 @@ export const resendOTP = async (req, res) => {
 
         console.log('📧 New OTP for:', user.email);
 
-        const html = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 12px;">
-                <div style="text-align: center; padding: 20px 0;">
-                    <h1 style="color: #1e293b; font-size: 24px; margin: 0;">LOA Portal</h1>
-                    <p style="color: #64748b; font-size: 14px; margin: 5px 0;">New Password Reset OTP</p>
-                </div>
-                <div style="background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Hello <strong>${user.firstName || 'User'}</strong>,
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6;">
-                        Here is your new OTP for password reset:
-                    </p>
-                    <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f1f5f9; border-radius: 12px; border: 2px dashed #2563eb;">
-                        <span style="font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: monospace;">
-                            ${otp}
-                        </span>
-                    </div>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.6;">
-                        This OTP will expire in <strong>10 minutes</strong>.
-                    </p>
-                </div>
-                <div style="text-align: center; padding: 20px 0; color: #94a3b8; font-size: 12px;">
-                    <p>&copy; 2026 LOA Portal. All rights reserved.</p>
-                </div>
-            </div>
-        `;
+        // ✅ Use responsive email template (resend variant)
+        const html = generateOTPEmail(otp, user.firstName, true);
 
         const result = await sendEmail({
             from: `LOA Portal <${process.env.EMAIL_USER}>`,
@@ -596,9 +536,6 @@ export const resendOTP = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Resend OTP error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server Error: ' + error.message
-        });
+        res.status(500).json({ success: false, message: 'Server Error: ' + error.message });
     }
 };

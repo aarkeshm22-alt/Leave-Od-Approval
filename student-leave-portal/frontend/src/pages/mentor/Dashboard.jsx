@@ -243,7 +243,7 @@ const MentorDashboard = () => {
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
             <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
               <TrendingUp size={16} className="text-amber-500" />
-              Request Status Breakdown
+              Request Status
             </h3>
             <div className="w-full" style={{ height: '240px' }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -269,7 +269,7 @@ const MentorDashboard = () => {
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
             <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
               <BarChart2 size={16} className="text-indigo-500" />
-              Overall Approval Split
+              Overall Approval 
             </h3>
             <div className="w-full" style={{ height: '240px' }}>
               {statusData.filter(d => d.value > 0).length === 0 ? (

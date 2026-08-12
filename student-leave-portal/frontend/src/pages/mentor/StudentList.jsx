@@ -39,11 +39,29 @@ const StudentList = () => {
   const getODCount = (st) => st.odCount ?? st.totalODCount ?? st.totalODDays ?? st.approvedOD ?? st.odApproved ?? 0;
   const getFullName = (st) => `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.name || 'N/A';
 
-  // ----- Extract all certificates from ODs (supports both new `ods` array and legacy `certificate`) -----
+  // ----- Helper: Get enrolled date (with fallback from ObjectId) -----
+  const getEnrolledDate = (st) => {
+    const dateStr = st.enrolledDate || st.createdAt || st.student?.enrolledDate || st.student?.createdAt;
+    if (dateStr) {
+      const d = new Date(dateStr);
+      if (!isNaN(d)) {
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+    // Fallback: extract timestamp from ObjectId (if _id is a 24‑char hex string)
+    if (st._id && typeof st._id === 'string' && st._id.length === 24) {
+      const timestamp = parseInt(st._id.substring(0, 8), 16) * 1000;
+      const d = new Date(timestamp);
+      if (!isNaN(d)) {
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+    return 'N/A';
+  };
+
+  // ----- Extract all certificates from ODs -----
   const getStudentCertificates = (st) => {
     const certs = [];
-
-    // 1. Check if we have the full `ods` array (new backend)
     const odsArray = st.ods || st.onDutyRequests || st.student?.ods || [];
     if (Array.isArray(odsArray) && odsArray.length > 0) {
       odsArray.forEach((od) => {
@@ -70,8 +88,6 @@ const StudentList = () => {
         }
       });
     }
-
-    // 2. Fallback: if no ODs but a direct `certificate` exists (legacy), add it as a single entry
     if (certs.length === 0) {
       const directCert = st.certificate || st.document || st.student?.certificate;
       if (directCert && typeof directCert === 'string' && directCert.startsWith('data:image')) {
@@ -83,7 +99,6 @@ const StudentList = () => {
         });
       }
     }
-
     return certs;
   };
 
@@ -105,10 +120,9 @@ const StudentList = () => {
         const data = await response.json();
         if (response.ok) {
           const extractedStudents = data.data || data.students || (Array.isArray(data) ? data : []);
-          // Ensure each student has at least an empty `ods` array to avoid errors
           const normalized = extractedStudents.map(st => ({
             ...st,
-            ods: st.ods || [], // ensure array exists
+            ods: st.ods || [],
           }));
           setStudents(normalized);
         } else {
@@ -163,6 +177,7 @@ const StudentList = () => {
         "OD Count": getODCount(st),
         "Email": st.email || st.student?.email || 'N/A',
         "Mobile": st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
+        "Enrolled Date": getEnrolledDate(st),
         "Certificate Count": getStudentCertificates(st).length
       }));
 
@@ -186,7 +201,7 @@ const StudentList = () => {
         doc.text(`Generated: ${new Date().toLocaleDateString()} | Students: ${filteredStudents.length}`, 14, 18);
 
         const tableHeaders = [
-          ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Certs"]
+          ["Reg No", "Student", "Type", "CA1", "CA2", "Leave", "OD", "Email", "Mobile", "Enrolled", "Certs"]
         ];
         const tableBody = filteredStudents.map(st => [
           st.registerNo || st.register || st.student?.registerNo || 'N/A',
@@ -198,6 +213,7 @@ const StudentList = () => {
           getODCount(st).toString(),
           st.email || st.student?.email || 'N/A',
           st.mobileNo || st.mobile || st.student?.mobileNo || st.student?.mobile || 'N/A',
+          getEnrolledDate(st),
           getStudentCertificates(st).length.toString()
         ]);
 
@@ -210,15 +226,16 @@ const StudentList = () => {
           bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
           columnStyles: {
             0: { fontStyle: 'bold', cellWidth: 22 },
-            1: { cellWidth: 32 },
-            2: { cellWidth: 20 },
-            3: { cellWidth: 26 },
-            4: { cellWidth: 26 },
-            5: { cellWidth: 14, halign: 'center' },
-            6: { cellWidth: 14, halign: 'center' },
-            7: { cellWidth: 34 },
-            8: { cellWidth: 24 },
-            9: { cellWidth: 16, halign: 'center' }
+            1: { cellWidth: 28 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 22 },
+            4: { cellWidth: 22 },
+            5: { cellWidth: 12, halign: 'center' },
+            6: { cellWidth: 12, halign: 'center' },
+            7: { cellWidth: 30 },
+            8: { cellWidth: 22 },
+            9: { cellWidth: 20 },
+            10: { cellWidth: 14, halign: 'center' }
           },
           margin: { left: 10, right: 10 }
         });
@@ -553,7 +570,7 @@ const StudentList = () => {
                 </div>
 
                 <div className="space-y-2.5">
-                  <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">Database Registry Keypairs</h5>
+                  <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">Student Information</h5>
 
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Hash size={14} /> Register Number</span>
@@ -578,6 +595,12 @@ const StudentList = () => {
                   <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
                     <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><User2 size={14} /> Class Advisor 2</span>
                     <span className="font-semibold text-gray-700 truncate text-right">{selectedStudent.secondmentorName || selectedStudent.student?.secondmentorName || 'Assigned to Self'}</span>
+                  </div>
+
+                  {/* 🆕 Enrolled Date */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between gap-4 text-xs">
+                    <span className="text-gray-400 flex items-center gap-1.5 font-medium shrink-0"><Calendar size={14} /> Enrolled Date</span>
+                    <span className="font-semibold text-gray-700 truncate text-right">{getEnrolledDate(selectedStudent)}</span>
                   </div>
                 </div>
 
@@ -690,9 +713,7 @@ const StudentList = () => {
         )}
       </AnimatePresence>
 
-      {/* ================================================================ */}
-      {/* CERTIFICATE MODAL */}
-      {/* ================================================================ */}
+      {/* ===== CERTIFICATE MODAL ===== */}
       <AnimatePresence>
         {certificateModalOpen && selectedCertificate && (
           <motion.div
